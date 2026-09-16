@@ -25,12 +25,46 @@ Three findings from reading the current code, cheapest first:
    Surfacing "312 points · 88 comments →" next to a story, linked to the thread
    where the argument is actually happening, is social proof and a way *into*
    the community — and it needs no backend, no accounts, no moderation.
-3. **Hosting a community is a different product from surfacing one.** Comments,
-   accounts and votes of our own mean a writable backend, which ends the
-   static-Pages, zero-cost, zero-maintenance model (see "How the two
-   deployments share one frontend"). Reddit and HN threads per story get most
-   of the social value for none of that. Worth being deliberate about which of
-   the two is actually wanted before building either.
+3. **In-app community is parked** — still being thought about. Comments,
+   accounts and votes of our own would mean a writable backend, which ends the
+   static-Pages, zero-cost model (see "How the two deployments share one
+   frontend"). Not the ask right now.
+
+### What "community" means here: the ripple, not a chat room
+
+Clarified 2026-09-16. The wanted thing is **what happened because of a story** —
+the projects people started after the news, the arguments about it, the
+write-ups and the video takes. A story is not the announcement; it is the
+announcement plus its wake.
+
+**This is already the data model, and that is the surprise.** `cluster.py:44-49`
+gives every item in a story a role — `seed`, `paper`, `code`, `video`,
+`discussion`, `coverage`. A repo citing a paper's arXiv ID joins that paper's
+story as `code`; an HN thread linking an announcement joins it as `discussion`.
+`feed.py:73-88` already folds those counts into `1 paper · 2 repos · 1
+discussion · 3 sources`. The ripple is computed on every run today.
+
+Three gaps between that and the product wanted, cheapest first:
+
+1. **The story page never shows roles.** Items, roles and URLs all reach
+   `data.json` (`export.py:60-66`); `role` appears in `index.html` only as an
+   ARIA attribute. You cannot click through to the repo or the thread. This is
+   rendering work against data already on disk, and it is the fastest way to
+   find out whether the ripple is rich enough to carry the feature.
+2. **Nothing discovers reactions.** The real blocker. `sources/github.py` polls
+   ten hardcoded repos for *releases* — it can never find a new project built
+   on a story. "Projects started after this news" needs GitHub repo search
+   (created in the last N days, matching a story's identifiers), a different
+   endpoint and a genuine new adapter. Expect it to be noisy and rate-limited:
+   budget for the same threshold tuning triage needed. Reddit would serve the
+   same role for argument and is still blocked on API approval — worth
+   requesting early (see Later phases).
+3. **No time axis.** Items cluster inside a 14-day window, but nothing orders a
+   story as announcement → what followed. The shape over time is the
+   interesting part and is currently invisible.
+
+Do 1 before 2. It is small, it is reversible, and it answers whether there is
+enough wake on a typical story to be worth chasing more of.
 
 **Beyond AI.** The architecture is already close to domain-general: sources and
 the whole triage profile are `config.toml`, and the pipeline never mentions a
