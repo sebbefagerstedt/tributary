@@ -8,7 +8,12 @@ name: Update feed
 # rebuilds from the sources, which is slower but self-healing.
 on:
   schedule:
-    - cron: "17 * * * *"      # hourly, off the hour to dodge the rush
+    # 06:00, 11:00 and 18:00 Swedish summer time (CEST, UTC+2). GitHub cron is
+    # always UTC and cannot follow daylight saving, so through the winter
+    # (CET, UTC+1) these land an hour earlier at 05:00, 10:00 and 17:00 local.
+    # GitHub also delays scheduled runs under load, so treat these as "about
+    # then" rather than exact.
+    - cron: "0 4,9,16 * * *"
   workflow_dispatch:          # and a "Run workflow" button
   push:
     branches: [main]

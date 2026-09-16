@@ -72,3 +72,7 @@ bge puts *unrelated* text near 0.5, so the usable similarity range is ~0.5–1.0
 ## Current setup
 
 Database moved to `./tributary.db` in the project (3,226 items, 2,239 stories, 14MB). Relative `db_path` now resolves against `config.toml`, not the cwd — so `trib` works from cron or any directory.
+
+## Sebastian notes
+
+The README includes a lot of different design choices and stuff that is not relevant anymore since it is published on pages. It needs to be cleaned up. I realise that it is not finished, but I am missing the different topics I was wanting in the beginning. So when I go to one link, there should be lots of related info on the same topic. Or comments on that event, like releases of nee models. I want latest reviews etc. The reddit /r topics is what I am missing. Now it just a long feed. I want to continue reading if I find something interesting. I am also missing some sort of filter, this might be related to the /r topics I am wanting. But I would like more general filters as well. an idea is that the filter is dynamic as well and can be based on latest happenings by clustering events and news but that would need AI I presume which i do not want yet since I do not have an api key
