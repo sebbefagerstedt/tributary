@@ -4,6 +4,82 @@ Live at **https://sebbefagerstedt.github.io/tributary/**, rebuilt at 06:00,
 11:00 and 18:00 Swedish time. 184 tests passing, lint clean.
 **Zero LLM/API usage — everything local and free.**
 
+## Direction: less wall-of-text, more community
+
+Stated 2026-09-16, and it reframes the phases below. The complaint about TLDR —
+*"so much text"* — applies to Tributary as it stands: a single column of
+title-plus-paragraph cards is the same object with a different masthead. The
+feed should be **fun to use**, and the point is to **connect the community**,
+not just to deliver links. Also: **this must not stay AI-only in the long run.**
+
+Three findings from reading the current code, cheapest first:
+
+1. **Images are already there and thrown away.** `media_url` is fetched by the
+   RSS and HF adapters, stored, and exported (`export.py:57`) — and
+   `web/index.html` never renders an `<img>`. Card art is a frontend-only
+   change against data already on disk.
+2. **The community signal is collected and then dropped at the export
+   boundary.** HN carries `points` and `num_comments`, HF carries `upvotes`,
+   all in item `metadata`. `feed.py:276` selects `i.metadata`, but neither
+   `StoryCard` nor `export.py` exposes it, so nothing reaches the page.
+   Surfacing "312 points · 88 comments →" next to a story, linked to the thread
+   where the argument is actually happening, is social proof and a way *into*
+   the community — and it needs no backend, no accounts, no moderation.
+3. **In-app community is parked** — still being thought about. Comments,
+   accounts and votes of our own would mean a writable backend, which ends the
+   static-Pages, zero-cost model (see "How the two deployments share one
+   frontend"). Not the ask right now.
+
+### What "community" means here: the ripple, not a chat room
+
+Clarified 2026-09-16. The wanted thing is **what happened because of a story** —
+the projects people started after the news, the arguments about it, the
+write-ups and the video takes. A story is not the announcement; it is the
+announcement plus its wake.
+
+**This is already the data model, and that is the surprise.** `cluster.py:44-49`
+gives every item in a story a role — `seed`, `paper`, `code`, `video`,
+`discussion`, `coverage`. A repo citing a paper's arXiv ID joins that paper's
+story as `code`; an HN thread linking an announcement joins it as `discussion`.
+`feed.py:73-88` already folds those counts into `1 paper · 2 repos · 1
+discussion · 3 sources`. The ripple is computed on every run today.
+
+Three gaps between that and the product wanted, cheapest first:
+
+1. **The story page never shows roles.** Items, roles and URLs all reach
+   `data.json` (`export.py:60-66`); `role` appears in `index.html` only as an
+   ARIA attribute. You cannot click through to the repo or the thread. This is
+   rendering work against data already on disk, and it is the fastest way to
+   find out whether the ripple is rich enough to carry the feature.
+2. **Nothing discovers reactions.** The real blocker. `sources/github.py` polls
+   ten hardcoded repos for *releases* — it can never find a new project built
+   on a story. "Projects started after this news" needs GitHub repo search
+   (created in the last N days, matching a story's identifiers), a different
+   endpoint and a genuine new adapter. Expect it to be noisy and rate-limited:
+   budget for the same threshold tuning triage needed. Reddit would serve the
+   same role for argument and is still blocked on API approval — worth
+   requesting early (see Later phases).
+3. **No time axis.** Items cluster inside a 14-day window, but nothing orders a
+   story as announcement → what followed. The shape over time is the
+   interesting part and is currently invisible.
+
+Do 1 before 2. It is small, it is reversible, and it answers whether there is
+enough wake on a typical story to be worth chasing more of.
+
+**Beyond AI.** The architecture is already close to domain-general: sources and
+the whole triage profile are `config.toml`, and the pipeline never mentions a
+subject. What is AI-specific is (a) that config, (b) the arXiv/HF identifier
+extractors in `identity.py`, which simply find nothing on other subjects and
+cost nothing, and (c) the framing. So "a Tributary for X" is mostly a matter of
+a second profile, not a rewrite — the open question is whether one instance
+carries several subjects at once (topics become the spine, and the filters in
+item 3 below become the primary navigation) or whether each subject is its own
+deployment.
+
+The topics work below is not superseded by this — it is the same feature seen
+from the other end. Topics are what make filters, drill-down and a
+multi-subject feed possible.
+
 ## Next up: topics, drill-down and filters
 
 This is the gap between what exists and what was originally described. All of it
@@ -80,6 +156,47 @@ bge puts *unrelated* text near 0.5, so the usable similarity range is ~0.5–1.0
 Positive and hard-negative distributions genuinely overlap (matches as low as
 0.888; different same-week papers up to 0.944) — 0.92 honours "a wrong merge
 costs more than a missed link". Re-run `trib calibrate` as the corpus grows.
+
+## Source candidates
+
+### TLDR AI — wanted, but not a plain RSS entry
+
+Asked for 2026-09-16. Researched, not implemented.
+
+The official feed follows `https://tldr.tech/api/rss/<newsletter>` (`/tech`
+confirmed; `/ai` inferred from that pattern and **not verified** — tldr.tech is
+blocked by this sandbox's egress proxy, so check it before trusting it).
+
+**It publishes one entry per daily issue, not one per story** — a digest of ~10
+unrelated links pointing at the whole issue page. Adding it as `kind = "rss"` is
+four lines of config and would go wrong in three ways:
+
+- `embeddings.py` embeds title + summary truncated to 2000 chars, so ten
+  unrelated blurbs average into one meaningless vector and triage scores noise.
+- `identity.extract` reads identifiers out of free text, so one digest citing
+  ten arXiv IDs and GitHub repos attaches all ten to itself; tier-1 clustering
+  then welds those ten unrelated stories into one mega-story. `MAX_FANOUT`
+  does not catch this — it only fires above 8 items per value, and here each
+  value is held by 2.
+- Consecutive issues are near-identical title strings inside the 14-day
+  window, so they risk tier-2 merging into one rolling story.
+
+Doing it properly is a two-stage adapter shaped like `sources/github.py`
+(fetch the feed, then one request per issue page, emit one `RawItem` per story
+with a stable `external_id` such as `f"{issue_id}#{n}"`). That needs an HTML
+parser — the repo has none today, only `re` and `feedparser`. The payoff is
+real beyond the source itself: TLDR's hand-written one-line blurbs are exactly
+the missing summaries in the 42%-no-summary debt below, and it is the
+HTML-scrape adapter `config.toml` already anticipates for Anthropic.
+
+Caveat before scheduling it: tldr.tech may block cloud IPs the way Substack
+blocks Import AI on Actions. Verify with `trib fetch --source TLDR --dry-run`
+both locally and on a run.
+
+Note the tension with the direction section: TLDR is a secondary aggregator of
+things already arriving via TechCrunch, HN, arXiv and HF, and "it is so much
+text" was the original complaint about it. Its value here is the blurbs and the
+editorial judgement, not the coverage.
 
 ## Known debt
 
