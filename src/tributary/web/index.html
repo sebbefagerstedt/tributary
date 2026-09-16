@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d10" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f7f7f5" media="(prefers-color-scheme: light)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<title>Tributary</title>
+<style>
+:root {
+  --bg: #f7f7f5;
+  --surface: #ffffff;
+  --surface-2: #f0efec;
+  --text: #16181d;
+  --muted: #6b7280;
+  --faint: #9ca3af;
+  --line: #e4e3df;
+  --accent: #2563eb;
+  --shadow: 0 1px 2px rgba(16,18,29,.06), 0 4px 12px rgba(16,18,29,.04);
+  --paper: #7c3aed; --model: #2563eb; --repo: #b45309;
+  --discussion: #0891b2; --article: #15803d; --video: #dc2626;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0d10; --surface: #14171c; --surface-2: #1b1f26;
+    --text: #e8eaed; --muted: #9aa3af; --faint: #6b7280; --line: #242932;
+    --accent: #60a5fa;
+    --shadow: 0 1px 2px rgba(0,0,0,.4);
+    --paper: #a78bfa; --model: #60a5fa; --repo: #fbbf24;
+    --discussion: #22d3ee; --article: #4ade80; --video: #f87171;
+  }
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+header {
+  position: sticky; top: 0; z-index: 20;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--line);
+  padding: calc(env(safe-area-inset-top) + 10px) 16px 10px;
+}
+.bar { display: flex; align-items: center; gap: 12px; max-width: 720px; margin: 0 auto; }
+.brand { font-weight: 650; letter-spacing: -.02em; font-size: 17px; margin-right: auto; }
+.brand span { color: var(--faint); font-weight: 400; font-size: 13px; margin-left: 8px; }
+.tabs { display: flex; gap: 2px; background: var(--surface-2); padding: 3px; border-radius: 10px; }
+.tab {
+  border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 13px;
+  padding: 5px 11px; border-radius: 8px; cursor: pointer; font-weight: 500;
+}
+.tab[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+
+main { max-width: 720px; margin: 0 auto; padding: 14px 14px 80px; }
+
+.card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 14px 15px; margin-bottom: 10px; box-shadow: var(--shadow);
+  cursor: pointer; transition: transform .12s ease, opacity .2s ease;
+}
+.card:active { transform: scale(.992); }
+.card.gone { opacity: 0; transform: scale(.96); }
+.card.seen .title { color: var(--muted); }
+
+.meta { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; flex-wrap: wrap; }
+.badge {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .055em;
+  padding: 2.5px 7px; border-radius: 5px; color: #fff; white-space: nowrap;
+}
+.when { color: var(--faint); font-size: 12.5px; }
+.src { color: var(--muted); font-size: 12.5px; }
+.title {
+  font-size: 16.5px; font-weight: 600; line-height: 1.34; letter-spacing: -.011em;
+  margin: 0 0 6px;
+}
+.summary {
+  color: var(--muted); font-size: 14px; line-height: 1.52; margin: 0;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.signal {
+  margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--line);
+  display: flex; align-items: center; gap: 10px;
+  font-size: 12.5px; color: var(--faint);
+}
+.signal b { color: var(--accent); font-weight: 600; }
+.actions { margin-left: auto; display: flex; gap: 4px; }
+.icon {
+  border: 0; background: transparent; color: var(--faint); font-size: 15px;
+  padding: 4px 7px; border-radius: 7px; cursor: pointer; line-height: 1;
+}
+.icon:hover { background: var(--surface-2); color: var(--text); }
+.icon.on { color: var(--accent); }
+
+/* Story detail */
+.sheet {
+  position: fixed; inset: 0; z-index: 40; background: var(--bg);
+  overflow-y: auto; overscroll-behavior: contain;
+  transform: translateY(100%); transition: transform .26s cubic-bezier(.32,.72,0,1);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 40px);
+}
+.sheet.open { transform: translateY(0); }
+.sheet-bar {
+  position: sticky; top: 0; background: color-mix(in srgb, var(--bg) 90%, transparent);
+  backdrop-filter: blur(12px); border-bottom: 1px solid var(--line);
+  padding: calc(env(safe-area-inset-top) + 10px) 16px 10px; display: flex; gap: 12px;
+}
+.sheet-body { max-width: 720px; margin: 0 auto; padding: 18px 16px; }
+.sheet h1 { font-size: 22px; line-height: 1.25; letter-spacing: -.02em; margin: 0 0 12px; }
+.abstract { color: var(--muted); font-size: 15px; line-height: 1.6; margin: 0 0 22px; }
+.group-label {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--faint); margin: 20px 0 8px;
+}
+.item {
+  display: block; text-decoration: none; color: inherit;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 11px;
+  padding: 12px 13px; margin-bottom: 7px;
+}
+.item-title { font-size: 14.5px; font-weight: 550; line-height: 1.38; margin-bottom: 4px; }
+.item-meta { font-size: 12.5px; color: var(--faint); }
+
+.empty { text-align: center; color: var(--muted); padding: 64px 20px; }
+.empty code {
+  background: var(--surface-2); padding: 2px 7px; border-radius: 5px;
+  font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.spinner {
+  width: 22px; height: 22px; margin: 60px auto; border-radius: 50%;
+  border: 2.5px solid var(--line); border-top-color: var(--accent);
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.warn {
+  background: color-mix(in srgb, #dc2626 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, #dc2626 30%, var(--line));
+  color: var(--text); border-radius: 10px; padding: 10px 13px;
+  margin-bottom: 12px; font-size: 13.5px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, .sheet { transition: none !important; animation: none !important; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <div class="brand">Tributary<span id="count"></span></div>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" data-view="feed" aria-selected="true">Feed</button>
+      <button class="tab" role="tab" data-view="unseen" aria-selected="false">New</button>
+      <button class="tab" role="tab" data-view="saved" aria-selected="false">Saved</button>
+    </div>
+  </div>
+</header>
+
+<main id="main"><div class="spinner"></div></main>
+
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Story detail">
+  <div class="sheet-bar">
+    <button class="icon" id="close" aria-label="Back">&larr;</button>
+    <button class="icon" id="save-detail" aria-label="Save">&#9734;</button>
+  </div>
+  <div class="sheet-body" id="sheet-body"></div>
+</div>
+
+<script>
+/* The page reads one bundle, whether a live server built it or a scheduled job
+   wrote it to disk. That is what lets the same file run under FastAPI at home
+   and as a static site on GitHub Pages with no build step and no second
+   frontend. Per-device state (seen, saved, dismissed) lives in localStorage
+   because it is a preference, not data -- and because a static host has nowhere
+   to put it. When a server is present the same actions are also POSTed, so the
+   CLI's notion of "seen" stays in step. */
+const KINDS = {
+  paper: 'var(--paper)', model: 'var(--model)', repo: 'var(--repo)',
+  discussion: 'var(--discussion)', article: 'var(--article)', video: 'var(--video)',
+};
+const LABEL = { discussion: 'talk', article: 'news', repo: 'code' };
+const main = document.getElementById('main');
+const sheet = document.getElementById('sheet');
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+let view = localStorage.getItem('view') || 'feed';
+let bundle = null;
+let current = null;
+let hasServer = true;   // set false on the first failed POST
+
+const readSet = (key) => {
+  try { return new Set(JSON.parse(localStorage.getItem(key) || '[]')); }
+  catch { return new Set(); }
+};
+const writeSet = (key, set) => {
+  try { localStorage.setItem(key, JSON.stringify([...set])); } catch { /* private mode */ }
+};
+const marks = { seen: readSet('seen'), saved: readSet('saved'), dismissed: readSet('dismissed') };
+
+function mark(kind, id, on) {
+  if (on) marks[kind].add(id); else marks[kind].delete(id);
+  writeSet(kind, marks[kind]);
+  if (on && hasServer) {
+    const action = kind === 'seen' ? 'seen' : kind;
+    fetch(`/api/story/${id}/${action}`, { method: 'POST' }).catch(() => { hasServer = false; });
+  }
+}
+
+function ago(iso) {
+  if (!iso) return '';
+  const mins = (Date.now() - new Date(iso)) / 6e4;
+  if (mins < 60) return `${Math.max(1, Math.round(mins))}m`;
+  if (mins < 1440) return `${Math.round(mins / 60)}h`;
+  const days = Math.round(mins / 1440);
+  return days < 7 ? `${days}d`
+    : new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function cardHTML(s) {
+  const colour = KINDS[s.kind] || 'var(--muted)';
+  const label = LABEL[s.kind] || s.kind;
+  const isSaved = marks.saved.has(s.story_id);
+  const isSeen = marks.seen.has(s.story_id);
+  return `
+  <article class="card${isSeen ? ' seen' : ''}" data-id="${s.story_id}">
+    <div class="meta">
+      <span class="badge" style="background:${colour}">${esc(label)}</span>
+      <span class="src">${esc(s.source)}</span>
+      <span class="when">${esc(ago(s.published_at))}</span>
+    </div>
+    <h2 class="title">${esc(s.title)}</h2>
+    ${s.summary ? `<p class="summary">${esc(s.summary)}</p>` : ''}
+    <div class="signal">
+      ${s.signal ? `<span>${esc(s.signal)}</span>` : '<span></span>'}
+      <span class="actions">
+        <button class="icon${isSaved ? ' on' : ''}" data-act="saved" title="Save"
+          >${isSaved ? '&#9733;' : '&#9734;'}</button>
+        <button class="icon" data-act="dismissed" title="Dismiss">&times;</button>
+      </span>
+    </div>
+  </article>`;
+}
+
+function visible() {
+  const all = bundle.stories.filter((s) => !marks.dismissed.has(s.story_id));
+  if (view === 'saved') return all.filter((s) => marks.saved.has(s.story_id));
+  if (view === 'unseen') return all.filter((s) => !marks.seen.has(s.story_id));
+  return all;
+}
+
+function render() {
+  const stories = visible();
+  const status = bundle.status;
+  const age = ago(bundle.generated_at);
+  document.getElementById('count').textContent =
+    `${status.stories} stories · updated ${age} ago`;
+
+  let html = '';
+  if (status.broken_sources.length) {
+    const names = status.broken_sources.map((b) => esc(b.name)).join(', ');
+    html += `<div class="warn"><b>${status.broken_sources.length} source(s) failing:</b> ${names}</div>`;
+  }
+  if (!stories.length) {
+    html += `<div class="empty">${
+      view === 'saved' ? 'Nothing saved yet.'
+      : view === 'unseen' ? 'All caught up.'
+      : 'Nothing here. Run <code>trib run</code> to fetch.'}</div>`;
+  } else {
+    html += stories.map(cardHTML).join('');
+  }
+  main.innerHTML = html;
+}
+
+async function load() {
+  main.innerHTML = '<div class="spinner"></div>';
+  try {
+    // Relative, so it works at a repository subpath on GitHub Pages.
+    const res = await fetch('data.json', { cache: 'no-cache' });
+    if (!res.ok) throw new Error(`${res.status}`);
+    bundle = await res.json();
+    render();
+  } catch (err) {
+    main.innerHTML = `<div class="empty">Could not load the feed.<br>
+      <code>${esc(err.message)}</code></div>`;
+  }
+}
+
+function openStory(id) {
+  const s = bundle.stories.find((x) => x.story_id === id);
+  if (!s) return;
+  current = id;
+  mark('seen', id, true);
+
+  const groups = {};
+  for (const item of s.items) (groups[item.role] ||= []).push(item);
+  const order = ['seed', 'paper', 'code', 'video', 'coverage', 'discussion'];
+  const names = {
+    seed: 'Source', paper: 'Paper', code: 'Code',
+    video: 'Video', coverage: 'Coverage', discussion: 'Discussion',
+  };
+
+  document.getElementById('sheet-body').innerHTML = `
+    <h1>${esc(s.title)}</h1>
+    ${s.summary ? `<p class="abstract">${esc(s.summary)}</p>` : ''}
+    ${order.filter((r) => groups[r]).map((role) => `
+      <div class="group-label">${esc(names[role] || role)}</div>
+      ${groups[role].map((item) => `
+        <a class="item" href="${esc(item.url)}" target="_blank" rel="noopener">
+          <div class="item-title">${esc(item.title)}</div>
+          <div class="item-meta">${esc(item.source)}${
+            item.author ? ' · ' + esc(item.author) : ''}${
+            item.published_at ? ' · ' + esc(item.published_at.slice(0, 10)) : ''}</div>
+        </a>`).join('')}
+    `).join('')}`;
+
+  document.getElementById('save-detail').innerHTML = marks.saved.has(id) ? '&#9733;' : '&#9734;';
+  sheet.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSheet() {
+  sheet.classList.remove('open');
+  document.body.style.overflow = '';
+  // A story read then closed should grey out without reloading the bundle.
+  const card = main.querySelector(`.card[data-id="${current}"]`);
+  if (card) card.classList.add('seen');
+  current = null;
+}
+
+function toggleSave(id) {
+  const on = !marks.saved.has(id);
+  mark('saved', id, on);
+  return on;
+}
+
+document.addEventListener('click', (event) => {
+  const tab = event.target.closest('.tab');
+  if (tab) {
+    view = tab.dataset.view;
+    localStorage.setItem('view', view);
+    document.querySelectorAll('.tab').forEach((t) =>
+      t.setAttribute('aria-selected', String(t === tab)));
+    render();
+    return;
+  }
+
+  const action = event.target.closest('[data-act]');
+  if (action) {
+    event.stopPropagation();
+    const card = action.closest('.card');
+    const id = Number(card.dataset.id);
+    if (action.dataset.act === 'saved') {
+      const on = toggleSave(id);
+      action.classList.toggle('on', on);
+      action.innerHTML = on ? '&#9733;' : '&#9734;';
+    } else {
+      mark('dismissed', id, true);
+      card.classList.add('gone');
+      setTimeout(() => card.remove(), 220);
+    }
+    return;
+  }
+
+  const card = event.target.closest('.card');
+  if (card) openStory(Number(card.dataset.id));
+});
+
+document.getElementById('close').addEventListener('click', closeSheet);
+document.getElementById('save-detail').addEventListener('click', (event) => {
+  if (current !== null) event.currentTarget.innerHTML = toggleSave(current) ? '&#9733;' : '&#9734;';
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && sheet.classList.contains('open')) closeSheet();
+});
+
+document.querySelectorAll('.tab').forEach((t) =>
+  t.setAttribute('aria-selected', String(t.dataset.view === view)));
+load();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>

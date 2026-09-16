@@ -1,0 +1,80 @@
+name: Update feed
+
+# Runs the pipeline on a schedule and publishes the result to GitHub Pages.
+#
+# The database is NOT committed. It lives in the Actions cache: committing a
+# multi-megabyte binary every hour would grow the repository without bound,
+# since git stores each version in full. A cache miss is survivable -- the run
+# rebuilds from the sources, which is slower but self-healing.
+on:
+  schedule:
+    - cron: "17 * * * *"      # hourly, off the hour to dodge the rush
+  workflow_dispatch:          # and a "Run workflow" button
+  push:
+    branches: [main]
+    paths:
+      - "config.toml"
+      - "src/**"
+      - ".github/workflows/update.yml"
+
+concurrency:
+  group: feed
+  cancel-in-progress: false   # never interrupt a run mid-write
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      # Keyed by run number so each run writes a fresh entry; restore-keys falls
+      # back to the newest existing one, because a cache entry cannot be updated
+      # in place.
+      - name: Restore database
+        uses: actions/cache@v4
+        with:
+          path: tributary.db
+          key: tributary-db-${{ github.run_number }}
+          restore-keys: tributary-db-
+
+      # ~130MB of ONNX weights; re-downloading them every run would dominate.
+      - name: Cache embedding model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: fastembed-bge-small-en-v1.5
+
+      - run: uv sync --frozen --no-dev
+
+      - name: Fetch, triage and cluster
+        # trib run exits non-zero if any source failed. That is deliberate, but
+        # one flaky feed out of nineteen must not stop the deploy: the site
+        # shows failing sources at the top of the feed instead.
+        continue-on-error: true
+        run: uv run trib run
+
+      # Keeps the cached database small and quick to restore.
+      - name: Prune old items
+        run: uv run trib prune --days 60 --yes
+
+      - name: Build the site
+        run: uv run trib export site --days 30 --limit 120
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4

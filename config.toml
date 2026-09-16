@@ -1,0 +1,181 @@
+# Tributary configuration.
+# This file is the source of truth for which sources exist: add or remove
+# entries and re-run `trib fetch`. Sources removed here are disabled, not
+# deleted, so their items survive.
+
+[tributary]
+# Relative paths resolve against this file, so trib works from any directory.
+db_path = "./tributary.db"
+
+# --- Labs and primary sources ------------------------------------------------
+
+[[sources]]
+kind = "rss"
+name = "OpenAI Blog"
+url = "https://openai.com/blog/rss.xml"
+
+[[sources]]
+kind = "rss"
+name = "Google DeepMind"
+url = "https://deepmind.google/blog/rss.xml"
+
+[[sources]]
+kind = "rss"
+name = "Google Research"
+url = "https://research.google/blog/rss/"
+
+[[sources]]
+kind = "rss"
+name = "Apple Machine Learning"
+url = "https://machinelearning.apple.com/rss.xml"
+
+[[sources]]
+kind = "rss"
+name = "Hugging Face Blog"
+url = "https://huggingface.co/blog/feed.xml"
+
+# Anthropic publishes no public RSS feed; covered for now via TechCrunch and
+# Simon Willison. Revisit when the HTML-scrape adapter lands.
+
+# --- Commentary and analysis -------------------------------------------------
+
+[[sources]]
+kind = "rss"
+name = "Simon Willison"
+url = "https://simonwillison.net/atom/everything/"
+
+[[sources]]
+kind = "rss"
+name = "Import AI"
+url = "https://importai.substack.com/feed"
+
+[[sources]]
+kind = "rss"
+name = "Latent Space"
+url = "https://www.latent.space/feed"
+
+[[sources]]
+kind = "rss"
+name = "Lilian Weng"
+url = "https://lilianweng.github.io/index.xml"
+
+[[sources]]
+kind = "rss"
+name = "The Gradient"
+url = "https://thegradient.pub/rss/"
+
+# --- Press -------------------------------------------------------------------
+
+[[sources]]
+kind = "rss"
+name = "TechCrunch AI"
+url = "https://techcrunch.com/category/artificial-intelligence/feed/"
+
+[[sources]]
+kind = "rss"
+name = "MIT News AI"
+url = "https://news.mit.edu/rss/topic/artificial-intelligence2"
+
+[[sources]]
+kind = "rss"
+name = "MarkTechPost"
+url = "https://www.marktechpost.com/feed/"
+
+# --- Discussion --------------------------------------------------------------
+
+[[sources]]
+kind = "hn"
+name = "Hacker News (AI)"
+query = "AI OR LLM OR OpenAI OR Anthropic OR model"
+min_points = 30
+limit = 100
+
+[[sources]]
+kind = "hn"
+name = "Hacker News (front page)"
+min_points = 150
+limit = 100
+
+# --- Papers ------------------------------------------------------------------
+
+[[sources]]
+kind = "arxiv"
+name = "arXiv AI"
+categories = ["cs.AI", "cs.CL", "cs.LG"]
+max_results = 150
+
+[[sources]]
+kind = "hf"
+name = "HF Daily Papers"
+mode = "papers"
+limit = 50
+
+# --- Models and code ---------------------------------------------------------
+
+[[sources]]
+kind = "hf"
+name = "HF Trending Models"
+mode = "models"
+sort = "likes7d"
+limit = 50
+
+[[sources]]
+kind = "github"
+name = "GitHub Releases"
+repos = [
+    "vllm-project/vllm",
+    "ggml-org/llama.cpp",
+    "huggingface/transformers",
+    "langchain-ai/langchain",
+    "ollama/ollama",
+    "comfyanonymous/ComfyUI",
+    "modelcontextprotocol/servers",
+    "openai/openai-python",
+    "anthropics/anthropic-sdk-python",
+    "unslothai/unsloth",
+]
+per_page = 5
+
+# --- Triage ------------------------------------------------------------------
+# Relevance gate. Every item is scored by its highest cosine similarity to the
+# interest sentences below; anything closer to an exclude sentence is dropped
+# regardless. Keyword lists override both.
+#
+# These are embeddings, not keywords: write sentences describing the kind of
+# thing you want, not search terms. Tune with `trib triage --show` and
+# `trib explain <id>`.
+#
+# bge puts unrelated text near 0.5, so the usable range is roughly 0.5-1.0.
+
+[triage]
+threshold = 0.66
+
+interests = [
+    "a new large language model is released, with benchmarks and capabilities",
+    "an open source AI tool, library or framework you can run yourself",
+    "research on language model reasoning, training methods or architecture",
+    "AI agents, tool use, and the protocols that connect models to systems",
+    "running models locally: quantization, inference speed, GPU requirements",
+    "evaluation, benchmarks and measuring what models can actually do",
+    "AI safety, interpretability, alignment and model behaviour research",
+    "adversarial attacks, jailbreaks, prompt injection and model security",
+    "how developers build with LLMs in practice: prompting, RAG, fine-tuning",
+    "multimodal models that handle images, audio or video",
+    "deep learning fundamentals: architectures, embeddings, generative models",
+    "computer vision, reinforcement learning and classical machine learning",
+    "the economics and infrastructure of AI: chips, compute, datacenters",
+    "AI companies: acquisitions, lab moves, funding and competitive dynamics",
+    "AI policy, regulation and copyright as they affect what gets built",
+]
+
+exclude = [
+    "conference marketing, ticket sales, exhibitor booths and sponsorships",
+    "cryptocurrency, blockchain, NFTs and token prices",
+    "consumer gadget reviews, phones, smartwatches and TVs",
+    "social media platform features, influencers and creator monetisation",
+    "stock market movements, earnings calls and analyst price targets",
+    "generic startup funding rounds with no technical substance",
+]
+
+always_keep = ["anthropic", "claude", "gpt-", "gemini", "llama", "deepseek", "qwen", "mistral"]
+always_drop = []
