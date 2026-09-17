@@ -15,11 +15,17 @@ def unit(*values) -> bytes:
     return sqlite_vec.serialize_float32(vector.tolist())
 
 
-def profile(threshold=0.60, max_per_story=3, *slugs) -> TopicsConfig:
+def profile(floor=0.55, *slugs, park_margin=0.02, parents=None) -> TopicsConfig:
+    parents = parents or {}
     return TopicsConfig(
-        threshold=threshold,
-        max_per_story=max_per_story,
-        spine=[TopicConfig(slug=s, name=s.title(), description=f"about {s}") for s in slugs],
+        floor=floor,
+        park_margin=park_margin,
+        spine=[
+            TopicConfig(
+                slug=s, name=s.title(), description=f"about {s}", parent=parents.get(s)
+            )
+            for s in slugs
+        ],
     )
 
 
@@ -30,6 +36,9 @@ def axes(monkeypatch):
         "about models": unit(1.0, 0.0),
         "about agents": unit(0.0, 1.0),
         "about safety": unit(0.0, 0.0, 1.0),
+        # Two neighbours on one shelf, close enough to be a coin-toss.
+        "about frontier": unit(1.0, 0.0),
+        "about open": unit(0.99, 0.1),
     }
 
     def fake_embed(texts, model_name=None):
@@ -98,31 +107,57 @@ def test_a_story_with_no_vectors_is_skipped(conn, story):
 
 # --- assignment --------------------------------------------------------------
 
-def test_a_story_takes_the_topics_it_clears(conn, story, axes):
+def test_a_story_goes_to_the_topic_that_fits_it_best(conn, story, axes):
     on_models = story(unit(1.0, 0.0))
-    topics.run(conn, profile(0.60, 3, "models", "agents"))
+    topics.run(conn, profile(0.55, "models", "agents"))
 
     assert slugs_for(conn, on_models) == {"models"}
 
 
-def test_a_story_between_two_subjects_takes_both(conn, story, axes):
-    both = story(unit(1.0, 0.0), unit(0.0, 1.0))  # cosine 0.707 with each
-    topics.run(conn, profile(0.60, 3, "models", "agents"))
+def test_a_story_between_two_subjects_still_picks_one(conn, story, axes):
+    """One home. A tie on two unrelated shelves is broken, not split.
 
-    assert slugs_for(conn, both) == {"models", "agents"}
+    This is the behaviour that replaced multi-label assignment: scoring two
+    descriptions against the same story produced differences far inside the
+    noise, so taking every topic over a line meant taking almost all of them.
+    """
+    both = story(unit(1.0, 0.999))  # very nearly equidistant from both axes
+    topics.run(conn, profile(0.55, "models", "agents"))
+
+    assert len(slugs_for(conn, both)) == 1
 
 
-def test_only_the_strongest_topics_survive_the_cap(conn, story, axes):
+def test_a_weak_best_match_still_wins(conn, story, axes):
+    """There is no threshold deciding what counts as a match, only a floor."""
     leaning = story(unit(1.0, 0.9, 0.2))
-    topics.run(conn, profile(0.10, 2, "models", "agents", "safety"))
+    topics.run(conn, profile(0.10, "models", "agents", "safety"))
 
-    assert slugs_for(conn, leaning) == {"models", "agents"}  # safety scores lowest
+    assert slugs_for(conn, leaning) == {"models"}
+
+
+def test_a_close_pair_on_one_shelf_parks_on_the_shelf(conn, story, axes):
+    """The shelf is clear and the leaf is a coin-toss, so do not invent a leaf."""
+    parents = {"frontier": "models", "open": "models"}
+    spine = profile(0.10, "models", "frontier", "open", parents=parents, park_margin=0.5)
+    near = story(unit(1.0, 0.0))
+    topics.run(conn, spine)
+
+    assert slugs_for(conn, near) == {"models"}
+
+
+def test_a_clear_leaf_is_not_parked(conn, story, axes):
+    parents = {"frontier": "models", "open": "models"}
+    spine = profile(0.10, "models", "frontier", "open", parents=parents, park_margin=0.0)
+    near = story(unit(1.0, 0.0))
+    topics.run(conn, spine)
+
+    assert slugs_for(conn, near) != {"models"}
 
 
 def test_a_story_matching_nothing_is_still_marked_done(conn, story, axes):
     """Otherwise every off-spine story is rescored on every run, forever."""
     unrelated = story(unit(0.0, 0.0, 0.0, 1.0))
-    result = topics.run(conn, profile(0.60, 3, "models"))
+    result = topics.run(conn, profile(0.60, "models"))
 
     assert result.unmatched == 1
     assert slugs_for(conn, unrelated) == set()
@@ -131,7 +166,7 @@ def test_a_story_matching_nothing_is_still_marked_done(conn, story, axes):
 
 def test_an_assigned_story_is_not_rescored(conn, story, axes):
     story(unit(1.0, 0.0))
-    spine = profile(0.60, 3, "models")
+    spine = profile(0.60, "models")
     topics.run(conn, spine)
 
     assert topics.run(conn, spine).stories == 0
@@ -146,29 +181,29 @@ def test_no_spine_does_nothing(conn, story):
 
 def test_changing_the_spine_relabels_the_back_catalogue(conn, story, axes):
     labelled = story(unit(1.0, 0.0))
-    first = profile(0.60, 3, "models")
+    first = profile(0.60, "models")
     topics.reset_if_profile_changed(conn, first)
     topics.run(conn, first)
     assert slugs_for(conn, labelled) == {"models"}
 
-    widened = profile(0.60, 3, "models", "agents")
+    widened = profile(0.60, "models", "agents")
     assert topics.reset_if_profile_changed(conn, widened) is True
     assert topics.pending(conn) == [labelled]
 
 
 def test_an_unchanged_spine_does_not_relabel(conn, axes):
-    spine = profile(0.60, 3, "models")
+    spine = profile(0.60, "models")
     assert topics.reset_if_profile_changed(conn, spine) is True
     assert topics.reset_if_profile_changed(conn, spine) is False
 
 
 def test_a_slug_dropped_from_the_spine_stops_existing(conn, story, axes):
     story(unit(1.0, 0.0))
-    both = profile(0.60, 3, "models", "agents")
+    both = profile(0.60, "models", "agents")
     topics.reset_if_profile_changed(conn, both)
     topics.run(conn, both)
 
-    narrowed = profile(0.60, 3, "models")
+    narrowed = profile(0.60, "models")
     topics.reset_if_profile_changed(conn, narrowed)
     topics.run(conn, narrowed)
     assert {row["slug"] for row in topics.stats(conn)} == {"models"}
@@ -178,7 +213,7 @@ def test_a_slug_dropped_from_the_spine_stops_existing(conn, story, axes):
 
 def test_for_stories_returns_names_the_page_can_render(conn, story, axes):
     story_id = story(unit(1.0, 0.0))
-    topics.run(conn, profile(0.60, 3, "models"))
+    topics.run(conn, profile(0.60, "models"))
 
     assert topics.for_stories(conn, [story_id]) == {
         story_id: [{"slug": "models", "name": "Models"}]
@@ -226,10 +261,22 @@ def test_groups_report_which_topics_already_claim_them(conn, story, axes):
     """The reviewer needs to know what is genuinely uncovered, not just what clusters."""
     for _ in range(3):
         story(unit(1.0, 0.0))
-    topics.run(conn, profile(0.60, 3, "models"))
+    topics.run(conn, profile(0.60, "models"))
 
     group = topics.suggest(conn, min_size=3)[0]
     assert group.covered == {"Models": 3}
+    assert group.uncovered == 0
+
+
+def test_a_story_on_two_topics_is_counted_once():
+    """`covered` counts topic hits, and a story can hold more than one.
+
+    Subtracting their sum from the group size reported negative "unclaimed"
+    counts -- and since that is the sort key, the groups most worth naming sank
+    to the bottom of the list.
+    """
+    group = topics.Candidate(size=3, covered={"Models": 3, "Agents": 3}, claimed=3)
+
     assert group.uncovered == 0
 
 
@@ -238,7 +285,7 @@ def test_an_uncovered_group_sorts_first(conn, story, axes):
         story(unit(1.0, 0.0))          # will be claimed by "models"
     for _ in range(3):
         story(unit(0.0, 0.0, 0.0, 1.0))  # nothing on the spine reaches this
-    topics.run(conn, profile(0.60, 3, "models"))
+    topics.run(conn, profile(0.60, "models"))
 
     groups = topics.suggest(conn, min_size=3)
     assert groups[0].uncovered == 3
@@ -262,8 +309,6 @@ def test_nothing_recent_suggests_nothing(conn):
 
 def nested() -> TopicsConfig:
     return TopicsConfig(
-        threshold=0.60,
-        max_per_story=3,
         spine=[
             # Child first, to prove declaration order does not matter.
             TopicConfig("models", "Models", "about models", parent="shelf"),
@@ -282,11 +327,15 @@ def test_a_child_knows_its_parent(conn, story, axes):
 
 
 def test_a_shelf_has_no_parent_of_its_own(conn, story, axes):
-    story_id = story(unit(0.0, 1.0))
-    topics.run(conn, nested())
+    """A shelf is reached by parking, since only leaves are ever scored."""
+    parents = {"frontier": "models", "open": "models"}
+    story_id = story(unit(1.0, 0.0))
+    topics.run(
+        conn, profile(0.10, "models", "frontier", "open", parents=parents, park_margin=0.5)
+    )
 
     label = topics.for_stories(conn, [story_id])[story_id][0]
-    assert label["slug"] == "shelf"
+    assert label["slug"] == "models"
     assert "parent" not in label
 
 

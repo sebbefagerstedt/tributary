@@ -1,7 +1,7 @@
 # Tributary — state and remaining work
 
 Live at **https://sebbefagerstedt.github.io/tributary/**, rebuilt every three
-hours at minute 17. 276 tests passing, lint clean.
+hours at minute 17. 279 tests passing, lint clean.
 **Zero LLM/API usage — everything local and free.**
 
 This file is for what is *not* built and what should not be rediscovered. The
@@ -30,13 +30,13 @@ the funnel is the clusterer.
 
 | From the page | Where it stands |
 |---|---|
-| Mixed news and social | Built, except Reddit (API approval) |
+| Mixed news and social | Built, Reddit included |
 | Facts from articles *plus the people commenting* | Built — the wake |
 | A subject channel, `r/AI` | Built — topics |
 | One event, everything about it | Built — the story page |
 | Start with news, to gather | Built |
 | **Verifierad (mer trovärdig)** | **Not built** |
-| **reddit / tiktok / youtube, for quick info** | **Not built** |
+| **reddit** / tiktok / youtube, for quick info | Reddit built; video not |
 | Prio/**börja** med AI | Config-deep, not code-deep |
 
 **The anti-doomscroll motive is a constraint, not an origin story.** It argues
@@ -113,11 +113,33 @@ Open questions, none decided:
 
 ### Ready to start
 
+**Left over from the 2026-09-17 three-axis rebuild**, in the order that matters:
+
+- **The page does not render facets or entities yet.** `data.json` carries all
+  three axes per story and a `facets` legend of slug→name, and `index.html`
+  already inherits shelf from `parent`, so the topic tree needs no work. What is
+  missing is a third filter row that ANDs a facet with the current topic, and
+  making an entity name on a card a link that filters to it.
+- **No tests for `facets.py` or `entities.py`.** The topics tests were rewritten
+  for argmax and parking; the two new modules were verified by hand against the
+  real corpus and nothing else. This is the biggest hole.
+- **Entity extraction proposes nothing.** An entity exists only if it is seeded
+  in `config.toml`. The propose-then-accept pass belongs in `/suggest-topics`.
+- **`GitHub Releases` still carries nightly builds.** Filter to tagged,
+  non-prerelease versions — one predicate in `sources/github.py`.
+- **`/suggest-topics` still describes the old model.** It talks about a
+  threshold, a flat spine and `max_per_story`, none of which exist now. It should
+  propose a leaf *and* name its shelf, read parked stories as the signal for a
+  missing leaf, and say that a new leaf now *steals* stories from its neighbours
+  rather than adding a label to them.
+
 - **`cli.py` is ~900 lines.** By far the largest file; first thing to split.
 - **TLDR and the Anthropic source** still need the two-stage adapter described
   below. Note this is *not* the same as reading a page's description, which
   `describe.py` now does: TLDR needs an issue page split into one item per
-  story, which is real HTML parsing rather than a meta tag.
+  story, which is real HTML parsing rather than a meta tag. **The one unverified
+  thing in that section is now verified**: `https://tldr.tech/api/rss/ai`
+  returns 200 at roughly 5 items a week. Everything else there still holds.
 - **Podcast links.** Podcast feeds are RSS, so this is an adapter and a config
   block. Summaries are the wanted half and are Phase 4, not this.
 - **Extract linked URLs as join keys**, so a post clusters with the thing it is
@@ -133,33 +155,33 @@ Open questions, none decided:
 
 ### Needs a decision, not code
 
-- **Topic names.** Flagged as not good enough. Needs `/suggest-topics` run where
-  the database lives — it cannot run in a cloud session, because `tributary.db`
-  is gitignored and the skill's `data.json` fallback is blocked by the egress
-  proxy. **That fallback is itself a bug worth fixing.**
-- **The topic threshold is too loose.** 1442 of 1499 stories took a label. A
-  topic holding almost everything is worded too broadly; needs
-  `trib topics --stats` against real data to retune.
-- **Anthropic is not a source at all**, and should be. Every other lab has an
-  entry; Anthropic has a comment saying it publishes no public RSS feed. That
-  premise predates `claude.com`, where the announcements now are, so it is worth
-  re-testing: open a post and look for `application/rss+xml` in the page head,
-  which advertises the feed's real URL if one exists. Unverifiable from a cloud
-  session -- the egress proxy blocks every outbound host, so a guessed URL would
-  just become another broken source. If there genuinely is no feed, this is the
-  HTML-scrape adapter's first real customer.
+- **The `data.json` fallback in `/suggest-topics` is blocked by the egress
+  proxy**, so the skill cannot run in a cloud session at all. Still a bug worth
+  fixing. (Topic names and the loose threshold are both **done** — see "One
+  home, three axes" below.)
+- **Anthropic is not a source at all**, and should be. **Re-tested 2026-09-17
+  and the premise holds**: no feed on `anthropic.com` or
+  `alignment.anthropic.com`, on any guessed path, and no `application/rss+xml`
+  in either page head. So this is the HTML-scrape adapter's first real customer.
+  Two cheaper half-measures exist: their YouTube channel
+  (`UCrDwWp7EBBv4NwvScIpBDOA`) has a working Atom feed, and third-party scrapers
+  republish their news as RSS — trusting someone else's scraper for a primary
+  source seems worse than having the gap.
 - **Import AI**: drop it from `config.toml` or accept the gap. It returns HTTP
   403 on Actions because Substack blocks those IPs, and works fine locally.
-- **MarkTechPost** serves something that is not a feed. The old message —
-  `unparseable feed (not well-formed, invalid token)` — invited the wrong fix;
-  see "A feed does not fail because its XML is bad" below. The adapter now
-  reports what actually arrived, so **the next scheduled run says which of the
-  four causes it is**, and the fix follows from that. Decide once it does.
+- ~~**MarkTechPost** serves something that is not a feed.~~ **Fixed
+  2026-09-17.** The cause was the fourth of the four: the site's own `/feed/`
+  returns 403 to anything that is not a browser. The FeedBurner mirror
+  `https://feeds.feedburner.com/Marktechpost` carries the same content and
+  serves valid RSS; config now points there.
 
 ### Designed, deliberately not built
 
-- **The entity layer.** Worked out in full below. De-prioritised once topics were
-  allowed to die, since a short-lived topic covers some of the same ground.
+- ~~**The entity layer.**~~ **Half built 2026-09-17** — `entities.py` seeds the
+  labs, model lines and tools from config and attaches them to stories by name
+  and alias. What is *not* built is the propose-then-accept pass: extraction
+  currently proposes nothing, so an entity exists only if it is in `config.toml`.
+  That pass is the next piece, and `/suggest-topics` is where it belongs.
 - **"Verifierad (mer trovärdig)".** Corroboration exists as a *ranking* input —
   `SOURCE_BONUS` lifts a story several sources covered, and the card shows a
   "4 sources" chip — but the app never makes the claim. Saying "three
@@ -184,9 +206,16 @@ Open questions, none decided:
   deep-links.** The differentiated feature. **Will not work on GitHub Actions** —
   runners are cloud IPs and YouTube blocks them. Needs a residential connection:
   the WSL machine, or a Pi at home pushing to the same repo.
-- **Reddit** needs a manual API approval ticket; self-service registration closed
-  in late 2025. **Worth requesting early** — it is the one item here whose lead
-  time is measured in weeks.
+- ~~**Reddit** needs a manual API approval ticket.~~ **Wrong, and now
+  shipped.** The per-subreddit `.rss` endpoints are public Atom and work with no
+  credentials at all. Three things make it go, all verified 2026-09-17:
+  a descriptive User-Agent (a default one gets 403 HTML before the rate limiter
+  is reached — `http.py` already sends one); the multireddit form
+  `r/a+b+c/.rss`, which spends a single rate-limit token on all three and
+  interleaves them correctly, where separate sources would 429 each other; and
+  `www.reddit.com`, since `old.reddit.com/.rss` now redirects to a login.
+  Self-text posts carry 900–3600 characters of real prose; link posts are
+  title-and-thumbnail only, so it behaves like Hacker News for half its items.
 - **Phase 5** — notes/takes layer, interaction-learned ranking, "catch me up"
   digest.
 - **Phase 6+** — multi-user.
@@ -194,6 +223,152 @@ Open questions, none decided:
 ---
 
 ## Decisions worth not rediscovering
+
+### One home, three axes — the 2026-09-17 rebuild
+
+**The old spine was one mechanism asked to answer three questions.** A GPT-6
+release is *OpenAI* (a provider you follow), *a frontier model release* (a kind
+of story), and *an event* (already a story). Only the middle one is a topic, and
+only the middle one is semantic. Forcing the other two through cosine similarity
+is what made the labels read as strange — `Research` held 54% of the corpus,
+`Running it yourself` held a Dota 2 paper and an audio-datasets guide, and
+`Policy & courts` held nothing.
+
+So labelling is now three axes, each using the mechanism that suits it:
+
+| Axis | Question | Mechanism | Per story |
+|---|---|---|---|
+| Topic | where does it live | embedding, argmax over leaves | exactly one |
+| Entity | who is it about | name and alias matching | any number |
+| Facet | what kind of thing is it | regex over title and summary | any number |
+
+**One home, many doors.** A story is reached by its topic, by any provider or
+model named on it, or by search. "One home is hard to find" was a symptom of the
+entity axis being missing, not of having one home.
+
+#### Why the threshold went away rather than getting retuned
+
+Measured over the corpus, not guessed:
+
+- At `threshold = 0.60`, **2020 of 2239 stories carried exactly 3 topics** — the
+  cap, not a judgement. The average story cleared 6.9 of 11 topics.
+- Raising it to 0.67 was tried and is *also* wrong: it killed `Policy & courts`
+  outright (its best score against 600 stories is 0.64) and cut `Frontier
+  models` to 3.
+- **A relative margin fails too.** At a 0.05 margin one paper took **13 labels**,
+  because 13 descriptions sat within 0.05 of each other. Everything lands in a
+  0.60–0.85 band; there is no gap to cut at.
+
+So there is no line to draw, and drawing one better is not the fix. The question
+"of these topics, which one is this?" needs no scale at all — a comparison is
+scale-free, so nothing drifts when the embedding model changes or the spine
+grows. `floor = 0.55` remains, but it is not a threshold in that sense: it
+catches a story the spine has no opinion about whatsoever, which over the whole
+corpus is **one story in 2239**. If it starts firing, the spine is wrong.
+
+#### Only leaves are scored
+
+A shelf earns its stories from whichever of its leaves wins. This is what stopped
+a broad topic swallowing the feed: `Research` used to compete *against its own
+children* and beat them everywhere, because vague prose sits near everything.
+A shelf's `description` is now documentation for whoever edits the config, never
+an input.
+
+Result: 43 topics over 10 shelves, **largest leaf 10.3%** of the corpus against
+the old 54%, and no leaf empty.
+
+#### Parking, and what it is for
+
+When the top two leaves are on the *same shelf* within `park_margin` (0.02), the
+shelf is clear and the leaf is a coin-toss, so the story sits on the shelf.
+Forcing a choice there invents precision the scores do not have. 291 of 2239
+stories park. **The pile on a shelf is the signal that a leaf is missing**, and
+is what `/suggest-topics` should read first.
+
+#### Facets exist because some subjects are lexical
+
+An agent paper is also a safety paper and a benchmark paper — it really is all
+three, so similarity cannot separate it from its neighbours and files it under
+whichever it most resembles. `RepoAtlas: Guiding Coding Agents` landed under
+interpretability. Rewording the agent descriptions made it *worse*, not better:
+the shelf fell from 28 stories to 12.
+
+A word, meanwhile, is either present or not. Matching `\bagent(s|ic)?\b` finds
+**133 stories in a fortnight where argmax found 25**, and every one is correct.
+That is the whole argument for facets being regexes and not descriptions.
+
+#### What this does not fix
+
+41% of stories have a runner-up leaf on a *different* shelf within 0.02, and
+those pick a side. Entities and facets are the compensation — other doors into
+the same story — not a fix for the embedding space being compressed. If one-home
+reads badly in practice, the next move is a "related topics" row on the story
+page, **not** a return to multi-label. That was tried and measured; it is worse.
+
+### The source scan of 2026-09-17, so it is not repeated
+
+Verified by fetching, not guessed. **Added to config**: Ars Technica AI, MIT
+Tech Review AI, IEEE Spectrum AI, SemiAnalysis, Mistral, Ai2, Together, NVIDIA,
+vLLM, LangChain, Alignment Forum, LessWrong (curated), METR, CSET, lobste.rs,
+Reddit. Roughly +90 items a week of non-paper material against arXiv's ~235,
+which takes papers from 88% of the feed toward 60% **without cutting arXiv** —
+that was an explicit instruction and still is.
+
+**Substack is deliberately excluded.** It blocks Actions IPs, which is why
+Import AI 403s on a run and works locally. That rules out Interconnects, Zvi,
+Ahead of AI, Epoch, The Algorithmic Bridge and One Useful Thing — the best
+commentary available, and the cost of every source behaving identically
+wherever `trib` runs. Revisit only by moving fetching off Actions, which Phase 4
+needs anyway. SemiAnalysis is on its own domain but has Substack history, so
+confirm it from a runner before trusting it in CI.
+
+**Worth having, not yet added** (all verified live):
+
+- **YouTube**, via `youtube.com/feeds/videos.xml?channel_id=<UC...>`: Dwarkesh
+  `UCXl4i9dYBrFOabk0xGmbkRA`, MLST `UCMLtBahI5DMrt0NPvDSoIRQ`, Two Minute Papers
+  `UCbfYPyITQ-7l4upoX8nvctg`, AI Explained `UCNJ1Ymd5yFuUPtn21xtRbbw`, bycloud
+  `UCgfe2ooZD3VJPB6aJAnuQng`, Welch Labs `UConVfxXodg78Tzh5nNu85Ew`, Karpathy
+  `UCXUPKJO5MZQN11PqgIvyuvQ`, Anthropic `UCrDwWp7EBBv4NwvScIpBDOA`, Simons
+  Institute `UCW1C2xOfXsIzPgjXyuhkw9g` (the best conference source found).
+- **Gotcha worth keeping**: `playlist_id=` feeds return items in *playlist
+  position* order, not upload order, so they silently look frozen — Stanford CS25
+  and MLSys both do this. **Prefer a channel feed over a playlist feed.**
+- **Podcasts**: Dwarkesh `api.substack.com/feed/podcast/69345.rss`, Latent Space
+  *podcast* `api.substack.com/feed/podcast/1084089.rss` (**separate from the blog
+  feed already configured, and it carries full transcripts — 125k characters on
+  a sampled item**), Practical AI, TWIML, MLST `anchor.fm/s/1e4a0eac/podcast/rss`,
+  Cognitive Revolution, No Priors, Last Week in AI. Hard Fork's public feed is
+  effectively dead (3 items total) despite returning 200.
+- **Bluesky has native per-profile RSS** at `bsky.app/profile/<handle>/rss`. No
+  bridge needed, but per-profile only: no topic, list or search feeds exist.
+
+**Confirmed not worth it**: TikTok has no feed of any kind and would need a
+bespoke scraper against a private API — the worst cost/benefit of anything
+examined. X/Twitter is pay-per-read since Feb 2026 with no free tier. Discord
+and Slack need a bot joined to each server. Papers with Code now redirects to
+`huggingface.co/papers/trending` and is dead as a separate source.
+
+### Hugging Face: `base_model` is the signal, not likes
+
+The "irrelevant models" complaint was aimed at the wrong source. **HF models in
+the feed are already the popular ones** — 39 kept items, minimum 90 likes,
+median 964. The junk was `GitHub Releases`, where 9 of the last 14 items were
+`llama.cpp` nightly builds (`b10999`–`b11007`). `HF New Implementations` was
+removed outright: it fetched 300 repos and kept zero.
+
+For when model filtering is next touched, verified against the live API:
+
+- There is **no server-side minimum-likes or minimum-downloads filter**.
+  `min_likes=1000` is silently ignored. Filter client-side after the fetch.
+- `sort=trending` **errors**; `sort=trendingScore` and `likes7d` are the same
+  thing, and `likes7d` is already what the config uses.
+- **A `base_model:*` tag is the clean signal for a derivative** — quantizations,
+  merges and fine-tunes all carry it, originals have `base_model = None`.
+  Verified on real repos both ways.
+- **"Author is an organisation" does not work** as a filter: `unsloth` and
+  `ISTA-DASLab` are registered orgs and are pure requant shops.
+- Naming regex (`GGUF|AWQ|GPTQ|bnb-4bit|exl2`) caught only 13 of 50 derivatives
+  in a real sample, so it is a secondary check at best.
 
 ### Topics are an ontology, and the shipped spine is one level of it
 
@@ -231,8 +406,11 @@ property without needing a crowd, and it is how a topic ends up called whatever
 people actually call it. Sebastian is that human for now, and the mechanism
 generalises to users later.
 
-**The schema has been waiting since the first commit**, entirely unused — no
-Python references any of it:
+**Update 2026-09-17: the schema is no longer unused.** `entities.py` seeds
+entities from config and attaches them to stories by name and alias, and
+`story_entities` is populated — 942 of 2239 stories name at least one. `follows`
+is still untouched. What follows was written when none of it was wired up, and
+the reasoning still holds for the half that is not:
 
 ```sql
 entities      (kind: model|org|person|tool|paper|dataset, name, aliases)

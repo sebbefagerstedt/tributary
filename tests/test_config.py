@@ -101,8 +101,8 @@ def test_loads_a_topic_spine(tmp_path):
         db_path = "/tmp/x.db"
 
         [topics]
-        threshold = 0.71
-        max_per_story = 2
+        floor = 0.71
+        park_margin = 0.05
 
         [[topics.spine]]
         slug = "agents"
@@ -111,8 +111,8 @@ def test_loads_a_topic_spine(tmp_path):
         """,
     )
     cfg = config_mod.load(path)
-    assert cfg.topics.threshold == 0.71
-    assert cfg.topics.max_per_story == 2
+    assert cfg.topics.floor == 0.71
+    assert cfg.topics.park_margin == 0.05
     assert cfg.topics.spine[0].slug == "agents"
 
 
