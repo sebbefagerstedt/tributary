@@ -91,7 +91,7 @@ def test_http_error_raises_fetch_error(httpx_mock):
 
 def test_garbage_body_raises_fetch_error(httpx_mock):
     httpx_mock.add_response(url="https://ex.test/feed", content=b"\x00 not a feed")
-    with pytest.raises(FetchError, match="unparseable"):
+    with pytest.raises(FetchError, match="not a feed"):
         make_source().fetch({})
 
 
@@ -99,3 +99,91 @@ def test_missing_url_raises_fetch_error():
     source = RSSSource(SourceConfig(kind="rss", name="No URL", url=None))
     with pytest.raises(FetchError, match="requires a url"):
         source.fetch({})
+
+
+# --- when what arrives is not a feed ----------------------------------------
+#
+# MarkTechPost has reported "unparseable feed (not well-formed, invalid token)"
+# for weeks while contributing nothing, and that message invites exactly the
+# wrong fix. feedparser recovers from malformed XML: these first two tests pin
+# that down, so nobody writes a sanitiser for a problem that does not exist.
+
+MALFORMED = """<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>R&D News</title>
+<item><title>Models&nbsp;that fit</title><link>https://ex.test/1</link>
+<description>Tom & Jerry</description></item>
+</channel></rss>"""
+
+
+def test_malformed_xml_still_yields_its_items(httpx_mock):
+    """A bare ampersand, an undeclared entity and a control character together.
+    All of it is invalid XML, and all of it parses anyway."""
+    httpx_mock.add_response(url="https://ex.test/feed", content=b"\x0c" + MALFORMED.encode())
+    items, _ = make_source().fetch({})
+    assert [i.title for i in items] == ["Models that fit"]
+
+
+def test_a_truncated_feed_keeps_what_arrived(httpx_mock):
+    httpx_mock.add_response(url="https://ex.test/feed", content=MALFORMED.encode()[:175])
+    items, _ = make_source().fetch({})
+    assert [i.title for i in items] == ["Models that fit"]
+
+
+def test_an_empty_but_valid_feed_is_not_a_failure(httpx_mock):
+    """A source with nothing new this week is not a broken source."""
+    httpx_mock.add_response(
+        url="https://ex.test/feed",
+        content=b'<?xml version="1.0"?><rss version="2.0">'
+        b"<channel><title>Q</title></channel></rss>",
+    )
+    items, _ = make_source().fetch({})
+    assert items == []
+
+
+def test_a_web_page_served_as_a_feed_says_so(httpx_mock):
+    """Bot checks and login walls come back with a 200, so nothing upstream
+    catches them. This is the most likely thing MarkTechPost is doing."""
+    httpx_mock.add_response(
+        url="https://ex.test/feed",
+        content=b"<!DOCTYPE html><html><head><title>Just a moment...</title></head>"
+                b"<body>Checking your browser</body></html>",
+        headers={"content-type": "text/html; charset=utf-8"},
+    )
+    with pytest.raises(FetchError) as caught:
+        make_source().fetch({})
+
+    message = str(caught.value)
+    assert "served a web page, not a feed" in message
+    assert "text/html" in message
+    assert "Just a moment" in message
+
+
+def test_a_json_error_body_says_so(httpx_mock):
+    httpx_mock.add_response(
+        url="https://ex.test/feed",
+        content=b'{"error": "forbidden", "reason": "automated traffic"}',
+        headers={"content-type": "application/json"},
+    )
+    with pytest.raises(FetchError) as caught:
+        make_source().fetch({})
+
+    message = str(caught.value)
+    assert "not a feed" in message
+    assert "application/json" in message
+    assert "automated traffic" in message  # the actual reason, not a parser error
+
+
+def test_an_empty_response_says_so(httpx_mock):
+    httpx_mock.add_response(url="https://ex.test/feed", content=b"")
+    with pytest.raises(FetchError) as caught:
+        make_source().fetch({})
+    assert "empty response" in str(caught.value)
+
+
+def test_the_wrong_encoding_reports_the_bytes_that_arrived(httpx_mock):
+    """Declared UTF-8, actually UTF-16 -- the parser's message alone cannot
+    distinguish this from a truncated file or a JSON error."""
+    httpx_mock.add_response(url="https://ex.test/feed", content=MALFORMED.encode("utf-16"))
+    with pytest.raises(FetchError) as caught:
+        make_source().fetch({})
+    assert "body starts" in str(caught.value)

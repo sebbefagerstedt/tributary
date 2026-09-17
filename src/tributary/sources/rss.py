@@ -7,6 +7,7 @@ half hour should mostly return 304s.
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 from time import struct_time
 
@@ -18,6 +19,23 @@ from tributary.sources.base import FetchError, Source, register
 from tributary.text import strip_boilerplate, strip_html, truncate
 
 SUMMARY_LIMIT = 2000
+
+# What a failing feed gets to say about itself. "unparseable feed (not
+# well-formed, invalid token)" was the whole of the old message, and it is not
+# enough to act on: MarkTechPost reported exactly that for weeks and the
+# hypothesis it invites -- broken XML from a sloppy CMS -- turns out to be the
+# one thing it cannot be. feedparser recovers from malformed XML remarkably
+# well; a stray ampersand, an undeclared &nbsp;, a control character, junk above
+# the declaration and a truncated document all still yield their items. Nothing
+# structurally wrong with *XML* produces zero entries.
+#
+# What does: a body that is not XML at all. A JSON error, a bot-check page, a
+# body in an encoding that contradicts its declaration, or bytes that were never
+# decompressed. Those need entirely different fixes from each other -- and the
+# only way to tell them apart is to look at what arrived, so that is what this
+# reports.
+_HTML = re.compile(rb"\s*<(?:!doctype\s+html|html)\b", re.I)
+PREVIEW = 100
 
 
 def _to_datetime(parsed: struct_time | None) -> datetime | None:
@@ -57,10 +75,12 @@ class RSSSource(Source):
             return [], new_state
 
         parsed = feedparser.parse(response.content)
-        # bozo marks malformed feeds; many still parse usefully, so only fail when
-        # nothing came back at all.
-        if parsed.bozo and not parsed.entries:
-            raise FetchError(f"unparseable feed ({parsed.bozo_exception})")
+        # An empty but well-formed feed is legal: a source with nothing new is
+        # not a broken source, and `version` is set for a feed even when it
+        # carries no items. Everything else with no entries is a real failure,
+        # including the ones feedparser is too forgiving to flag.
+        if not parsed.entries and not parsed.get("version"):
+            raise FetchError(_diagnose(response, parsed))
 
         items = [built for entry in parsed.entries if (built := self._build(entry))]
         return items, new_state
@@ -86,3 +106,27 @@ class RSSSource(Source):
             media_url=_media_url(entry),
             metadata={"feed": self.config.url},
         )
+
+
+def _diagnose(response, parsed) -> str:
+    """Say what actually arrived, since it was not a feed.
+
+    The content type, the size and the opening bytes separate the four causes
+    from each other at a glance, which the parser's own message cannot do.
+    """
+    body = response.content
+    content_type = (response.headers.get("content-type") or "unknown").split(";")[0].strip()
+    shape = f"{content_type}, {len(body)} bytes"
+
+    if not body:
+        return f"empty response ({shape})"
+
+    if _HTML.match(body):
+        # A login wall, a rate-limit notice or a bot check, served with a 200
+        # so nothing upstream treats it as an error.
+        title = strip_html(body[:2000].decode("utf-8", "replace"))
+        return f"served a web page, not a feed ({shape}): {truncate(title, PREVIEW)}"
+
+    opening = body[:PREVIEW].decode("utf-8", "replace").strip()
+    detail = parsed.get("bozo_exception") or "no entries and no feed version"
+    return f"not a feed ({shape}): {detail}; body starts {opening!r}"
