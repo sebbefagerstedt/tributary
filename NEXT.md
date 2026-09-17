@@ -1,7 +1,7 @@
 # Tributary — state and remaining work
 
 Live at **https://sebbefagerstedt.github.io/tributary/**, rebuilt every three
-hours at minute 17. 254 tests passing, lint clean.
+hours at minute 17. 276 tests passing, lint clean.
 **Zero LLM/API usage — everything local and free.**
 
 This file is for what is *not* built and what should not be rediscovered. The
@@ -67,12 +67,10 @@ zero-cost model.
 ### Ready to start
 
 - **`cli.py` is ~900 lines.** By far the largest file; first thing to split.
-- **Bare-title cards.** `describe.py` fixed the Hugging Face case by fetching the
-  model card. Still open for HN threads and GitHub releases
-  (`ggml-org/llama.cpp b11003` says nothing), which need the linked page's
-  description and therefore **the HTML-scrape adapter that does not exist yet**.
-  That adapter is the blocker shared with TLDR and with `config.toml`'s
-  Anthropic entry — building it once unlocks three things.
+- **TLDR and the Anthropic source** still need the two-stage adapter described
+  below. Note this is *not* the same as reading a page's description, which
+  `describe.py` now does: TLDR needs an issue page split into one item per
+  story, which is real HTML parsing rather than a meta tag.
 - **Podcast links.** Podcast feeds are RSS, so this is an adapter and a config
   block. Summaries are the wanted half and are Phase 4, not this.
 - **"More like this" on a story page.** Nearest-neighbour over vectors already on
@@ -93,9 +91,11 @@ zero-cost model.
   `trib topics --stats` against real data to retune.
 - **Import AI**: drop it from `config.toml` or accept the gap. It returns HTTP
   403 on Actions because Substack blocks those IPs, and works fine locally.
-- **MarkTechPost**: `unparseable feed (not well-formed, invalid token)`. Unlike
-  Import AI this is not an IP block — the feed itself is malformed, so either
-  the adapter tolerates it or the source goes.
+- **MarkTechPost** serves something that is not a feed. The old message —
+  `unparseable feed (not well-formed, invalid token)` — invited the wrong fix;
+  see "A feed does not fail because its XML is bad" below. The adapter now
+  reports what actually arrived, so **the next scheduled run says which of the
+  four causes it is**, and the fix follows from that. Decide once it does.
 
 ### Designed, deliberately not built
 
@@ -302,6 +302,52 @@ and on a run. Note the tension with the direction above — TLDR is a secondary
 aggregator of things already arriving via TechCrunch, HN, arXiv and HF, and "it
 is so much text" was the original complaint about it. Its value here is the
 blurbs and the editorial judgement, not the coverage.
+
+### A feed does not fail because its XML is bad
+
+Measured 2026-09-17, because the obvious fix was the wrong one. feedparser
+recovers from malformed XML far better than its error message suggests. A bare
+ampersand, an undeclared `&nbsp;`, a raw control character, junk printed above
+the declaration, and a file truncated mid-item **all still yield their items**.
+A sanitiser for any of that would be dead code: the adapter only gives up when
+there are no entries at all, and none of those produce that.
+
+Zero entries means the body was never a feed. Four causes, needing four
+different fixes:
+
+| What arrived | Why | Fix |
+|---|---|---|
+| A web page | Bot check or login wall, served with a 200 | Different URL, or drop the source |
+| JSON | An API error the CDN returned instead | Read the error |
+| Wrong encoding | UTF-16 body declaring UTF-8 | Decode before parsing |
+| Nothing | Empty 200 | Retry or drop |
+
+The parser's own message cannot tell these apart — all four say "not
+well-formed (invalid token)". So the adapter now reports the content type, the
+size and the opening bytes, which separates them at a glance. An empty but
+*valid* feed stays a success: a source with nothing new this week is not broken.
+
+### Describing an item means finding where its words already are
+
+The four strategies in `describe.py` are ordered by cost, and the first that
+yields prose wins:
+
+| | Where | Requests |
+|---|---|---|
+| `body` | Release notes already stored, which only `summary` ever reached the page from | none |
+| `card` | A hub model card | 1 |
+| `repo` | A GitHub repo's one-line description | 1, cached per repo |
+| `page` | A linked article's `<meta>` description | 1 |
+
+`page` reads **only** the meta tags, never the body. A page's body is cookie
+banners, navigation and newsletter prompts, and picking prose out of it is the
+part of scraping that goes wrong and keeps going wrong. A meta description was
+written to be a one-sentence summary and is machine-readable by design. No
+description means the item keeps its bare title, which is the honest outcome.
+
+A Hacker News item is the one that needs care: the item *is* the discussion, so
+the thing worth describing is what was submitted (`metadata.outbound_url`), not
+the thread.
 
 ### Dynamic topics do not need an LLM
 
