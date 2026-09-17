@@ -56,13 +56,60 @@ a paper's arXiv ID joins that paper's story as `code`; an HN thread linking an
 announcement joins it as `discussion`. The ripple is computed on every run, and
 renders as coloured chips on the card and grouped sections on the story sheet.
 
-In-app community — comments, accounts, votes of our own — is parked rather than
-rejected. It would mean a writable backend, which ends the static-Pages,
-zero-cost model.
+**The ripple is not the whole of it, though.** Asked for 2026-09-17: *users need
+to be able to post and comment directly on a topic.* That was previously written
+down here as parked; it is not parked, it is a requirement. See "Posting and
+commenting" below — it is the one item in this file that changes the
+architecture rather than adding to it.
 
 ---
 
 ## What is left to build
+
+### Posting and commenting — the one that changes the architecture
+
+**Users need to be able to post and comment directly on a topic.** Asked for
+2026-09-17, and it is what finishes the idea the rest of the app has been
+building toward: a topic you *enter* is a place, and a place is where people
+write. It also joins up two earlier notes — that users should tag news onto
+topics themselves, and that they should be able to create a story by hand —
+into one capability rather than three features.
+
+**The read path already exists.** `Kind.POST` is defined, `cluster.py` maps it
+to the `coverage` role and `_KIND_PRIORITY` ranks it — no adapter has ever
+produced one. A user's post on a topic is an item like any other: it joins
+`story_items`, takes a role, earns a chip, and appears in the wake. The
+`follows` table (`target_kind: topic|entity|source`) has been sitting unused
+since the first commit and is the subscription side of the same feature.
+
+**The write path is what does not exist, and it is not a small thing.** Every
+deployment assumption in this repo comes from the app being read-only:
+
+- `data.json` is a static bundle rebuilt every three hours. Posts have to appear
+  when written, not on the next cron tick.
+- Per-device state lives in `localStorage` *because a static host has nowhere
+  else to put it*. That works for seen/saved/dismissed, which are preferences.
+  It cannot work for a post, whose entire purpose is that someone else reads it.
+- So this needs a writable backend, with identity, moderation and spam handling
+  behind it, and it ends the zero-cost GitHub Pages model. `trib serve` already
+  exists and is the obvious starting point, but a server someone else can post
+  to is a different thing from one you run locally.
+
+**What it does not need is an API key.** Posting is not an LLM feature, and the
+no-API-key constraint holds — worth stating, because "community features" and
+"AI features" tend to get budgeted together and these should not be.
+
+Open questions, none decided:
+
+- Is a comment an item (so it joins the wake and gets a role), or its own table?
+  Item-shaped reuses everything; comment-shaped avoids polluting the corpus that
+  clustering and topic assignment run over.
+- Does a user post get triaged and embedded like fetched material? If it does,
+  it can be clustered and labelled automatically. If it does not, the author
+  places it by hand — which is closer to how Reddit works, and to the
+  propose-then-accept model already chosen for topics.
+- Who can post, at what point does that need real accounts, and what happens the
+  first time someone abusive arrives.
 
 ### Ready to start
 
@@ -73,6 +120,10 @@ zero-cost model.
   story, which is real HTML parsing rather than a meta tag.
 - **Podcast links.** Podcast feeds are RSS, so this is an adapter and a config
   block. Summaries are the wanted half and are Phase 4, not this.
+- **Extract linked URLs as join keys**, so a post clusters with the thing it is
+  about. See "Commentary arrives without the thing it comments on" below. This
+  touches clustering, which is calibrated, so it needs guards and tests rather
+  than a one-line regex.
 - **"More like this" on a story page.** Nearest-neighbour over vectors already on
   disk, and much easier now that a story has a centroid. This is the "I want to
   keep reading" path.
@@ -89,6 +140,14 @@ zero-cost model.
 - **The topic threshold is too loose.** 1442 of 1499 stories took a label. A
   topic holding almost everything is worded too broadly; needs
   `trib topics --stats` against real data to retune.
+- **Anthropic is not a source at all**, and should be. Every other lab has an
+  entry; Anthropic has a comment saying it publishes no public RSS feed. That
+  premise predates `claude.com`, where the announcements now are, so it is worth
+  re-testing: open a post and look for `application/rss+xml` in the page head,
+  which advertises the feed's real URL if one exists. Unverifiable from a cloud
+  session -- the egress proxy blocks every outbound host, so a guessed URL would
+  just become another broken source. If there genuinely is no feed, this is the
+  HTML-scrape adapter's first real customer.
 - **Import AI**: drop it from `config.toml` or accept the gap. It returns HTTP
   403 on Actions because Substack blocks those IPs, and works fine locally.
 - **MarkTechPost** serves something that is not a feed. The old message —
@@ -302,6 +361,52 @@ and on a run. Note the tension with the direction above — TLDR is a secondary
 aggregator of things already arriving via TechCrunch, HN, arXiv and HF, and "it
 is so much text" was the original complaint about it. Its value here is the
 blurbs and the editorial judgement, not the coverage.
+
+### Commentary arrives without the thing it comments on
+
+Found 2026-09-17 from a case in the live feed: Simon Willison's write-up of an
+Anthropic announcement was there, and the announcement was not. Two independent
+causes, and it takes both to produce that.
+
+**The announcement was never fetched**, because Anthropic is not a source. See
+the item above. Note `always_keep` in `config.toml` already lists `anthropic`
+and `claude`, so triage is primed to keep this material -- there is simply none
+arriving to keep.
+
+**And even with the source, the two would not have joined.** `identity.py`
+treats a plain URL as a *strong* identifier, but only finds one in three places:
+the item's own `url`, its `canonical_url`, and `metadata.outbound_url`. The
+free-text scan over title, summary and body looks for arXiv IDs, DOIs and GitHub
+repos -- and no generic URLs at all. So:
+
+| Item | Points at the announcement via | Joins today |
+|---|---|---|
+| A Hacker News thread | `outbound_url` | yes |
+| A blog post about it | a link in the body | **no** |
+| The announcement itself | its own URL | n/a, not a source |
+
+A post citing the thing it is about is the most common shape commentary takes,
+and it is the one case that extracts nothing. Worse, the result is not a missing
+link but a wrong one: `role_for` makes the first item in a story its seed, so the
+commentary gets promoted to "the news" and the feed reads as though Simon
+announced it.
+
+**Why this was not already done, and what it needs.** A blog post links to
+dozens of things -- navigation, the author's own archive, related posts -- and
+this is the same trap as "Why not GitHub repo search" below: lists cite
+everything, so an unguarded rule collapses unrelated stories. `MAX_FANOUT = 8`
+catches an identifier shared across many items, but not a single post that
+sprays ten bad links at once. So a link is only a citation when:
+
+- it leaves the item's own domain (a self-link is navigation, not a citation);
+- the item cites few enough URLs to mean them. A link roundup -- which is a
+  whole genre, Simon's own weeknotes included -- should extract nothing rather
+  than join everything it mentions;
+- `_has_specific_path` already holds: a bare homepage identifies a publication,
+  not a story.
+
+Test it against the existing calibration before trusting it: the cost of a wrong
+merge is still higher than the cost of a missed link.
 
 ### A feed does not fail because its XML is bad
 
