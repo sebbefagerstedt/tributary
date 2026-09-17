@@ -133,9 +133,10 @@ Three gaps between that and the product wanted, cheapest first:
   titles.
 - Verified in Chromium at phone width in both themes, against a real bundle
   built by `build_bundle` rather than hand-written JSON. 192 tests, lint clean.
-  **This retires the "UI never visually verified" debt** below: the browser
-  libs it was blocked on are present in the Claude Code web sandbox, with
-  Playwright pointed at `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`.
+  **This retired the "UI never visually verified" debt**, now struck from the
+  list: the browser libs it was blocked on are present in the Claude Code web
+  sandbox, with Playwright pointed at
+  `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`.
 
 Known rough edge, pre-existing and untouched: at phone width the header's
 "N stories · updated Xm ago" wraps under the brand and crowds the tabs.
@@ -533,8 +534,10 @@ reasoning recorded in that commit message was wrong.
 - **Import AI returns HTTP 403 on GitHub Actions** — Substack blocks those IPs.
   Works fine locally. Either drop it from `config.toml` or accept the gap; it is
   already surfaced in the UI's broken-sources banner.
-- UI never visually verified — blocked on sudo-installed browser libs:
-  `libnspr4 libnss3 libasound2t64 libatk-bridge2.0-0 libatspi2.0-0 libgbm1 libxkbcommon0`.
+- **MarkTechPost fails to parse** — `unparseable feed (not well-formed, invalid
+  token)`, so the source has been contributing nothing. Unlike Import AI's 403
+  this is not an IP block: the feed itself is malformed. Either the adapter
+  tolerates it or the source goes.
 - `trib status` (db path, size, counts, last fetch) — suggested, not built.
 - Scheduled workflows are disabled after 60 days of repo inactivity (email first;
   any push resets it).
