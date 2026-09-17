@@ -585,12 +585,39 @@ def topics_cmd(
     stats: Annotated[
         bool, typer.Option("--stats", help="Story count per topic, for tuning the spine.")
     ] = False,
+    suggest: Annotated[
+        bool, typer.Option("--suggest", help="Group recent stories so new topics can be named.")
+    ] = False,
+    days: Annotated[int, typer.Option("--days", help="How far back --suggest looks.")] = 7,
     reset: Annotated[
         bool, typer.Option("--reset", help="Discard assignments and re-label every story.")
     ] = False,
 ) -> None:
     """Label stories with what they are about."""
     cfg, conn = _open(config)
+
+    if suggest:
+        # Printed rather than tabulated: the reader is a person or a model
+        # deciding what to call these, and headlines are the evidence.
+        found = topics.suggest(conn, days=days)
+        if not found:
+            console.print(f"[yellow]Nothing clustered in the last {days} days.[/]")
+            return
+        console.print(f"[bold]{len(found)} groups[/] over the last {days} days\n")
+        for number, candidate in enumerate(found, start=1):
+            claimed = (
+                ", ".join(f"{name} ({n})" for name, n in sorted(candidate.covered.items()))
+                or "nothing"
+            )
+            console.print(
+                f"[cyan]Group {number}[/] — {candidate.size} stories, "
+                f"{candidate.uncovered} unclaimed · covered by: {claimed}"
+            )
+            for title in candidate.titles[:8]:
+                console.print(f"    {truncate(title, 90)}")
+            console.print()
+        return
+
     if not cfg.topics.spine:
         err.print("[yellow]No topics configured.[/] Add a [topics.spine] section.")
         raise typer.Exit(1)

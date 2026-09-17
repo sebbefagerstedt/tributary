@@ -44,9 +44,10 @@ def story(conn, source_id):
     counter = {"n": 0}
 
     def _story(*vectors):
+        # last_activity is "now" because --suggest works on a recent window.
         story_id = conn.execute(
             "INSERT INTO stories (first_seen, last_activity) "
-            "VALUES ('2026-09-15T00:00:00Z', '2026-09-15T00:00:00Z')"
+            "VALUES ('2026-09-15T00:00:00Z', datetime('now'))"
         ).lastrowid
         for vector in vectors:
             counter["n"] += 1
@@ -186,3 +187,72 @@ def test_for_stories_returns_names_the_page_can_render(conn, story, axes):
 
 def test_for_stories_of_nothing_is_empty(conn):
     assert topics.for_stories(conn, []) == {}
+
+
+# --- suggesting new topics ---------------------------------------------------
+# The half that can be automated: find what clusters, and let something with
+# judgement do the naming.
+
+
+def titled(conn, source_id, story_id, title):
+    item_id = conn.execute(
+        "INSERT INTO items (source_id, external_id, kind, url, title, triage_state) "
+        "VALUES (?, ?, 'article', 'https://e.test/x', ?, 'kept')",
+        (source_id, f"t{story_id}-{title[:8]}", title),
+    ).lastrowid
+    conn.execute("INSERT INTO item_vectors (item_id, embedding) VALUES (?, ?)",
+                 (item_id, unit(1.0)))
+    conn.execute("INSERT INTO story_items (story_id, item_id, role) VALUES (?, ?, 'coverage')",
+                 (story_id, item_id))
+
+
+def test_stories_about_the_same_thing_group(conn, story):
+    for _ in range(3):
+        story(unit(1.0, 0.05))
+    for _ in range(3):
+        story(unit(0.0, 1.0))
+
+    groups = topics.suggest(conn, min_size=3)
+    assert [g.size for g in groups] == [3, 3]
+
+
+def test_a_group_too_small_to_name_is_not_offered(conn, story):
+    story(unit(1.0))
+    story(unit(1.0))
+    assert topics.suggest(conn, min_size=3) == []
+
+
+def test_groups_report_which_topics_already_claim_them(conn, story, axes):
+    """The reviewer needs to know what is genuinely uncovered, not just what clusters."""
+    for _ in range(3):
+        story(unit(1.0, 0.0))
+    topics.run(conn, profile(0.60, 3, "models"))
+
+    group = topics.suggest(conn, min_size=3)[0]
+    assert group.covered == {"Models": 3}
+    assert group.uncovered == 0
+
+
+def test_an_uncovered_group_sorts_first(conn, story, axes):
+    for _ in range(3):
+        story(unit(1.0, 0.0))          # will be claimed by "models"
+    for _ in range(3):
+        story(unit(0.0, 0.0, 0.0, 1.0))  # nothing on the spine reaches this
+    topics.run(conn, profile(0.60, 3, "models"))
+
+    groups = topics.suggest(conn, min_size=3)
+    assert groups[0].uncovered == 3
+    assert groups[0].covered == {}
+
+
+def test_titles_come_back_for_the_reviewer_to_read(conn, source_id, story):
+    titled(conn, source_id, story(), "A headline worth naming a topic after")
+    for _ in range(2):
+        story(unit(1.0, 0.02))
+
+    group = topics.suggest(conn, min_size=3)[0]
+    assert "A headline worth naming a topic after" in group.titles
+
+
+def test_nothing_recent_suggests_nothing(conn):
+    assert topics.suggest(conn) == []
