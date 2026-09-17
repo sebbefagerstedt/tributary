@@ -133,9 +133,10 @@ Three gaps between that and the product wanted, cheapest first:
   titles.
 - Verified in Chromium at phone width in both themes, against a real bundle
   built by `build_bundle` rather than hand-written JSON. 192 tests, lint clean.
-  **This retires the "UI never visually verified" debt** below: the browser
-  libs it was blocked on are present in the Claude Code web sandbox, with
-  Playwright pointed at `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`.
+  **This retired the "UI never visually verified" debt**, now struck from the
+  list: the browser libs it was blocked on are present in the Claude Code web
+  sandbox, with Playwright pointed at
+  `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`.
 
 Known rough edge, pre-existing and untouched: at phone width the header's
 "N stories · updated Xm ago" wraps under the brand and crowds the tabs.
@@ -479,6 +480,40 @@ things already arriving via TechCrunch, HN, arXiv and HF, and "it is so much
 text" was the original complaint about it. Its value here is the blurbs and the
 editorial judgement, not the coverage.
 
+## Fixed 2026-09-17: the pipeline was churning, not accumulating
+
+Found by reading a scheduled run's log rather than the site. Every run:
+
+```
+Cache restored from key: tributary-db-7     <- the cache was fine
+fetch    1298 new, 0 updated across 20 sources
+Deleted  1295 items and 823 empty stories
+```
+
+**Zero updated** was the tell. On a restored database the arXiv papers fetched
+three hours earlier should come back as updates; zero means last run's items
+were gone. Feeds that serve their whole archive have no cursor and no useful
+validators, so they re-delivered years-old entries on every run: inserted as
+new, embedded (45 seconds of it), triaged, clustered, deleted by the next
+prune, and fetched again three hours later, forever.
+
+The fix is `store.MAX_ITEM_AGE_DAYS`, matching `trib prune --days`: an item
+older than the retention window is dropped at ingest rather than stored, so
+nothing is embedded that the next prune would immediately delete. An item
+already stored is exempt — it ages out through prune rather than vanishing
+mid-window. Undated items count as current, since plenty of sources give no
+date and refusing them would empty the feed.
+
+`trib run` now prints unchanged and too-old counts too. All-new with nothing
+unchanged is the shape of churn rather than of news, and the old one-line
+summary could not show it.
+
+**The scheduled trigger was never broken.** A long detour concluded it was,
+on the strength of checks that stopped before the run that proved otherwise:
+the 09:00 window fired at 09:18, an 18-minute delay, which is ordinary. The
+schedule moved to minute 17 anyway, which is still worth having, but the
+reasoning recorded in that commit message was wrong.
+
 ## Known debt
 
 - **42% of feed cards have no summary at all** — just a title. **Hub items fixed
@@ -499,8 +534,10 @@ editorial judgement, not the coverage.
 - **Import AI returns HTTP 403 on GitHub Actions** — Substack blocks those IPs.
   Works fine locally. Either drop it from `config.toml` or accept the gap; it is
   already surfaced in the UI's broken-sources banner.
-- UI never visually verified — blocked on sudo-installed browser libs:
-  `libnspr4 libnss3 libasound2t64 libatk-bridge2.0-0 libatspi2.0-0 libgbm1 libxkbcommon0`.
+- **MarkTechPost fails to parse** — `unparseable feed (not well-formed, invalid
+  token)`, so the source has been contributing nothing. Unlike Import AI's 403
+  this is not an IP block: the feed itself is malformed. Either the adapter
+  tolerates it or the source goes.
 - `trib status` (db path, size, counts, last fetch) — suggested, not built.
 - Scheduled workflows are disabled after 60 days of repo inactivity (email first;
   any push resets it).

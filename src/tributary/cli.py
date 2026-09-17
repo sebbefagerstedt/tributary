@@ -918,8 +918,16 @@ def run(
     outcomes = fetch_all(conn, cfg.sources, only=source)
     new = sum(o.result.inserted for o in outcomes if o.ok)
     updated = sum(o.result.updated for o in outcomes if o.ok)
+    # Unchanged and stale are what tell you a run is doing real work rather than
+    # re-ingesting the same archive: all-new with nothing unchanged is the shape
+    # of churn, not of news.
+    unchanged = sum(o.result.unchanged for o in outcomes if o.ok)
+    stale = sum(o.result.stale for o in outcomes if o.ok)
     failed = [o for o in outcomes if not o.ok]
-    console.print(f"[cyan]fetch[/]   {new} new, {updated} updated across {len(outcomes)} sources")
+    console.print(
+        f"[cyan]fetch[/]   {new} new, {updated} updated, {unchanged} unchanged, "
+        f"{stale} too old across {len(outcomes)} sources"
+    )
     for outcome in failed:
         err.print(f"  [red]{outcome.source}:[/] {truncate(outcome.error, 70)}")
 

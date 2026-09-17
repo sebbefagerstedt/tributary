@@ -9,7 +9,7 @@ import hashlib
 import json
 import sqlite3
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from tributary.config import SourceConfig
 from tributary.db import transaction
@@ -52,15 +52,29 @@ class SourceRow:
     state: dict
 
 
+# Items older than this are dropped at ingest instead of inserted, and the
+# number matches `trib prune --days`, so nothing is stored that the next prune
+# would immediately delete.
+#
+# Without this the pipeline churns. Feeds that serve their whole archive have no
+# cursor and no useful validators, so every run re-delivers the same years-old
+# entries: they insert as new, get embedded, triaged and clustered, are deleted
+# by prune minutes later, and arrive again three hours after that. Measured on
+# the scheduled run of 2026-09-17 -- 1298 inserted, *zero* updated, 1295 pruned,
+# with embedding alone taking 45 seconds of it.
+MAX_ITEM_AGE_DAYS = 60
+
+
 @dataclass(slots=True)
 class IngestResult:
     inserted: int = 0
     updated: int = 0
     unchanged: int = 0
+    stale: int = 0  # older than the retention window, so never stored
 
     @property
     def total(self) -> int:
-        return self.inserted + self.updated + self.unchanged
+        return self.inserted + self.updated + self.unchanged + self.stale
 
 
 def sync_sources(conn: sqlite3.Connection, configs: list[SourceConfig]) -> list[SourceRow]:
@@ -103,17 +117,38 @@ def sync_sources(conn: sqlite3.Connection, configs: list[SourceConfig]) -> list[
     ]
 
 
-def record_items(conn: sqlite3.Connection, source_id: int, items: list[RawItem]) -> IngestResult:
+def _is_stale(item: RawItem, cutoff: datetime | None) -> bool:
+    """Too old to be worth storing. An undated item is treated as current."""
+    if cutoff is None or item.published_at is None:
+        return False
+    published = item.published_at
+    if published.tzinfo is None:
+        published = published.replace(tzinfo=UTC)
+    return published < cutoff
+
+
+def record_items(
+    conn: sqlite3.Connection,
+    source_id: int,
+    items: list[RawItem],
+    max_age_days: int | None = MAX_ITEM_AGE_DAYS,
+) -> IngestResult:
     """Insert new items and refresh content on ones already seen.
 
     Re-fetching is idempotent on ``(source_id, external_id)``. Upstream edits to
     a title or summary are picked up, but triage state is never clobbered — a
     corrected typo should not send an item back through the pipeline.
+
+    Anything older than ``max_age_days`` is dropped here rather than inserted:
+    see ``MAX_ITEM_AGE_DAYS``. Pass ``None`` to keep everything.
     """
     result = IngestResult()
     if not items:
         return result
 
+    cutoff = (
+        datetime.now(UTC) - timedelta(days=max_age_days) if max_age_days is not None else None
+    )
     with transaction(conn):
         existing = {
             r["external_id"]: r["content_hash"]
@@ -122,6 +157,13 @@ def record_items(conn: sqlite3.Connection, source_id: int, items: list[RawItem])
             )
         }
         for item in items:
+            # Checked before the hash so an archive feed costs nothing to skip,
+            # but after nothing else: an item already stored stays stored, and
+            # ages out through prune rather than vanishing mid-window.
+            if item.external_id not in existing and _is_stale(item, cutoff):
+                result.stale += 1
+                continue
+
             digest = content_hash(item)
             if existing.get(item.external_id) == digest:
                 result.unchanged += 1
