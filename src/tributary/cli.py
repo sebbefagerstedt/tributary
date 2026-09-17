@@ -889,10 +889,13 @@ def run(
 
     clustered = cluster_mod.run(conn)
     info = cluster_mod.stats(conn)
+    # The near-miss count belongs in the scheduled log too: a merge rate that
+    # looks too low is only diagnosable next to the band that just missed.
+    near = f", {len(clustered.ambiguous)} near-misses" if clustered.ambiguous else ""
     console.print(
         f"[cyan]cluster[/] {clustered.assigned} assigned "
-        f"({clustered.joined_by_identifier} by id, {clustered.joined_by_similarity} by similarity) "
-        f"— {info['stories']} stories"
+        f"({clustered.joined_by_identifier} by id, {clustered.joined_by_similarity} by similarity"
+        f"{near}) — {info['stories']} stories"
     )
 
     # After clustering: topics describe a story, which does not exist until here.
