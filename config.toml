@@ -119,6 +119,19 @@ mode = "models"
 sort = "likes7d"
 limit = 50
 
+# What a paper set off. Newest-first over the hub is mostly daily fine-tunes and
+# requants, so `cites_paper` keeps only repos whose card links an arXiv paper --
+# those carry the paper's id, which is a strong identifier, so they land in that
+# paper's story rather than starting one of their own. The filter runs after the
+# fetch, so ask for far more than you expect to keep.
+[[sources]]
+kind = "hf"
+name = "HF New Implementations"
+mode = "models"
+sort = "createdAt"
+cites_paper = true
+limit = 300
+
 [[sources]]
 kind = "github"
 name = "GitHub Releases"

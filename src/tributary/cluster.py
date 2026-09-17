@@ -74,12 +74,22 @@ class ClusterResult:
         return self.stories_created + self.joined_by_identifier + self.joined_by_similarity
 
 
-def role_for(kind: str, story_has_seed: bool) -> str:
-    """What this item contributes. An article leads only when nothing else does."""
+def role_for(kind: str, *, first_in_story: bool) -> str:
+    """What this item contributes: whatever opens a story leads it, and whatever
+    arrives afterwards contributes to it.
+
+    Asking "does this story already have a seed?" was the wrong question, because
+    a paper-led story holds the role `paper` and no seed at all -- so everything
+    joining one was labelled a second seed. That made a story's own coverage
+    invisible in its wake, seed being the one role that describes the
+    announcement rather than a reaction to it.
+    """
     role = _KIND_ROLE.get(kind, COVERAGE)
-    if role is COVERAGE and not story_has_seed:
-        return SEED
-    return role
+    if first_in_story:
+        # Something has to lead, even when all that showed up is a wire rewrite.
+        return SEED if role is COVERAGE else role
+    # A hub artefact turning up later was built on the story, not announced by it.
+    return CODE if role is SEED else role
 
 
 def unclustered(conn: sqlite3.Connection, limit: int | None = None) -> list[sqlite3.Row]:
@@ -156,22 +166,15 @@ def create_story(conn: sqlite3.Connection, item_id: int, kind: str, at: str) -> 
     ).lastrowid
     conn.execute(
         "INSERT INTO story_items (story_id, item_id, role) VALUES (?, ?, ?)",
-        (story_id, item_id, role_for(kind, story_has_seed=False)),
+        (story_id, item_id, role_for(kind, first_in_story=True)),
     )
     return story_id
 
 
 def add_to_story(conn: sqlite3.Connection, story_id: int, item_id: int, kind: str, at: str) -> None:
-    has_seed = (
-        conn.execute(
-            "SELECT 1 FROM story_items WHERE story_id = ? AND role = ? LIMIT 1", (story_id, SEED)
-        ).fetchone()
-        is not None
-    )
-    role = role_for(kind, story_has_seed=has_seed)
     conn.execute(
         "INSERT OR IGNORE INTO story_items (story_id, item_id, role) VALUES (?, ?, ?)",
-        (story_id, item_id, role),
+        (story_id, item_id, role_for(kind, first_in_story=False)),
     )
     # A new primary artefact is a material update; more coverage of the same
     # thing is not, and must not resurface a story you have already seen.

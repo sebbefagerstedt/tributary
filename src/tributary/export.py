@@ -19,10 +19,38 @@ from pathlib import Path
 
 from tributary import feed as feed_mod
 from tributary import triage
+from tributary.text import truncate
 
 WEB_DIR = Path(__file__).parent / "web"
 DEFAULT_LIMIT = 80
 DEFAULT_DAYS = 30
+# Item blurbs are for scanning a story's members, not reading them, and every
+# one of them is paid for by all eighty stories in the bundle.
+ITEM_SUMMARY_LIMIT = 220
+
+# Adapters name engagement differently; the page should not have to care.
+_METRICS = (("points", ("points", "upvotes")), ("comments", ("num_comments",)))
+
+
+def _engagement(raw: str | None) -> dict | None:
+    """Vote and comment counts lifted out of an item's metadata blob.
+
+    This is the community signal -- how much argument a story actually drew --
+    and it is the whole reason the detail sheet is worth opening.
+    """
+    try:
+        metadata = json.loads(raw or "{}")
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(metadata, dict):
+        return None
+
+    found = {}
+    for name, keys in _METRICS:
+        value = next((metadata[key] for key in keys if isinstance(metadata.get(key), int)), None)
+        if value:
+            found[name] = value
+    return found or None
 
 
 def build_bundle(
@@ -41,6 +69,7 @@ def build_bundle(
     for card in cards:
         found = feed_mod.detail(conn, card.story_id)
         items = found[1] if found else []
+        engagements = [found for item in items if (found := _engagement(item["metadata"]))]
         stories.append(
             {
                 "story_id": card.story_id,
@@ -55,6 +84,14 @@ def build_bundle(
                 "signal": card.signal(),
                 "item_count": card.item_count,
                 "media_url": card.media_url,
+                # The loudest thread wins the card: two small threads are not
+                # the same story-level signal as one big argument.
+                "engagement": {
+                    name: biggest
+                    for name in ("points", "comments")
+                    if (biggest := max((e.get(name, 0) for e in engagements), default=0))
+                }
+                or None,
                 "items": [
                     {
                         "role": item["role"],
@@ -64,6 +101,8 @@ def build_bundle(
                         "author": item["author"],
                         "source": item["source_name"],
                         "published_at": item["published_at"],
+                        "summary": truncate(item["summary"], ITEM_SUMMARY_LIMIT),
+                        "engagement": _engagement(item["metadata"]),
                     }
                     for item in items
                 ],

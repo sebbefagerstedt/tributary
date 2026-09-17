@@ -17,11 +17,26 @@ from tributary.text import truncate
 API = "https://huggingface.co/api"
 SUMMARY_LIMIT = 2000
 MODES = ("models", "datasets", "papers")
+ARXIV_TAG = "arxiv:"
 
 
 def _owner(repo_id: str) -> str | None:
     """The account a hub repo belongs to, e.g. 'deepseek-ai/DeepSeek-V4' -> 'deepseek-ai'."""
     return repo_id.split("/")[0] if "/" in repo_id else None
+
+
+def _arxiv_from_tags(tags) -> str | None:
+    """The paper a hub repo was built from, if its card cites one.
+
+    The hub tags a repo `arxiv:2305.14314` when its model card links the paper.
+    Lifting that to `arxiv_id` is the whole trick behind finding what a paper set
+    off: identity already treats that key as a strong identifier, so the model
+    lands in the paper's story without anything having to match text.
+    """
+    for tag in tags or []:
+        if isinstance(tag, str) and tag.startswith(ARXIV_TAG):
+            return tag[len(ARXIV_TAG) :] or None
+    return None
 
 
 def _parse_time(value: str | None) -> datetime | None:
@@ -63,7 +78,16 @@ class HuggingFaceSource(Source):
         if not isinstance(payload, list):
             raise FetchError(f"unexpected response shape from {mode}: {type(payload).__name__}")
 
-        return [built for entry in payload if (built := builder(entry))], new_state
+        items = [built for entry in payload if (built := builder(entry))]
+        if options.get("cites_paper"):
+            # Sorting by creation date returns the hub's full firehose of daily
+            # fine-tunes and requants. Keeping only repos that cite a paper is
+            # what turns that into "someone implemented this" -- but the hub has
+            # no server-side filter for "has any arxiv tag", so it is applied
+            # here and `limit` is spent before the filter, not after. Ask for
+            # considerably more than you expect to keep.
+            items = [item for item in items if item.metadata.get("arxiv_id")]
+        return items, new_state
 
     def _build_model(self, entry: dict) -> RawItem | None:
         repo_id = entry.get("id") or entry.get("modelId")
@@ -81,6 +105,7 @@ class HuggingFaceSource(Source):
             published_at=_parse_time(entry.get("createdAt")),
             metadata={
                 "hf_id": repo_id,
+                "arxiv_id": _arxiv_from_tags(entry.get("tags")),
                 "likes": entry.get("likes", 0),
                 "downloads": entry.get("downloads", 0),
                 "trending_score": entry.get("trendingScore", 0),
