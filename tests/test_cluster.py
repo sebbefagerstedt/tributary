@@ -124,14 +124,37 @@ def test_the_time_window_separates_recurrences(conn, make):
 # --- roles and story state ---------------------------------------------------
 
 def test_role_follows_kind():
-    assert cluster.role_for("paper", story_has_seed=False) == cluster.PAPER
-    assert cluster.role_for("repo", story_has_seed=False) == cluster.CODE
-    assert cluster.role_for("discussion", story_has_seed=False) == cluster.DISCUSSION
+    assert cluster.role_for("paper", first_in_story=True) == cluster.PAPER
+    assert cluster.role_for("repo", first_in_story=True) == cluster.CODE
+    assert cluster.role_for("discussion", first_in_story=True) == cluster.DISCUSSION
 
 
 def test_an_article_leads_only_when_nothing_else_does():
-    assert cluster.role_for("article", story_has_seed=False) == cluster.SEED
-    assert cluster.role_for("article", story_has_seed=True) == cluster.COVERAGE
+    assert cluster.role_for("article", first_in_story=True) == cluster.SEED
+    assert cluster.role_for("article", first_in_story=False) == cluster.COVERAGE
+
+
+def test_a_model_joining_a_story_is_something_built_on_it():
+    """Seed is the announcement, and earns no chip; a later model is not that."""
+    assert cluster.role_for("model", first_in_story=True) == cluster.SEED
+    assert cluster.role_for("model", first_in_story=False) == cluster.CODE
+
+
+def test_coverage_of_a_paper_is_coverage_not_a_second_seed(conn, make):
+    """A paper-led story holds no 'seed' role, which used to hide its own wake."""
+    paper = [("arxiv", "2609.1")]
+    make("A paper", kind="paper", at="2026-09-15T00:00:00Z", vector=(1.0, 0.0),
+         identifiers=paper)
+    make("Press writes it up", kind="article", at="2026-09-15T06:00:00Z", vector=(0.0, 1.0),
+         identifiers=paper)
+    cluster.run(conn)
+
+    roles = dict(
+        conn.execute(
+            "SELECT i.kind, si.role FROM story_items si JOIN items i ON i.id = si.item_id"
+        )
+    )
+    assert roles == {"paper": cluster.PAPER, "article": cluster.COVERAGE}
 
 
 def test_more_coverage_does_not_count_as_a_material_update(conn, make):

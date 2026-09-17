@@ -184,6 +184,42 @@ def test_hf_model_author_derived_from_repo_id(httpx_mock):
     assert items[0].metadata["likes"] == 2807
 
 
+def test_hf_model_citing_a_paper_carries_its_id(httpx_mock):
+    """The join that turns a new model into the wake of the paper it implements."""
+    httpx_mock.add_response(
+        json=[{"id": "someone/tinydistil", "tags": ["pytorch", "arxiv:2609.11234", "license:mit"]}]
+    )
+    items, _ = HuggingFaceSource(cfg("hf", mode="models")).fetch({})
+    assert items[0].metadata["arxiv_id"] == "2609.11234"
+
+
+def test_hf_model_citing_nothing_has_no_paper(httpx_mock):
+    httpx_mock.add_response(json=[{"id": "someone/a-finetune", "tags": ["pytorch"]}])
+    items, _ = HuggingFaceSource(cfg("hf", mode="models")).fetch({})
+    assert items[0].metadata["arxiv_id"] is None
+
+
+def test_cites_paper_drops_the_hub_firehose(httpx_mock):
+    """Newest-first is mostly requants; only the ones citing a paper are wake."""
+    httpx_mock.add_response(
+        json=[
+            {"id": "a/requant-of-the-week", "tags": ["gguf"]},
+            {"id": "b/paper-implementation", "tags": ["arxiv:2609.11234"]},
+            {"id": "c/another-finetune", "tags": []},
+        ]
+    )
+    items, _ = HuggingFaceSource(
+        cfg("hf", mode="models", sort="createdAt", cites_paper=True)
+    ).fetch({})
+    assert [item.external_id for item in items] == ["b/paper-implementation"]
+
+
+def test_without_cites_paper_nothing_is_dropped(httpx_mock):
+    httpx_mock.add_response(json=[{"id": "a/one", "tags": []}, {"id": "b/two", "tags": []}])
+    items, _ = HuggingFaceSource(cfg("hf", mode="models")).fetch({})
+    assert len(items) == 2
+
+
 def test_hf_unknown_mode_is_rejected():
     with pytest.raises(FetchError, match="unknown hf mode"):
         HuggingFaceSource(cfg("hf", mode="wat")).fetch({})

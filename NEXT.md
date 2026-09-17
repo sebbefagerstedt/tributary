@@ -53,15 +53,12 @@ Three gaps between that and the product wanted, cheapest first:
    role counts render as colour-coded chips instead of one line of grey text,
    vote and comment counts reach the page at all, stories and their items show
    the art and blurbs that were already being fetched. See "Shipped" below.
-2. **Nothing discovers reactions.** The real blocker, and now the next thing.
-   `sources/github.py` polls
-   ten hardcoded repos for *releases* — it can never find a new project built
-   on a story. "Projects started after this news" needs GitHub repo search
-   (created in the last N days, matching a story's identifiers), a different
-   endpoint and a genuine new adapter. Expect it to be noisy and rate-limited:
-   budget for the same threshold tuning triage needed. Reddit would serve the
-   same role for argument and is still blocked on API approval — worth
-   requesting early (see Later phases).
+2. **Nothing discovers reactions.** **Partly addressed 2026-09-17** via Hugging
+   Face; see "Shipped" and "Why not GitHub repo search" below. `sources/github.py`
+   still only polls ten hardcoded repos for *releases* and cannot find a new
+   project built on a story. Reddit would cover argument rather than artefacts
+   and is still blocked on API approval — worth requesting early (see Later
+   phases).
 3. **No time axis.** Items cluster inside a 14-day window, but nothing orders a
    story as announcement → what followed. The shape over time is the
    interesting part and is currently invisible.
@@ -91,6 +88,61 @@ Three gaps between that and the product wanted, cheapest first:
 
 Known rough edge, pre-existing and untouched: at phone width the header's
 "N stories · updated Xm ago" wraps under the brand and crowds the tabs.
+
+### Shipped 2026-09-17, part two: finding what a paper set off
+
+- **`arxiv:` tags become a join.** The hub tags a repo `arxiv:2609.11234` when
+  its card cites that paper. `_build_model` now lifts the first such tag into
+  `metadata["arxiv_id"]`, which `identity` already treats as a strong
+  identifier — so the model lands in that paper's story through tier-1
+  clustering with no text matching and no changes to `identity.py`.
+- **A `cites_paper` option**, and a new `HF New Implementations` source using
+  `sort = "createdAt"`. Newest-first over the hub is mostly daily requants and
+  fine-tunes; keeping only repos that cite a paper is what turns that firehose
+  into "someone implemented this". The hub has no server-side filter for "has
+  any arxiv tag", so it runs client-side and `limit` is spent *before* it —
+  hence 300.
+- **`role_for` now asks whether an item opens a story, not whether the story
+  holds a `seed` role.** Those are different questions: a paper-led story holds
+  the role `paper` and no seed at all, so everything joining one was labelled a
+  second seed. Since seed is the one role that means "the announcement" and
+  therefore earns no chip, **a paper's own coverage was invisible in its wake**.
+  This also drops a per-item query from `add_to_story`.
+
+**Roles are stored, not recomputed**, so existing stories keep the old labels
+until `trib cluster --reset` rebuilds them. Worth doing once to get the
+coverage chips on stories already in the database.
+
+**One unverified assumption:** `sort = "createdAt"` is the hub's sort key by
+name. It could not be checked from the sandbox this was written in, where
+`huggingface.co` is blocked by the egress proxy — the adapter's parsing is the
+existing proven path, so this is the only new guess. Confirm with
+`trib fetch --source "HF New" --dry-run` on a machine that can reach the hub.
+
+### Why not GitHub repo search
+
+Tried first, and rejected on evidence rather than taste — worth not
+rediscovering:
+
+- A bare arXiv id matches nothing: repo search does not index READMEs without
+  `in:readme`.
+- `2305.14314 in:readme created:>2026-06-01` returns roadmaps, awesome-lists
+  and course notes (`llm-systems-engineering-roadmap`, `ai-system-design`,
+  `FM-os: curated repos, courses, papers`). Those cite hundreds of papers each
+  and are created constantly, so they match *every* paper story and would
+  flood each one with the same handful of junk.
+- The genuine implementation, `artidoro/qlora`, is excluded by that same date
+  filter: it was created in 2023, long before the wake window.
+- The noise cannot be filtered in the query — GitHub rejects more than five
+  boolean operators, so `NOT awesome NOT roadmap …` does not fit.
+
+The structural problem is that lists cite everything, so text matching cannot
+separate "built on" from "mentions". If it is ever worth revisiting, the
+discriminator has to run client-side: fetch a candidate's README and count
+distinct arXiv citations (an implementation cites one or two, a list cites
+dozens). That needs a DB-reading pipeline stage rather than a `Source`, since
+adapters deliberately never touch the database. HF's tags are the same signal
+already structured, which is why they came first.
 
 **Beyond AI.** The architecture is already close to domain-general: sources and
 the whole triage profile are `config.toml`, and the pipeline never mentions a
