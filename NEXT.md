@@ -237,6 +237,12 @@ Items 1 and 3 of the list below, the ones your notes kept coming back to.
 - Also fixed the header, which wrapped "N stories · updated Xm ago" mid-sentence
   at phone width and read as a bug; it is a stacked subtitle now.
 
+**Judged on live data the same day and found wanting** — see "Topics as an
+ontology" below. 1442 of 1499 stories took a label, the spine read as
+source-driven rather than subject-driven, and it turned out to be only the
+category level of a three-level problem. The filter row stays: filtering by
+topic is the entire point of the product. The spine is what needs replacing.
+
 **Nothing in the spine is AI-specific by design.** Replacing it and the triage
 profile is most of what pointing Tributary at another subject involves — which
 is the "not only AI" thread from the direction section, now actually load
@@ -244,6 +250,94 @@ bearing rather than aspirational.
 
 Still open from that list: **"more like this"** (item 2) — nearest-neighbour
 over vectors already on disk, now much easier since a story has a centroid.
+
+## Topics as an ontology
+
+Worked out 2026-09-17. This supersedes the flat spine shipped the same day, and
+it is the core of the product rather than a feature of it: **the whole idea is
+topics, and topics are an ontology.**
+
+### The flat spine conflated three different things
+
+| Level | Example | How it should be made |
+|---|---|---|
+| **Category** | "ai models", "frontier models", "new model releases" | Few, stable, hand-made. Hardcoding is correct here |
+| **Entity** | "OpenAI", "Astra", "Opus", "Hugging Face" | Extracted, then accepted by a human. **The missing layer** |
+| **Event** | "the huggingface incident", "Astra 6.1 released" | Already exists — it is a story |
+
+The spine built today is only level 1, flattened. That is why it felt
+"hardcoded from specific sources": it was the one level where hardcoding is
+fine, doing the job of the two levels where it is not.
+
+**A tree will not hold.** The huggingface incident belongs under Astra *and*
+under OpenAI. This is a graph, not a hierarchy — `story_topics` is already
+many-to-many, `topics.parent_id` gives the browsing skeleton, and an event can
+hang off several entities at once.
+
+### How Reddit actually does it, and why it cannot be copied
+
+Subreddits are user-created, the namespace is **flat**, and there is no
+hierarchy at all: r/MachineLearning and r/LocalLLaMA are unrelated in the data
+model. Apparent relatedness is convention — sidebar links, naming, and
+multireddits, which are a personal grouping rather than a shared tree. Flair is
+the only real sub-level, defined per subreddit by moderators.
+
+The load-bearing part is that **a human classifies at submission time**. Someone
+decides a link belongs in r/LocalLLaMA by posting it there. No algorithm assigns
+posts to subreddits. Tributary has no submitters, so classification has to be
+automatic — the same shape of problem wearing different clothes.
+
+### The way through: propose, then accept
+
+Extraction proposes entity candidates; a human accepts, renames or rejects them;
+accepted entities become followable and slot under a category. That recovers
+Reddit's human-decides property without needing a crowd, and it is how a topic
+ends up called whatever people actually call it. For now Sebastian is that
+human — "I can be the person to accept the topics you suggest" — and the same
+mechanism generalises to users later if this ever has any.
+
+**The schema has been waiting for this since the first commit**, entirely
+unused — no Python references any of it:
+
+```sql
+entities      (kind: model|org|person|tool|paper|dataset, name, aliases)
+item_entities / story_entities
+follows       (target_kind: topic|entity|source, weight)
+```
+
+`identity.py` is already a partial entity extractor: HF orgs and model slugs,
+GitHub repos, arXiv ids. But it writes to `identifiers`, which exists to *join*
+items into stories. The same extraction pointed at `entities` is for *following*.
+Same signal, different destination.
+
+### Gossip is content, not noise
+
+"New Astra 6.1 speculations and release date… this is what I want to read about
+as well, the gossip." Speculation, leaks and the argument around an incident are
+wanted material. Two consequences:
+
+1. Triage must not treat rumour and speculation as low quality.
+2. **The entity is the right bundle for this, not the event.** "Astra 6.1
+   speculation" and "Astra 6.1 released" are different happenings about the same
+   thing. Following the *entity* collects both; clustering them into one story
+   would be wrong, because they are not the same event. This is the clearest
+   argument that the fix for "it has to be bundled together" is the entity
+   layer, **not** a lower merge threshold.
+
+### Open questions
+
+- **Ranking candidates for review.** Frequency across stories is the obvious
+  first cut, and it is reliable but late: a brand-new name is interesting on day
+  one and only frequent by day three. Being first is most of the value.
+- **Aliases.** "Astra", "Astra 6", "Astra 6.1", `astra-6.1-flash` are one thing.
+  The `aliases` column exists; unclear whether a human fills it at accept time
+  or whether near-matches are proposed automatically.
+- **Retroactivity.** Accepting an entity should presumably re-label the back
+  catalogue, the way changing the triage or topic profile already does.
+- **Categories**: hand-written, or proposed like entities?
+- **Where review happens** — a CLI queue (`trib entities --review`) is the
+  cheapest, but accepting topics from the phone is where it would actually get
+  done.
 
 ## The original list: topics, drill-down and filters
 
@@ -368,6 +462,17 @@ editorial judgement, not the coverage.
 - **42% of feed cards have no summary at all** — just a title. Worst for
   releases, models and HN threads (`ggml-org/llama.cpp b11003` says nothing).
   Fix by fetching the linked page's description / HF model card / release notes.
+  Seen live 2026-09-17 and it is worse than the number suggests: the story page
+  for `Agnes-AI/Agnes-3.0-Flash` is a title, one item, and nothing else — "I
+  want to know what makes this different. And what the reactions are." Both
+  halves are missing for the same reason. The hub's *list* endpoint returns no
+  description, so the card is a bare repo id; fetching the model card would fix
+  it. The reactions are missing because nothing clustered to it.
+- **Podcasts: links wanted, summaries wanted more.** Not started, and not in any
+  phase below as a near-term item. Links are an RSS adapter away, since podcast
+  feeds are RSS. Summaries are the genuinely hard half — that is transcription
+  plus summarisation, the same Phase 4 problem as YouTube, and the one place an
+  API key would actually buy something.
 - `cli.py` is ~900 lines — by far the largest file, first thing to split.
 - **Import AI returns HTTP 403 on GitHub Actions** — Substack blocks those IPs.
   Works fine locally. Either drop it from `config.toml` or accept the gap; it is
