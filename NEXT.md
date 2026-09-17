@@ -158,7 +158,43 @@ The topics work below is not superseded by this — it is the same feature seen
 from the other end. Topics are what make filters, drill-down and a
 multi-subject feed possible.
 
-## Next up: topics, drill-down and filters
+## Shipped 2026-09-17, part three: topics and filters
+
+Items 1 and 3 of the list below, the ones your notes kept coming back to.
+
+- **`topics.py`** — the same machinery as triage aimed at a different question:
+  not "is this worth keeping" but "what is it about". Cosine similarity against
+  embedded prose, so **still no API key**; the note further down about dynamic
+  topics not needing an LLM turned out to be exactly right.
+- **Topics attach to stories, not items.** A story is what you browse and
+  filter, and its members are by construction about the same thing, so it is
+  scored once — as the *mean* of its members' vectors, re-normalised, rather
+  than whichever item happened to arrive first.
+- **A spine in `config.toml`** (`[topics]` plus `[[topics.spine]]`): models,
+  agents, safety, running it yourself, research, building with it, industry. A
+  story takes every topic it clears up to `max_per_story`, so overlapping
+  descriptions are fine. Changing the spine re-labels the back catalogue via
+  the same fingerprint trick triage uses, and a `topic_assigned` marker keeps
+  off-spine stories from being rescored every run.
+- **Filter row in the page**, built from the stories actually loaded — so a
+  filter never leads to an empty feed, and a topic nothing was written about
+  this week simply does not appear. Selection persists in `localStorage`
+  alongside the view.
+- **`trib topics --stats`** for tuning: a topic holding almost everything is
+  worded too broadly, one holding nothing is too narrow or is not something the
+  sources cover.
+- Also fixed the header, which wrapped "N stories · updated Xm ago" mid-sentence
+  at phone width and read as a bug; it is a stacked subtitle now.
+
+**Nothing in the spine is AI-specific by design.** Replacing it and the triage
+profile is most of what pointing Tributary at another subject involves — which
+is the "not only AI" thread from the direction section, now actually load
+bearing rather than aspirational.
+
+Still open from that list: **"more like this"** (item 2) — nearest-neighbour
+over vectors already on disk, now much easier since a story has a centroid.
+
+## The original list: topics, drill-down and filters
 
 This is the gap between what exists and what was originally described. All of it
 is local; none of it needs an API key (see the correction below).

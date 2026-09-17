@@ -59,11 +59,48 @@ class TriageConfig:
         return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
 
+DEFAULT_TOPIC_THRESHOLD = 0.60
+DEFAULT_MAX_TOPICS = 3
+
+
+@dataclass(slots=True)
+class TopicConfig:
+    slug: str
+    name: str
+    description: str
+
+
+@dataclass(slots=True)
+class TopicsConfig:
+    """What the feed is about, as opposed to what is worth keeping.
+
+    Scored exactly like triage, so `description` is a sentence describing the
+    kind of story that belongs under the topic, not a list of search terms.
+    """
+
+    threshold: float = DEFAULT_TOPIC_THRESHOLD
+    max_per_story: int = DEFAULT_MAX_TOPICS
+    spine: list[TopicConfig] = field(default_factory=list)
+
+    def fingerprint(self) -> str:
+        """Identity of this spine, so a change can trigger re-assignment."""
+        payload = json.dumps(
+            {
+                "threshold": self.threshold,
+                "max_per_story": self.max_per_story,
+                "spine": sorted((t.slug, t.name, t.description) for t in self.spine),
+            },
+            sort_keys=True,
+        )
+        return hashlib.sha256(payload.encode()).hexdigest()[:16]
+
+
 @dataclass(slots=True)
 class Config:
     db_path: Path
     sources: list[SourceConfig] = field(default_factory=list)
     triage: TriageConfig = field(default_factory=TriageConfig)
+    topics: TopicsConfig = field(default_factory=TopicsConfig)
     path: Path | None = None  # where this config was loaded from, for diagnostics
 
 
@@ -135,4 +172,22 @@ def _parse(raw: dict, path: Path) -> Config:
         always_keep=[k.lower() for k in raw_triage.get("always_keep", [])],
         always_drop=[k.lower() for k in raw_triage.get("always_drop", [])],
     )
-    return Config(db_path=resolved, sources=sources, triage=triage, path=path)
+    raw_topics = raw.get("topics", {})
+    spine = []
+    for entry in raw_topics.get("spine", []):
+        missing = {"slug", "name", "description"} - entry.keys()
+        if missing:
+            raise ValueError(f"{path}: topic entry missing {sorted(missing)}: {entry!r}")
+        spine.append(
+            TopicConfig(
+                slug=entry["slug"], name=entry["name"], description=entry["description"]
+            )
+        )
+    topics = TopicsConfig(
+        threshold=float(raw_topics.get("threshold", DEFAULT_TOPIC_THRESHOLD)),
+        max_per_story=int(raw_topics.get("max_per_story", DEFAULT_MAX_TOPICS)),
+        spine=spine,
+    )
+    return Config(
+        db_path=resolved, sources=sources, triage=triage, topics=topics, path=path
+    )

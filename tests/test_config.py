@@ -91,3 +91,45 @@ def test_absolute_db_path_is_left_alone(tmp_path):
     config = tmp_path / "config.toml"
     config.write_text('[tributary]\ndb_path = "/var/data/t.db"\n')
     assert config_mod.load(config).db_path == Path("/var/data/t.db")
+
+
+def test_loads_a_topic_spine(tmp_path):
+    path = write(
+        tmp_path,
+        """
+        [tributary]
+        db_path = "/tmp/x.db"
+
+        [topics]
+        threshold = 0.71
+        max_per_story = 2
+
+        [[topics.spine]]
+        slug = "agents"
+        name = "Agents & tools"
+        description = "agents, tool use and the protocols between them"
+        """,
+    )
+    cfg = config_mod.load(path)
+    assert cfg.topics.threshold == 0.71
+    assert cfg.topics.max_per_story == 2
+    assert cfg.topics.spine[0].slug == "agents"
+
+
+def test_a_topic_missing_its_description_is_rejected(tmp_path):
+    path = write(
+        tmp_path,
+        """
+        [[topics.spine]]
+        slug = "agents"
+        name = "Agents"
+        """,
+    )
+    with pytest.raises(ValueError, match="topic entry missing"):
+        config_mod.load(path)
+
+
+def test_no_topics_section_is_fine(tmp_path):
+    """Topics are optional; the feed works without a spine."""
+    cfg = config_mod.load(write(tmp_path, '[tributary]\ndb_path = "/tmp/x.db"\n'))
+    assert cfg.topics.spine == []
