@@ -34,6 +34,24 @@ _IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
 _LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 _SKIP_PREFIXES = ("#", "|", ">", "-", "*", "+", "```", "<", "[!", ":")
 
+# The hub's card template is mostly prose already, so "the first paragraph" finds
+# the template's own words rather than anything about this model. Seen live: a
+# card whose description came out as "Users (both direct and downstream) should
+# be made aware of the risks, biases and limitations of the model. More
+# information needed" -- true of every model ever published, and worse than the
+# bare title it replaced.
+_BOILERPLATE = (
+    "more information needed",
+    "this model card has been automatically generated",
+    "model card of a",
+    "should be made aware of the risks",
+    "use the code below to get started",
+    "carbon emissions can be estimated",
+    "[optional]",
+    "more details on the model",
+    "direct use",
+)
+
 
 def card_summary(markdown: str | None) -> str | None:
     """The first sentence of prose in a model card.
@@ -52,8 +70,12 @@ def card_summary(markdown: str | None) -> str | None:
         text = _LINK.sub(r"\1", text)
         text = strip_html(text.replace("\n", " "))
         # A line that was only badges and links leaves punctuation behind.
-        if text and len(text) > 40:
-            return truncate(text, SUMMARY_LIMIT)
+        if not text or len(text) <= 40:
+            continue
+        lowered = text.lower()
+        if any(marker in lowered for marker in _BOILERPLATE):
+            continue
+        return truncate(text, SUMMARY_LIMIT)
     return None
 
 

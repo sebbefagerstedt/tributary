@@ -77,6 +77,14 @@ header {
 }
 .filters::-webkit-scrollbar { display: none; }
 .filters:empty { display: none; }
+/* The shelf's contents, set back and lighter so the two rows read as levels
+   rather than as one long list of equals. */
+.filters.sub { margin-top: 6px; padding-left: 14px; }
+.filters.sub .filter { font-size: 12px; background: var(--surface-2); border-color: transparent; }
+.filters.sub .filter[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent); color: var(--accent);
+}
 .filter {
   flex: none; font: inherit; font-size: 12.5px; font-weight: 550; cursor: pointer;
   padding: 5px 11px; border-radius: 999px; white-space: nowrap;
@@ -86,6 +94,15 @@ header {
   background: var(--accent); border-color: var(--accent); color: #fff;
 }
 .filter .n { opacity: .6; margin-left: 5px; font-variant-numeric: tabular-nums; }
+
+.search {
+  display: block; width: 100%; max-width: 720px; margin: 8px auto 0;
+  font: inherit; font-size: 14px; color: var(--text);
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 10px; padding: 8px 12px; -webkit-appearance: none;
+}
+.search::placeholder { color: var(--faint); }
+.search:focus { outline: none; border-color: var(--accent); }
 
 main { max-width: 720px; margin: 0 auto; padding: 14px 14px 80px; }
 
@@ -156,7 +173,13 @@ main { max-width: 720px; margin: 0 auto; padding: 14px 14px 80px; }
 .sheet-bar {
   position: sticky; top: 0; background: color-mix(in srgb, var(--bg) 90%, transparent);
   backdrop-filter: blur(12px); border-bottom: 1px solid var(--line);
-  padding: calc(env(safe-area-inset-top) + 10px) 16px 10px; display: flex; gap: 12px;
+  padding: calc(env(safe-area-inset-top) + 6px) 12px 6px; display: flex; gap: 4px;
+}
+/* A 44px target: the feed's icon buttons are sized for a corner of a card, and
+   at that size this one was the hardest thing on the page to hit. */
+.sheet-bar .icon {
+  min-width: 44px; min-height: 44px; font-size: 20px;
+  display: flex; align-items: center; justify-content: center;
 }
 .sheet-body { max-width: 720px; margin: 0 auto; padding: 18px 16px; }
 .sheet h1 { font-size: 22px; line-height: 1.25; letter-spacing: -.02em; margin: 0 0 12px; }
@@ -214,6 +237,9 @@ main { max-width: 720px; margin: 0 auto; padding: 14px 14px 80px; }
     </div>
   </div>
   <div class="filters" id="filters"></div>
+  <div class="filters sub" id="subfilters"></div>
+  <input id="search" class="search" type="search" autocomplete="off"
+    placeholder="Search titles and summaries" aria-label="Search stories">
 </header>
 
 <main id="main"><div class="spinner"></div></main>
@@ -258,6 +284,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
 
 let view = localStorage.getItem('view') || 'feed';
 let topic = localStorage.getItem('topic') || '';
+let query = '';   // deliberately not persisted: a stale search on open is a bug
 let bundle = null;
 let current = null;
 let hasServer = true;   // set false on the first failed POST
@@ -351,11 +378,37 @@ function cardHTML(s) {
   </article>`;
 }
 
-const hasTopic = (s, slug) => (s.topics || []).some((t) => t.slug === slug);
+/* A story is on a shelf if it carries that topic or any topic under it, so
+   selecting "AI models" keeps everything filed under "Open weights" too. */
+const hasTopic = (s, slug) =>
+  (s.topics || []).some((t) => t.slug === slug || t.parent === slug);
+
+/* Every shelf a story sits on: its parents, plus any topic that has none.
+   Deduplicated, because a story that matched both "AI models" and its child
+   "Research" belongs to that shelf once, not twice. */
+function shelvesOf(s) {
+  const shelves = new Map();
+  for (const t of s.topics || []) {
+    const shelf = t.parent ? { slug: t.parent, name: t.parent_name } : { slug: t.slug, name: t.name };
+    if (!shelves.has(shelf.slug)) shelves.set(shelf.slug, shelf);
+  }
+  return [...shelves.values()];
+}
+
+/* Searches the story and everything attached to it, so a paper found by the
+   title of the thread arguing about it still comes back. */
+function matches(s, needle) {
+  const hay = [s.title, s.summary, s.source, ...(s.topics || []).map((t) => t.name),
+    ...(s.items || []).flatMap((i) => [i.title, i.source])];
+  return hay.some((text) => text && text.toLowerCase().includes(needle));
+}
 
 function visible() {
   let all = bundle.stories.filter((s) => !marks.dismissed.has(s.story_id));
   if (topic) all = all.filter((s) => hasTopic(s, topic));
+  // Search cuts across the tabs: looking for something you saved weeks ago
+  // should not depend on which tab you left selected.
+  if (query) return all.filter((s) => matches(s, query));
   if (view === 'saved') return all.filter((s) => marks.saved.has(s.story_id));
   if (view === 'unseen') return all.filter((s) => !marks.seen.has(s.story_id));
   return all;
@@ -363,30 +416,69 @@ function visible() {
 
 /* Built from the stories actually loaded, so a filter never leads to an empty
    feed and a topic nothing was written about this week simply does not appear. */
-function renderFilters() {
-  const live = bundle.stories.filter((s) => !marks.dismissed.has(s.story_id));
+/* Every topic seen in the loaded stories, by slug, so a selected slug can be
+   resolved to the shelf it sits on. */
+function topicIndex(live) {
+  const index = new Map();
+  for (const story of live) {
+    for (const label of story.topics || []) {
+      if (!index.has(label.slug)) index.set(label.slug, label);
+    }
+  }
+  return index;
+}
+
+function tally(live, labelsOf) {
   const counts = new Map();
   for (const story of live) {
-    for (const { slug, name } of story.topics || []) {
+    for (const { slug, name } of labelsOf(story)) {
       const seen = counts.get(slug) || { name, n: 0 };
       seen.n += 1;
       counts.set(slug, seen);
     }
   }
-  if (!counts.size) {
-    document.getElementById('filters').innerHTML = '';
+  return [...counts.entries()].sort((a, b) => b[1].n - a[1].n);
+}
+
+const chipRow = (ranked, selected, clearLabel, clearTo = '') => [
+  `<button class="filter" data-topic="${esc(clearTo)}" aria-pressed="${!selected}"
+    >${clearLabel}</button>`,
+  ...ranked.map(([slug, { name, n }]) =>
+    `<button class="filter" data-topic="${esc(slug)}" aria-pressed="${selected === slug}"
+      >${esc(name)}<span class="n">${n}</span></button>`),
+].join('');
+
+/* Two rows: shelves, then what is on the selected shelf. Both are built from
+   the stories actually loaded, so a filter never leads to an empty feed and a
+   subject nothing was written about this week simply does not appear. */
+function renderFilters() {
+  const live = bundle.stories.filter((s) => !marks.dismissed.has(s.story_id));
+  const index = topicIndex(live);
+  // A selection whose topic has since gone quiet would otherwise be unclearable.
+  if (topic && !index.has(topic)) topic = '';
+
+  const shelves = tally(live, shelvesOf);
+  const row = document.getElementById('filters');
+  const sub = document.getElementById('subfilters');
+  if (!shelves.length) {
+    row.innerHTML = '';
+    sub.innerHTML = '';
     return;
   }
-  // A filter for a topic that has since vanished would be unclearable.
-  if (topic && !counts.has(topic)) topic = '';
 
-  const ranked = [...counts.entries()].sort((a, b) => b[1].n - a[1].n);
-  document.getElementById('filters').innerHTML = [
-    `<button class="filter" data-topic="" aria-pressed="${!topic}">All</button>`,
-    ...ranked.map(([slug, { name, n }]) =>
-      `<button class="filter" data-topic="${esc(slug)}" aria-pressed="${topic === slug}"
-        >${esc(name)}<span class="n">${n}</span></button>`),
-  ].join('');
+  // `topic` holds either a shelf or something on one. Both light up the shelf.
+  const selected = index.get(topic);
+  const shelf = selected ? selected.parent || selected.slug : '';
+  row.innerHTML = chipRow(shelves, shelf, 'All');
+
+  // The second row is what is on the open shelf; "Everything" clears back to
+  // the shelf itself rather than to the whole feed.
+  const children = shelf
+    ? tally(live, (s) => (s.topics || []).filter((t) => t.parent === shelf))
+    : [];
+  sub.innerHTML = children.length
+    ? chipRow(children, topic === shelf ? '' : topic, 'Everything', shelf)
+    : '';
 }
 
 function render() {
@@ -400,7 +492,8 @@ function render() {
   let html = '';
   if (!stories.length) {
     html += `<div class="empty">${
-      view === 'saved' ? 'Nothing saved yet.'
+      query ? `Nothing matches <code>${esc(query)}</code>.`
+      : view === 'saved' ? 'Nothing saved yet.'
       : view === 'unseen' ? 'All caught up.'
       : 'Nothing here. Run <code>trib run</code> to fetch.'}</div>`;
   } else {
@@ -469,6 +562,10 @@ function openStory(id) {
   document.getElementById('save-detail').innerHTML = marks.saved.has(id) ? '&#9733;' : '&#9734;';
   sheet.classList.add('open');
   document.body.style.overflow = 'hidden';
+  /* A history entry so the phone's own back gesture closes the story instead of
+     leaving the site for whatever was open before Tributary. The URL is left
+     alone: this is a panel, not a page worth linking to. */
+  history.pushState({ sheet: id }, '');
 }
 
 function closeSheet() {
@@ -533,12 +630,25 @@ document.addEventListener('error', (event) => {
   if (event.target instanceof HTMLImageElement) event.target.remove();
 }, true);
 
-document.getElementById('close').addEventListener('click', closeSheet);
+document.getElementById('search').addEventListener('input', (event) => {
+  query = event.target.value.trim().toLowerCase();
+  render();
+});
+
+/* Every close goes through history, so the back arrow, Escape and the phone's
+   own back gesture all take the same path and the entry is never left behind. */
+const dismissSheet = () => { if (sheet.classList.contains('open')) history.back(); };
+
+window.addEventListener('popstate', () => {
+  if (sheet.classList.contains('open')) closeSheet();
+});
+
+document.getElementById('close').addEventListener('click', dismissSheet);
 document.getElementById('save-detail').addEventListener('click', (event) => {
   if (current !== null) event.currentTarget.innerHTML = toggleSave(current) ? '&#9733;' : '&#9734;';
 });
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && sheet.classList.contains('open')) closeSheet();
+  if (event.key === 'Escape') dismissSheet();
 });
 
 document.querySelectorAll('.tab').forEach((t) =>

@@ -45,6 +45,27 @@ def test_headings_badges_and_code_are_skipped():
     assert "img.shields.io" not in (describe.card_summary(CARD) or "")
 
 
+TEMPLATE = """---
+license: apache-2.0
+---
+
+# Model Card for tournament-tourn_5c64e784a087074a
+
+Users (both direct and downstream) should be made aware of the risks, biases and
+limitations of the model. More information needed for further recommendations.
+
+## Model Details
+
+More Information Needed
+"""
+
+
+def test_template_boilerplate_is_not_a_description():
+    """Seen live: this text reached the top of the feed. It is true of every
+    model ever published, and worse than the bare title it replaced."""
+    assert describe.card_summary(TEMPLATE) is None
+
+
 def test_a_card_with_no_prose_describes_nothing():
     bare = "---\nlicense: mit\n---\n\n# Model\n\n![badge](https://x.test/b.png)\n"
     assert describe.card_summary(bare) is None
