@@ -11,7 +11,12 @@ from abc import ABC, abstractmethod
 from typing import ClassVar
 
 from tributary.config import SourceConfig
+from tributary.http import FetchError
 from tributary.models import RawItem
+
+# Re-exported: adapters have always raised FetchError from here, but it is
+# defined alongside the code that raises it so http does not depend on sources.
+__all__ = ["REGISTRY", "FetchError", "Source", "build", "register"]
 
 REGISTRY: dict[str, type[Source]] = {}
 
@@ -19,10 +24,6 @@ REGISTRY: dict[str, type[Source]] = {}
 def register(cls: type[Source]) -> type[Source]:
     REGISTRY[cls.kind] = cls
     return cls
-
-
-class FetchError(RuntimeError):
-    """A source failed to fetch. Recorded against the source, never fatal to a run."""
 
 
 class Source(ABC):

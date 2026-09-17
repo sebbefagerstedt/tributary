@@ -125,6 +125,9 @@ def test_limit_caps_the_bundle(conn, source_id):
 def test_adapters_name_votes_differently_and_the_page_should_not_care():
     assert export._engagement(json.dumps({"points": 892})) == {"points": 892}
     assert export._engagement(json.dumps({"upvotes": 41})) == {"points": 41}
+    # A hub like is the closest thing a model has to a vote, and without this a
+    # *trending* model reached the page showing no reaction at all.
+    assert export._engagement(json.dumps({"likes": 2807})) == {"points": 2807}
 
 
 def test_counts_travel_together():

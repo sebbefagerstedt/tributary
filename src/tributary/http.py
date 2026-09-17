@@ -11,12 +11,21 @@ from typing import Any
 
 import httpx
 
-from tributary.sources.base import FetchError
-
 USER_AGENT = "tributary/0.1 (personal news aggregator)"
 TIMEOUT = httpx.Timeout(20.0, connect=10.0)
 
 NOT_MODIFIED = 304
+
+
+class FetchError(RuntimeError):
+    """A fetch failed. Recorded against the source, never fatal to a run.
+
+    Defined here rather than in ``sources.base`` because this module raises it
+    and must not depend on the adapters: importing it the other way round made
+    ``tributary.http`` impossible to import on its own, and it worked only
+    because every caller happened to load ``tributary.sources`` first.
+    ``sources.base`` re-exports it, so the adapters' import path is unchanged.
+    """
 
 
 def request(

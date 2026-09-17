@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import re
+import subprocess
+import sys
 from datetime import UTC, datetime
 
 import pytest
@@ -292,3 +294,24 @@ def test_github_all_repos_failing_is_an_error(httpx_mock):
 def test_github_requires_repos():
     with pytest.raises(FetchError, match="non-empty 'repos'"):
         GitHubSource(cfg("github")).fetch({})
+
+
+# --- package structure -------------------------------------------------------
+
+def test_http_can_be_imported_without_the_adapters():
+    """Regression: http took FetchError from sources.base, so importing http
+    first pulled in every adapter, each of which imports http right back. It
+    worked only because every caller happened to load sources first."""
+    done = subprocess.run(
+        [sys.executable, "-c", "from tributary.http import request, FetchError"],
+        capture_output=True,
+        text=True,
+    )
+    assert done.returncode == 0, done.stderr
+
+
+def test_adapters_still_raise_the_same_class():
+    """Moving it must not split FetchError into two unrelated exceptions."""
+    from tributary import http
+
+    assert FetchError is http.FetchError
