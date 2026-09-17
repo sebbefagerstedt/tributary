@@ -13,7 +13,7 @@ from tributary import calibrate as calibrate_mod
 from tributary import cluster as cluster_mod
 from tributary import config as config_mod
 from tributary import db as db_mod
-from tributary import embeddings, enrich, store, topics, triage
+from tributary import describe, embeddings, enrich, store, topics, triage
 from tributary import export as export_mod
 from tributary import feed as feed_mod
 from tributary.pipeline import fetch_all
@@ -579,6 +579,32 @@ def cluster_cmd(
     )
 
 
+@app.command(name="describe")
+def describe_cmd(
+    config: ConfigOpt = None,
+    limit: Annotated[
+        int, typer.Option("--limit", help="How many items to fetch cards for.")
+    ] = describe.DEFAULT_LIMIT,
+    reset: Annotated[
+        bool, typer.Option("--reset", help="Retry every item, including past failures.")
+    ] = False,
+) -> None:
+    """Fetch descriptions for items that arrived as a bare title."""
+    _, conn = _open(config)
+    if reset:
+        describe.reset(conn)
+        console.print("[yellow]Cleared the record of what has been attempted.[/]")
+
+    result = describe.run(conn, limit=limit)
+    if not result["attempted"]:
+        console.print("[green]Nothing missing a description.[/]")
+        return
+    console.print(
+        f"[green]{result['filled']} described[/] of {result['attempted']} attempted — "
+        f"those items are re-embedded and re-triaged on the next run"
+    )
+
+
 @app.command(name="topics")
 def topics_cmd(
     config: ConfigOpt = None,
@@ -896,6 +922,15 @@ def run(
     console.print(f"[cyan]fetch[/]   {new} new, {updated} updated across {len(outcomes)} sources")
     for outcome in failed:
         err.print(f"  [red]{outcome.source}:[/] {truncate(outcome.error, 70)}")
+
+    # Before embedding, so a fetched description feeds the vector and the triage
+    # decision rather than arriving a run too late to affect either.
+    described = describe.run(conn)
+    if described["attempted"]:
+        console.print(
+            f"[cyan]describe[/] {described['filled']} of {described['attempted']} "
+            f"bare items given a description"
+        )
 
     embeddings.check_model(conn)
     rows = embeddings.pending(conn)

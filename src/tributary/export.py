@@ -29,7 +29,7 @@ DEFAULT_DAYS = 30
 ITEM_SUMMARY_LIMIT = 220
 
 # Adapters name engagement differently; the page should not have to care.
-_METRICS = (("points", ("points", "upvotes")), ("comments", ("num_comments",)))
+_METRICS = (("points", ("points", "upvotes", "likes")), ("comments", ("num_comments",)))
 
 
 def _engagement(raw: str | None) -> dict | None:

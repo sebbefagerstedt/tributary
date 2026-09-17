@@ -481,15 +481,15 @@ editorial judgement, not the coverage.
 
 ## Known debt
 
-- **42% of feed cards have no summary at all** — just a title. Worst for
-  releases, models and HN threads (`ggml-org/llama.cpp b11003` says nothing).
-  Fix by fetching the linked page's description / HF model card / release notes.
-  Seen live 2026-09-17 and it is worse than the number suggests: the story page
-  for `Agnes-AI/Agnes-3.0-Flash` is a title, one item, and nothing else — "I
-  want to know what makes this different. And what the reactions are." Both
-  halves are missing for the same reason. The hub's *list* endpoint returns no
-  description, so the card is a bare repo id; fetching the model card would fix
-  it. The reactions are missing because nothing clustered to it.
+- **42% of feed cards have no summary at all** — just a title. **Hub items fixed
+  2026-09-17** by `describe.py`, which fetches the model card and takes its first
+  real sentence; `Agnes-AI/Agnes-3.0-Flash` was the example that prompted it.
+  Still open for everything else: HN threads and GitHub releases
+  (`ggml-org/llama.cpp b11003` says nothing), which need the linked page's
+  description and therefore the HTML-scrape adapter that does not exist yet.
+  The "what are the reactions" half of that same page is separate and is the
+  clustering problem, not this one — though hub *likes* now reach the card,
+  which they never did before.
 - **Podcasts: links wanted, summaries wanted more.** Not started, and not in any
   phase below as a near-term item. Links are an RSS adapter away, since podcast
   feeds are RSS. Summaries are the genuinely hard half — that is transcription
