@@ -205,6 +205,20 @@ main { max-width: 720px; margin: 0 auto; padding: 14px 14px 80px; }
 .item-meta { font-size: 12.5px; color: var(--faint); }
 .item-meta .eng { color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; }
 
+/* A topic is a place you are in, not a setting you have on. */
+.topic-head {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 12px 15px; margin-bottom: 10px; box-shadow: var(--shadow);
+}
+.topic-name { font-size: 17px; font-weight: 650; letter-spacing: -.015em; }
+.topic-meta { color: var(--faint); font-size: 12.5px; margin-top: 2px; }
+
+.sheet-topics { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 16px; }
+.topic-link {
+  --c: var(--accent); cursor: pointer; font-family: inherit;
+  font-size: 12px; padding: 4px 10px;
+}
+
 .empty { text-align: center; color: var(--muted); padding: 64px 20px; }
 .empty code {
   background: var(--surface-2); padding: 2px 7px; border-radius: 5px;
@@ -451,12 +465,7 @@ const chipRow = (ranked, selected, clearLabel, clearTo = '') => [
 /* Two rows: shelves, then what is on the selected shelf. Both are built from
    the stories actually loaded, so a filter never leads to an empty feed and a
    subject nothing was written about this week simply does not appear. */
-function renderFilters() {
-  const live = bundle.stories.filter((s) => !marks.dismissed.has(s.story_id));
-  const index = topicIndex(live);
-  // A selection whose topic has since gone quiet would otherwise be unclearable.
-  if (topic && !index.has(topic)) topic = '';
-
+function renderFilters(live, index) {
   const shelves = tally(live, shelvesOf);
   const row = document.getElementById('filters');
   const sub = document.getElementById('subfilters');
@@ -481,15 +490,30 @@ function renderFilters() {
     : '';
 }
 
+/* The banner that makes a topic a place rather than a filter setting. */
+function topicHead(label, count) {
+  if (!label) return '';
+  const where = label.parent_name ? `${esc(label.parent_name)} › ` : '';
+  return `<div class="topic-head">
+    <div class="topic-name">${where}${esc(label.name)}</div>
+    <div class="topic-meta">${count} ${count === 1 ? 'story' : 'stories'}</div>
+  </div>`;
+}
+
 function render() {
-  renderFilters();
+  const live = bundle.stories.filter((s) => !marks.dismissed.has(s.story_id));
+  const index = topicIndex(live);
+  // A selection whose topic has since gone quiet would otherwise be unclearable.
+  if (topic && !index.has(topic)) topic = '';
+
+  renderFilters(live, index);
   const stories = visible();
   const status = bundle.status;
   const age = ago(bundle.generated_at);
   document.getElementById('count').textContent =
     `${status.stories} stories · updated ${age} ago`;
 
-  let html = '';
+  let html = topic ? topicHead(index.get(topic), stories.length) : '';
   if (!stories.length) {
     html += `<div class="empty">${
       query ? `Nothing matches <code>${esc(query)}</code>.`
@@ -542,6 +566,11 @@ function openStory(id) {
     ${s.media_url ? `<img class="hero" src="${esc(s.media_url)}" alt=""
       referrerpolicy="no-referrer">` : ''}
     <h1>${esc(s.title)}</h1>
+    ${(s.topics || []).length ? `<div class="sheet-topics">${
+      (s.topics || []).map((t) =>
+        `<button class="chip topic-link" data-goto="${esc(t.slug)}">${
+          t.parent_name ? esc(t.parent_name) + ' › ' : ''}${esc(t.name)}</button>`).join('')
+    }</div>` : ''}
     ${s.summary ? `<p class="abstract">${esc(s.summary)}</p>` : ''}
     ${order.filter((r) => groups[r]).map((role) => `
       <div class="group-label">${esc(names[role] || role)}</div>
@@ -591,6 +620,18 @@ document.addEventListener('click', (event) => {
     document.querySelectorAll('.tab').forEach((t) =>
       t.setAttribute('aria-selected', String(t === tab)));
     render();
+    return;
+  }
+
+  /* Going into a topic from a story: close the story and land in the topic,
+     which is the "walk into the subreddit" move rather than a filter toggle. */
+  const goto = event.target.closest('[data-goto]');
+  if (goto) {
+    topic = goto.dataset.goto;
+    localStorage.setItem('topic', topic);
+    dismissSheet();
+    render();
+    window.scrollTo({ top: 0 });
     return;
   }
 

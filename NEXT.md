@@ -1,7 +1,7 @@
 # Tributary — state and remaining work
 
-Live at **https://sebbefagerstedt.github.io/tributary/**, rebuilt at 06:00,
-11:00 and 18:00 Swedish time. 184 tests passing, lint clean.
+Live at **https://sebbefagerstedt.github.io/tributary/**, rebuilt every three
+hours at minute 17. 247 tests passing, lint clean.
 **Zero LLM/API usage — everything local and free.**
 
 ## The original idea

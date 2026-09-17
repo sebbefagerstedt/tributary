@@ -8,15 +8,19 @@ name: Update feed
 # rebuilds from the sources, which is slower but self-healing.
 on:
   schedule:
-    # ~06:00, ~11:00 and ~18:00 Swedish summer time (CEST, UTC+2). GitHub cron is
-    # always UTC and cannot follow daylight saving, so through the winter
-    # (CET, UTC+1) these land an hour earlier at 05:00, 10:00 and 17:00 local.
+    # Every three hours, at minute 17. Eight runs a day rather than three, so
+    # the feed is never much more than a commute out of date, and no window
+    # matters enough to chase when GitHub drops one.
     #
-    # Minute 17, not 0. GitHub queues every repository's on-the-hour schedules at
-    # once and drops them under load, and on this repo the first two windows at
-    # minute 0 never fired at all -- no `schedule` run was ever created. An odd
-    # minute is the standard way out. Treat these as "about then" regardless.
-    - cron: "17 4,9,16 * * *"
+    # Minute 17, not 0. GitHub queues every repository's on-the-hour schedules
+    # at once and drops them under load, and on this repo the first two windows
+    # at minute 0 never fired at all -- no `schedule` run was ever created.
+    # An odd minute is the standard way out.
+    #
+    # Cron is UTC and cannot follow daylight saving, so in Swedish summer time
+    # these land at 02:17, 05:17, 08:17 ... 23:17 local, an hour earlier in
+    # winter. Treat them as "about then": scheduled runs are delayed under load.
+    - cron: "17 */3 * * *"
   workflow_dispatch:          # and a "Run workflow" button
   push:
     branches: [main]
