@@ -46,12 +46,15 @@ discussion · 3 sources`. The ripple is computed on every run today.
 
 Three gaps between that and the product wanted, cheapest first:
 
-1. **The story page never shows roles.** Items, roles and URLs all reach
-   `data.json` (`export.py:60-66`); `role` appears in `index.html` only as an
-   ARIA attribute. You cannot click through to the repo or the thread. This is
-   rendering work against data already on disk, and it is the fastest way to
-   find out whether the ripple is rich enough to carry the feature.
-2. **Nothing discovers reactions.** The real blocker. `sources/github.py` polls
+1. ~~**The wake is invisible while browsing.**~~ **Done 2026-09-17.** The story
+   sheet always did group items by role into labelled, clickable sections
+   (`openStory`) — an earlier revision of this file claimed otherwise and was
+   wrong. What was actually missing was on the feed itself, and is now fixed:
+   role counts render as colour-coded chips instead of one line of grey text,
+   vote and comment counts reach the page at all, stories and their items show
+   the art and blurbs that were already being fetched. See "Shipped" below.
+2. **Nothing discovers reactions.** The real blocker, and now the next thing.
+   `sources/github.py` polls
    ten hardcoded repos for *releases* — it can never find a new project built
    on a story. "Projects started after this news" needs GitHub repo search
    (created in the last N days, matching a story's identifiers), a different
@@ -63,8 +66,31 @@ Three gaps between that and the product wanted, cheapest first:
    story as announcement → what followed. The shape over time is the
    interesting part and is currently invisible.
 
-Do 1 before 2. It is small, it is reversible, and it answers whether there is
-enough wake on a typical story to be worth chasing more of.
+### Shipped 2026-09-17
+
+- **Role chips.** The wake of a story renders on the card as coloured chips
+  (`1 paper · 1 repo · 1 discussion`), using the per-kind palette already in
+  `:root`. Counts come from the items the bundle already carried, so this cost
+  no new backend query. `seed` earns no chip: it is the announcement, not a
+  reaction to it.
+- **Community counts.** `export._engagement` lifts votes and replies out of an
+  item's metadata blob, normalising HN `points`/`num_comments` and HF `upvotes`
+  onto one shape so the page never learns which adapter it is reading. A story
+  shows its loudest thread; each item shows its own. This is the first time
+  that signal has left the database.
+- **Art and blurbs.** `media_url` was fetched, stored and exported all along
+  and no `<img>` existed to show it — now a card thumbnail and a detail hero.
+  Broken hotlinks remove themselves rather than leaving a grey box. Story items
+  carry a truncated summary, so the drill-down is no longer a list of bare
+  titles.
+- Verified in Chromium at phone width in both themes, against a real bundle
+  built by `build_bundle` rather than hand-written JSON. 192 tests, lint clean.
+  **This retires the "UI never visually verified" debt** below: the browser
+  libs it was blocked on are present in the Claude Code web sandbox, with
+  Playwright pointed at `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`.
+
+Known rough edge, pre-existing and untouched: at phone width the header's
+"N stories · updated Xm ago" wraps under the brand and crowds the tabs.
 
 **Beyond AI.** The architecture is already close to domain-general: sources and
 the whole triage profile are `config.toml`, and the pipeline never mentions a

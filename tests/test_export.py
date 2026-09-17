@@ -115,3 +115,74 @@ def test_bundle_json_is_serialisable(conn, source_id):
 def test_limit_caps_the_bundle(conn, source_id):
     seed(conn, source_id)
     assert len(export.build_bundle(conn, limit=1)["stories"]) == 1
+
+
+# --- engagement --------------------------------------------------------------
+# Metadata is whatever an adapter chose to store, so this reads a blob no schema
+# guards.
+
+
+def test_adapters_name_votes_differently_and_the_page_should_not_care():
+    assert export._engagement(json.dumps({"points": 892})) == {"points": 892}
+    assert export._engagement(json.dumps({"upvotes": 41})) == {"points": 41}
+
+
+def test_counts_travel_together():
+    found = export._engagement(json.dumps({"points": 892, "num_comments": 214}))
+    assert found == {"points": 892, "comments": 214}
+
+
+def test_an_item_that_carries_no_counts_has_no_engagement():
+    assert export._engagement(json.dumps({"feed": "https://e.test/rss"})) is None
+    assert export._engagement("{}") is None
+    assert export._engagement(None) is None
+
+
+def test_unusable_metadata_is_not_fatal():
+    """One adapter storing junk must not take the whole bundle down with it."""
+    assert export._engagement("not json") is None
+    assert export._engagement("[1, 2]") is None
+    assert export._engagement(json.dumps({"points": "many"})) is None
+
+
+def test_zero_points_is_not_worth_a_badge():
+    assert export._engagement(json.dumps({"points": 0, "num_comments": 0})) is None
+
+
+def seed_threads(conn, source_id, *metadata, summary="A summary."):
+    """One story, joined by a shared arXiv id, with a thread per metadata blob."""
+    for n, blob in enumerate(metadata, start=1):
+        item_id = conn.execute(
+            "INSERT INTO items (source_id, external_id, kind, url, title, summary, "
+            "published_at, metadata, triage_state, triage_score, content_hash, embedded_hash) "
+            "VALUES (?, ?, ?, ?, ?, ?, datetime('now', '-1 day'), ?, 'kept', 0.8, 'h', 'h')",
+            (source_id, f"m{n}", "paper" if n == 1 else "discussion",
+             f"https://e.test/m{n}", f"Thread {n}", summary, json.dumps(blob)),
+        ).lastrowid
+        conn.execute("INSERT INTO item_vectors (item_id, embedding) VALUES (?, ?)",
+                     (item_id, unit(1.0)))
+        conn.execute("INSERT INTO identifiers (item_id, type, value) VALUES (?, 'arxiv', ?)",
+                     (item_id, "2609.9"))
+    cluster.run(conn)
+
+
+def test_the_loudest_thread_speaks_for_the_story(conn, source_id):
+    """Two quiet threads are not the signal that one big argument is."""
+    seed_threads(conn, source_id, {}, {"points": 120, "num_comments": 8},
+                 {"points": 892, "num_comments": 214})
+
+    story = export.build_bundle(conn)["stories"][0]
+    assert story["engagement"] == {"points": 892, "comments": 214}
+
+
+def test_a_story_nobody_argued_about_reports_none(conn, source_id):
+    seed_threads(conn, source_id, {})
+    assert export.build_bundle(conn)["stories"][0]["engagement"] is None
+
+
+def test_items_carry_their_own_blurb_and_counts(conn, source_id):
+    seed_threads(conn, source_id, {}, {"points": 5}, summary="x" * 400)
+
+    items = export.build_bundle(conn)["stories"][0]["items"]
+    assert all(len(item["summary"]) <= export.ITEM_SUMMARY_LIMIT + 1 for item in items)
+    assert [i["engagement"] for i in items if i["kind"] == "discussion"] == [{"points": 5}]

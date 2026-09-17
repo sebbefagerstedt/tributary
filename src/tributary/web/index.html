@@ -86,12 +86,30 @@ main { max-width: 720px; margin: 0 auto; padding: 14px 14px 80px; }
   color: var(--muted); font-size: 14px; line-height: 1.52; margin: 0;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
+/* min-width:0 lets the text column shrink, without which the clamp above
+   never engages and the thumbnail gets squeezed to nothing instead. */
+.row { display: flex; gap: 12px; align-items: flex-start; }
+.row .text { flex: 1; min-width: 0; }
+.thumb {
+  width: 76px; height: 76px; flex: none; display: block;
+  border-radius: 10px; object-fit: cover; background: var(--surface-2);
+}
 .signal {
-  margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--line);
-  display: flex; align-items: center; gap: 10px;
+  margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--line);
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
   font-size: 12.5px; color: var(--faint);
 }
 .signal b { color: var(--accent); font-weight: 600; }
+/* The wake of a story -- what it set off -- coloured by role. --c is set per
+   chip, so one rule covers every role and the palette stays in :root. */
+.chip {
+  font-size: 11.5px; font-weight: 600; line-height: 1.55; white-space: nowrap;
+  padding: 2px 8px; border-radius: 999px;
+  color: var(--c, var(--muted));
+  background: color-mix(in srgb, var(--c, var(--muted)) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c, var(--muted)) 26%, transparent);
+}
+.chip.eng { --c: var(--accent); font-variant-numeric: tabular-nums; }
 .actions { margin-left: auto; display: flex; gap: 4px; }
 .icon {
   border: 0; background: transparent; color: var(--faint); font-size: 15px;
@@ -115,6 +133,10 @@ main { max-width: 720px; margin: 0 auto; padding: 14px 14px 80px; }
 }
 .sheet-body { max-width: 720px; margin: 0 auto; padding: 18px 16px; }
 .sheet h1 { font-size: 22px; line-height: 1.25; letter-spacing: -.02em; margin: 0 0 12px; }
+.hero {
+  display: block; width: 100%; height: 190px; object-fit: cover;
+  border-radius: 12px; background: var(--surface-2); margin-bottom: 16px;
+}
 .abstract { color: var(--muted); font-size: 15px; line-height: 1.6; margin: 0 0 22px; }
 .group-label {
   font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
@@ -126,7 +148,12 @@ main { max-width: 720px; margin: 0 auto; padding: 14px 14px 80px; }
   padding: 12px 13px; margin-bottom: 7px;
 }
 .item-title { font-size: 14.5px; font-weight: 550; line-height: 1.38; margin-bottom: 4px; }
+.item-summary {
+  color: var(--muted); font-size: 13px; line-height: 1.5; margin: 0 0 5px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
 .item-meta { font-size: 12.5px; color: var(--faint); }
+.item-meta .eng { color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; }
 
 .empty { text-align: center; color: var(--muted); padding: 64px 20px; }
 .empty code {
@@ -186,6 +213,15 @@ const KINDS = {
   discussion: 'var(--discussion)', article: 'var(--article)', video: 'var(--video)',
 };
 const LABEL = { discussion: 'talk', article: 'news', repo: 'code' };
+/* What a story set off, in the order the wake tends to arrive. "seed" is the
+   announcement itself rather than a reaction to it, so it earns no chip. */
+const ROLE_CHIP = {
+  paper: ['paper', 'var(--paper)'],
+  code: ['repo', 'var(--repo)'],
+  video: ['video', 'var(--video)'],
+  discussion: ['discussion', 'var(--discussion)'],
+  coverage: ['article', 'var(--article)'],
+};
 const main = document.getElementById('main');
 const sheet = document.getElementById('sheet');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
@@ -224,6 +260,34 @@ function ago(iso) {
     : new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+const plural = (n, word) => `${n} ${word}${n > 1 ? 's' : ''}`;
+
+/* Votes and replies: the measure of how much argument a story actually drew. */
+function engagement(counts) {
+  if (!counts) return '';
+  const parts = [];
+  if (counts.points) parts.push(`&#9650; ${esc(counts.points)}`);
+  if (counts.comments) parts.push(plural(esc(counts.comments), 'comment'));
+  return parts.join(' · ');
+}
+
+function chipsHTML(s) {
+  const counts = {};
+  for (const item of s.items || []) counts[item.role] = (counts[item.role] || 0) + 1;
+
+  const chips = Object.entries(ROLE_CHIP)
+    .filter(([role]) => counts[role])
+    .map(([role, [label, colour]]) =>
+      `<span class="chip" style="--c:${colour}">${plural(counts[role], label)}</span>`);
+
+  if ((s.sources || []).length > 1) {
+    chips.push(`<span class="chip">${plural(s.sources.length, 'source')}</span>`);
+  }
+  const drew = engagement(s.engagement);
+  if (drew) chips.push(`<span class="chip eng">${drew}</span>`);
+  return chips.join('');
+}
+
 function cardHTML(s) {
   const colour = KINDS[s.kind] || 'var(--muted)';
   const label = LABEL[s.kind] || s.kind;
@@ -236,10 +300,16 @@ function cardHTML(s) {
       <span class="src">${esc(s.source)}</span>
       <span class="when">${esc(ago(s.published_at))}</span>
     </div>
-    <h2 class="title">${esc(s.title)}</h2>
-    ${s.summary ? `<p class="summary">${esc(s.summary)}</p>` : ''}
+    <div class="row">
+      <div class="text">
+        <h2 class="title">${esc(s.title)}</h2>
+        ${s.summary ? `<p class="summary">${esc(s.summary)}</p>` : ''}
+      </div>
+      ${s.media_url ? `<img class="thumb" src="${esc(s.media_url)}" alt=""
+        loading="lazy" referrerpolicy="no-referrer">` : ''}
+    </div>
     <div class="signal">
-      ${s.signal ? `<span>${esc(s.signal)}</span>` : '<span></span>'}
+      ${chipsHTML(s)}
       <span class="actions">
         <button class="icon${isSaved ? ' on' : ''}" data-act="saved" title="Save"
           >${isSaved ? '&#9733;' : '&#9734;'}</button>
@@ -308,17 +378,24 @@ function openStory(id) {
   };
 
   document.getElementById('sheet-body').innerHTML = `
+    ${s.media_url ? `<img class="hero" src="${esc(s.media_url)}" alt=""
+      referrerpolicy="no-referrer">` : ''}
     <h1>${esc(s.title)}</h1>
     ${s.summary ? `<p class="abstract">${esc(s.summary)}</p>` : ''}
     ${order.filter((r) => groups[r]).map((role) => `
       <div class="group-label">${esc(names[role] || role)}</div>
-      ${groups[role].map((item) => `
+      ${groups[role].map((item) => {
+        const drew = engagement(item.engagement);
+        return `
         <a class="item" href="${esc(item.url)}" target="_blank" rel="noopener">
           <div class="item-title">${esc(item.title)}</div>
+          ${item.summary ? `<p class="item-summary">${esc(item.summary)}</p>` : ''}
           <div class="item-meta">${esc(item.source)}${
             item.author ? ' · ' + esc(item.author) : ''}${
-            item.published_at ? ' · ' + esc(item.published_at.slice(0, 10)) : ''}</div>
-        </a>`).join('')}
+            item.published_at ? ' · ' + esc(item.published_at.slice(0, 10)) : ''}${
+            drew ? ` · <span class="eng">${drew}</span>` : ''}</div>
+        </a>`;
+      }).join('')}
     `).join('')}`;
 
   document.getElementById('save-detail').innerHTML = marks.saved.has(id) ? '&#9733;' : '&#9734;';
@@ -372,6 +449,13 @@ document.addEventListener('click', (event) => {
   const card = event.target.closest('.card');
   if (card) openStory(Number(card.dataset.id));
 });
+
+/* Feed art is hotlinked from whatever the source published, so some of it will
+   404 or be blocked. Drop those rather than leave a grey box on the card.
+   Capture, because error events do not bubble. */
+document.addEventListener('error', (event) => {
+  if (event.target instanceof HTMLImageElement) event.target.remove();
+}, true);
 
 document.getElementById('close').addEventListener('click', closeSheet);
 document.getElementById('save-detail').addEventListener('click', (event) => {
