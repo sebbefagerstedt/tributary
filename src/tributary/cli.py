@@ -13,7 +13,7 @@ from tributary import calibrate as calibrate_mod
 from tributary import cluster as cluster_mod
 from tributary import config as config_mod
 from tributary import db as db_mod
-from tributary import embeddings, enrich, store, triage
+from tributary import embeddings, enrich, store, topics, triage
 from tributary import export as export_mod
 from tributary import feed as feed_mod
 from tributary.pipeline import fetch_all
@@ -579,6 +579,41 @@ def cluster_cmd(
     )
 
 
+@app.command(name="topics")
+def topics_cmd(
+    config: ConfigOpt = None,
+    stats: Annotated[
+        bool, typer.Option("--stats", help="Story count per topic, for tuning the spine.")
+    ] = False,
+    reset: Annotated[
+        bool, typer.Option("--reset", help="Discard assignments and re-label every story.")
+    ] = False,
+) -> None:
+    """Label stories with what they are about."""
+    cfg, conn = _open(config)
+    if not cfg.topics.spine:
+        err.print("[yellow]No topics configured.[/] Add a [topics.spine] section.")
+        raise typer.Exit(1)
+
+    if not stats:
+        if reset:
+            topics.reset(conn)
+            console.print("[yellow]Cleared all topic assignments.[/]")
+        elif topics.reset_if_profile_changed(conn, cfg.topics):
+            console.print("[yellow]Spine changed — re-labelling every story.[/]")
+
+        result = topics.run(conn, cfg.topics)
+        console.print(
+            f"[green]{result.assigned} stories labelled[/] of {result.stories} scored — "
+            f"{result.unmatched} matched nothing on the spine"
+        )
+
+    table = Table("topic", "stories", title="Topics")
+    for row in topics.stats(conn):
+        table.add_row(row["name"], str(row["stories"]))
+    console.print(table)
+
+
 @app.command()
 def calibrate(
     config: ConfigOpt = None,
@@ -859,6 +894,15 @@ def run(
         f"({clustered.joined_by_identifier} by id, {clustered.joined_by_similarity} by similarity) "
         f"— {info['stories']} stories"
     )
+
+    # After clustering: topics describe a story, which does not exist until here.
+    if cfg.topics.spine:
+        topics.reset_if_profile_changed(conn, cfg.topics)
+        labelled = topics.run(conn, cfg.topics)
+        console.print(
+            f"[cyan]topics[/]  {labelled.assigned} stories labelled, "
+            f"{labelled.unmatched} off-spine"
+        )
 
     if failed:
         raise typer.Exit(1)  # so a scheduler notices a broken source

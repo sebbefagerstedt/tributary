@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from tributary import feed as feed_mod
-from tributary import triage
+from tributary import topics, triage
 from tributary.text import truncate
 
 WEB_DIR = Path(__file__).parent / "web"
@@ -64,6 +64,7 @@ def build_bundle(
     is a few hundred kilobytes, and one request beats eighty.
     """
     cards = feed_mod.build(conn, limit=limit, days=days, include_seen=True)
+    labels = topics.for_stories(conn, [card.story_id for card in cards])
 
     stories = []
     for card in cards:
@@ -84,6 +85,7 @@ def build_bundle(
                 "signal": card.signal(),
                 "item_count": card.item_count,
                 "media_url": card.media_url,
+                "topics": labels.get(card.story_id, []),
                 # The loudest thread wins the card: two small threads are not
                 # the same story-level signal as one big argument.
                 "engagement": {

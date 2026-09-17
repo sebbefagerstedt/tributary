@@ -192,3 +192,56 @@ exclude = [
 
 always_keep = ["anthropic", "claude", "gpt-", "gemini", "llama", "deepseek", "qwen", "mistral"]
 always_drop = []
+
+# --- Topics ------------------------------------------------------------------
+# What the feed is about, as opposed to what is worth keeping. Scored the same
+# way triage is -- cosine similarity against embedded prose -- so a description
+# is a sentence describing the kind of story that belongs here, not search
+# terms. Still no API key: this is the same local model.
+#
+# A story takes every topic it clears, up to `max_per_story`, so overlapping
+# descriptions are fine. Tune with `trib topics --stats`: a topic holding almost
+# everything is worded too broadly, one holding nothing is too narrow or is not
+# something the sources actually cover.
+#
+# Nothing here is AI-specific by design. Replacing this spine and the triage
+# profile is most of what pointing Tributary at another subject involves.
+
+[topics]
+threshold = 0.60
+max_per_story = 3
+
+[[topics.spine]]
+slug = "models"
+name = "Model releases"
+description = "a new model is released, with its benchmarks, capabilities and licence"
+
+[[topics.spine]]
+slug = "agents"
+name = "Agents & tools"
+description = "AI agents, tool use, and the protocols that connect models to real systems"
+
+[[topics.spine]]
+slug = "safety"
+name = "Safety & security"
+description = "AI safety, interpretability, alignment, jailbreaks and model security"
+
+[[topics.spine]]
+slug = "local"
+name = "Running it yourself"
+description = "running models locally: quantization, inference speed and GPU requirements"
+
+[[topics.spine]]
+slug = "research"
+name = "Research"
+description = "research on reasoning, training methods, architecture and evaluation"
+
+[[topics.spine]]
+slug = "building"
+name = "Building with it"
+description = "how developers build with models in practice: prompting, RAG, fine-tuning"
+
+[[topics.spine]]
+slug = "industry"
+name = "Industry & money"
+description = "AI companies, funding, chips, datacenters, policy and regulation"

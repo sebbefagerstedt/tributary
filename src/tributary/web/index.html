@@ -51,14 +51,41 @@ header {
   padding: calc(env(safe-area-inset-top) + 10px) 16px 10px;
 }
 .bar { display: flex; align-items: center; gap: 12px; max-width: 720px; margin: 0 auto; }
-.brand { font-weight: 650; letter-spacing: -.02em; font-size: 17px; margin-right: auto; }
-.brand span { color: var(--faint); font-weight: 400; font-size: 13px; margin-left: 8px; }
+/* Stacked, because "Tributary" plus a status line plus three tabs does not fit
+   across a phone -- and wrapped mid-sentence it reads as a bug rather than a
+   subtitle. */
+.brand {
+  display: flex; flex-direction: column; margin-right: auto; min-width: 0;
+  font-weight: 650; letter-spacing: -.02em; font-size: 17px; line-height: 1.25;
+}
+.brand span {
+  color: var(--faint); font-weight: 400; font-size: 12.5px; letter-spacing: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .tabs { display: flex; gap: 2px; background: var(--surface-2); padding: 3px; border-radius: 10px; }
 .tab {
   border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 13px;
   padding: 5px 11px; border-radius: 8px; cursor: pointer; font-weight: 500;
 }
 .tab[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+
+/* Topic filters. A scrolling row rather than a wrapping one: the header is
+   sticky, and a wrapped row would eat the screen on a phone as topics grow. */
+.filters {
+  display: flex; gap: 6px; max-width: 720px; margin: 10px auto 0;
+  overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.filters::-webkit-scrollbar { display: none; }
+.filters:empty { display: none; }
+.filter {
+  flex: none; font: inherit; font-size: 12.5px; font-weight: 550; cursor: pointer;
+  padding: 5px 11px; border-radius: 999px; white-space: nowrap;
+  border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+}
+.filter[aria-pressed="true"] {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+}
+.filter .n { opacity: .6; margin-left: 5px; font-variant-numeric: tabular-nums; }
 
 main { max-width: 720px; margin: 0 auto; padding: 14px 14px 80px; }
 
@@ -188,6 +215,7 @@ main { max-width: 720px; margin: 0 auto; padding: 14px 14px 80px; }
       <button class="tab" role="tab" data-view="saved" aria-selected="false">Saved</button>
     </div>
   </div>
+  <div class="filters" id="filters"></div>
 </header>
 
 <main id="main"><div class="spinner"></div></main>
@@ -228,6 +256,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 let view = localStorage.getItem('view') || 'feed';
+let topic = localStorage.getItem('topic') || '';
 let bundle = null;
 let current = null;
 let hasServer = true;   // set false on the first failed POST
@@ -319,14 +348,46 @@ function cardHTML(s) {
   </article>`;
 }
 
+const hasTopic = (s, slug) => (s.topics || []).some((t) => t.slug === slug);
+
 function visible() {
-  const all = bundle.stories.filter((s) => !marks.dismissed.has(s.story_id));
+  let all = bundle.stories.filter((s) => !marks.dismissed.has(s.story_id));
+  if (topic) all = all.filter((s) => hasTopic(s, topic));
   if (view === 'saved') return all.filter((s) => marks.saved.has(s.story_id));
   if (view === 'unseen') return all.filter((s) => !marks.seen.has(s.story_id));
   return all;
 }
 
+/* Built from the stories actually loaded, so a filter never leads to an empty
+   feed and a topic nothing was written about this week simply does not appear. */
+function renderFilters() {
+  const live = bundle.stories.filter((s) => !marks.dismissed.has(s.story_id));
+  const counts = new Map();
+  for (const story of live) {
+    for (const { slug, name } of story.topics || []) {
+      const seen = counts.get(slug) || { name, n: 0 };
+      seen.n += 1;
+      counts.set(slug, seen);
+    }
+  }
+  if (!counts.size) {
+    document.getElementById('filters').innerHTML = '';
+    return;
+  }
+  // A filter for a topic that has since vanished would be unclearable.
+  if (topic && !counts.has(topic)) topic = '';
+
+  const ranked = [...counts.entries()].sort((a, b) => b[1].n - a[1].n);
+  document.getElementById('filters').innerHTML = [
+    `<button class="filter" data-topic="" aria-pressed="${!topic}">All</button>`,
+    ...ranked.map(([slug, { name, n }]) =>
+      `<button class="filter" data-topic="${esc(slug)}" aria-pressed="${topic === slug}"
+        >${esc(name)}<span class="n">${n}</span></button>`),
+  ].join('');
+}
+
 function render() {
+  renderFilters();
   const stories = visible();
   const status = bundle.status;
   const age = ago(bundle.generated_at);
@@ -425,6 +486,14 @@ document.addEventListener('click', (event) => {
     localStorage.setItem('view', view);
     document.querySelectorAll('.tab').forEach((t) =>
       t.setAttribute('aria-selected', String(t === tab)));
+    render();
+    return;
+  }
+
+  const filter = event.target.closest('.filter');
+  if (filter) {
+    topic = filter.dataset.topic;
+    localStorage.setItem('topic', topic);
     render();
     return;
   }

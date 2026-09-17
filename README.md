@@ -53,6 +53,7 @@ so a scheduler notices a broken feed. The stages are also separate commands
 | `trib feed` | the ranked feed in the terminal; `--days N`, `--unseen`, `--mark` |
 | `trib story <id>` | every item attached to one story |
 | `trib cluster` | `--reset` re-clusters; `--threshold` overrides the merge bar |
+| `trib topics` | label stories by subject; `--stats` story count per topic, `--reset` re-labels |
 | `trib calibrate` | measures clustering thresholds against ground truth |
 | `trib list` | `--state kept\|rejected\|pending`, `--ids`, `-n <limit>` |
 | `trib sources` | per-source health: counts, last fetch, last error |
