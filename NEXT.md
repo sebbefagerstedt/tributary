@@ -4,6 +4,57 @@ Live at **https://sebbefagerstedt.github.io/tributary/**, rebuilt at 06:00,
 11:00 and 18:00 Swedish time. 184 tests passing, lint clean.
 **Zero LLM/API usage — everything local and free.**
 
+## The original idea
+
+From the notebook page this started as, transcribed 2026-09-17. Kept because
+the roadmap below records what got built, which is not the same as what the
+thing was for.
+
+> - Blandat nyheter & sociala medier — **Verifierad (mer trovärdig)**
+> - Börja med nyheter för att samla
+> - **Vill ta bort mitt sociala medier beroende → något vettigt**
+> - Samla fakta från artiklar med personer som kommenterar
+> - Combo reddit, tiktok, youtube — (tech videos) för snabb info
+> - **Mål: Följa med på allt som händer — prio/börja med AI**
+
+The sketch above the list is three columns: a mixed feed, then `r/AI`, then
+`r/AI – huggingface incident`, with a funnel producing `anthropic IPO`.
+Everything → a subject → one event. That is feed, topic filter, story page, and
+the funnel is the clusterer.
+
+Measured against it:
+
+| From the page | Where it stands |
+|---|---|
+| Mixed news and social | Built, except Reddit (API approval) |
+| Facts from articles *plus the people commenting* | Built — the wake, 2026-09-17 |
+| A subject channel, `r/AI` | Built — topics, 2026-09-17 |
+| One event, everything about it | Built — the story page |
+| Start with news, to gather | Built |
+| **Verifierad (mer trovärdig)** | **Not built.** See below |
+| **reddit / tiktok / youtube, for quick info** | **Not built.** See below |
+| Prio/**börja** med AI | Config-deep, not code-deep — see topics |
+
+Two things the page asks for that nothing in this repo does yet:
+
+1. **"Verifierad (mer trovärdig)".** Corroboration exists as a *ranking* input —
+   `SOURCE_BONUS` lifts a story several sources covered, and the card shows a
+   "4 sources" chip — but the app never makes the claim. Saying "three
+   independent sources agree" out loud, and knowing when they are not
+   independent (a wire rewrite is not confirmation), is a different feature from
+   nudging a score.
+2. **"Combo reddit, tiktok, youtube … för snabb info".** Read with "vill ta bort
+   mitt sociala medier beroende", this is not a source list: it is the *format*
+   those apps are good at — fast, scannable, mostly not prose — aimed at
+   something worth reading. Card art and chips are a step; a feed you can get
+   through at that speed is a bigger idea, and the honest note is that nothing
+   here has been designed against it yet.
+
+The anti-doomscroll motive is a constraint, not just a nice origin story: it
+argues against the engagement mechanics that would be the obvious way to make a
+feed moreish. The README already says the ranking is deliberately not an
+engagement metric. Keep those two agreeing.
+
 ## Direction: less wall-of-text, more community
 
 Stated 2026-09-16, and it reframes the phases below. The complaint about TLDR —
