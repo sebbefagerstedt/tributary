@@ -97,7 +97,7 @@ Offer `uv run trib topics` to apply it immediately, and `uv run trib topics
 is worded too broadly; one that takes nothing is too narrow or is not something
 the sources cover.
 
-## 5. Retire what has gone quiet
+## 5. Notice what has gone quiet, and leave it alone
 
 Run this every time, even when proposing nothing:
 
@@ -105,20 +105,28 @@ Run this every time, even when proposing nothing:
 uv run trib topics --stats
 ```
 
-The `last story` column is the one that matters. A topic with nothing new for
-two or three weeks has finished — the argument moved on — and keeping it clutters
-the filter row for a subject that no longer produces anything. Propose retiring
-it, and remove the `[[topics.spine]]` entry for the ones the user agrees to.
+The `last story` column says which topics have gone quiet. **Report them; do not
+propose deleting them.** A topic dying means nobody looks at it any more, not
+that it should be removed:
 
-Two things make this safe to do freely:
+- **It already costs nothing.** The filter row is built from the stories
+  actually loaded, so a topic with nothing recent is invisible on the page
+  without anyone doing anything.
+- **It comes back for free.** If the subject returns, a topic still in the spine
+  picks the new stories up. One that was deleted has to be noticed and written
+  again.
+- **Deleting is not free.** Removing an entry changes the spine fingerprint,
+  which drops every row in `story_topics` and re-labels the whole corpus. The
+  surviving topics are re-derived so nothing is permanently lost, but the
+  deleted topic's history goes, and it is pointless churn for a topic that was
+  already invisible.
 
-- **The page already hides dead topics by itself.** The filter row is built from
-  the stories actually loaded, so a topic with nothing recent simply does not
-  appear. Retiring is housekeeping for the config, not a fix for the UI.
-- Removing a topic does not delete anything. Its stories keep their items and
-  their place in the feed; they just stop carrying that label.
+So a long tail of dormant topics is the expected steady state, not a mess to
+clean up. The config file grows slowly; that is fine, it is a text file.
 
-Because topics die, the spine does not grow without bound, and being wrong about
-a name is cheap. Propose freely and retire honestly.
+**Removing is for topics that were wrong, not topics that are finished.** Say so
+when one is genuinely a mistake — it never matched anything, it is worded so
+broadly it swallows the feed, or it duplicates another entry — and offer to
+remove that. "Quiet for three weeks" is not a mistake.
 
 Do not commit. The user decides when their config is worth a commit.

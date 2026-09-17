@@ -324,6 +324,28 @@ wanted material. Two consequences:
    argument that the fix for "it has to be bundled together" is the entity
    layer, **not** a lower merge threshold.
 
+### Topics have a lifecycle, and dying is the cheap part
+
+Decided 2026-09-17. A topic is not permanent taxonomy: it is created when
+something starts happening and **dies when nobody looks at it any more**. Dying
+is dormancy, not deletion — the entry stays in the spine.
+
+That turns out to need almost no code, because the page already behaves this
+way: the filter row is built from the stories actually loaded, so a topic with
+nothing recent disappears on its own and returns by itself if the subject does.
+`trib topics --stats` reports last activity per topic so dormancy is visible.
+
+Deleting a dormant topic would be actively worse: removing an entry changes the
+spine fingerprint, which drops every `story_topics` row and re-labels the whole
+corpus. Surviving topics are re-derived, so nothing permanent is lost, but it is
+pointless churn for something that was already invisible. **Removal is for
+topics that were a mistake** — never matched anything, worded so broadly it
+swallows the feed, duplicates another — not for topics that are simply finished.
+
+A long tail of dormant topics is therefore the expected steady state rather than
+a mess, which is also what makes proposing new ones cheap: a badly named topic
+goes quiet and stops mattering, at the cost of one config line.
+
 ### Open questions
 
 - **Ranking candidates for review.** Frequency across stories is the obvious
