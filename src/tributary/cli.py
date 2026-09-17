@@ -619,7 +619,8 @@ def topics_cmd(
         return
 
     if not cfg.topics.spine:
-        err.print("[yellow]No topics configured.[/] Add a [topics.spine] section.")
+        # Escaped: rich reads square brackets as markup and would eat the name.
+        err.print(r"[yellow]No topics configured.[/] Add a \[\[topics.spine]] section.")
         raise typer.Exit(1)
 
     if not stats:
@@ -635,9 +636,11 @@ def topics_cmd(
             f"{result.unmatched} matched nothing on the spine"
         )
 
-    table = Table("topic", "stories", title="Topics")
+    table = Table("topic", "stories", "last story", title="Topics")
     for row in topics.stats(conn):
-        table.add_row(row["name"], str(row["stories"]))
+        # Topics are allowed to be short-lived, so "quiet since" is the column
+        # that says whether one has finished rather than failed.
+        table.add_row(row["name"], str(row["stories"]), (row["newest"] or "never")[:10])
     console.print(table)
 
 

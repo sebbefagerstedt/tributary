@@ -36,11 +36,19 @@ Work from the headlines, not the group numbers. For each group worth naming:
 - **Skip groups that are already covered.** A group whose `unclaimed` count is
   low is being handled by the existing spine. The interesting groups are the
   ones sorted to the top, with stories nothing claims.
-- **Propose at most three or four topics per day.** A spine that grows every day
-  stops being a spine. If nothing is genuinely uncovered, say so and stop —
-  that is a good outcome, not a failed run.
+- **Propose at most three or four topics per day.** If nothing is genuinely
+  uncovered, say so and stop — that is a good outcome, not a failed run.
 - **Name it what a reader would call it**, not what the cluster is technically
   about. "Running it yourself" beats "local inference optimisation".
+
+**Topics are allowed to die.** They are not a permanent taxonomy. A topic that
+matters for three weeks and then goes quiet has done its job, so propose the
+specific thing that is actually happening rather than a timeless category that
+will still be true next year and tells the reader nothing. "The Hugging Face
+outage" is a fine topic while people are arguing about it. Retiring is step 5.
+
+This is why proposing is cheap: a topic that turns out badly named or too narrow
+costs one config line and disappears at the next retirement pass. Do not agonise.
 
 For each proposal give the user:
 
@@ -66,12 +74,15 @@ proposal if:
 - An existing description already covers it. Overlap is allowed — a story takes
   every topic it clears, up to `max_per_story` — but two topics that mean the
   same thing split the same stories for no benefit.
-- It names one event rather than a kind of story. "The Hugging Face outage" is a
-  *story*, and the clusterer already groups those. A topic should still make
-  sense next month.
-- It names one company or model. Those are **entities**, a layer that does not
-  exist yet (see "Topics as an ontology" in `NEXT.md`). Do not smuggle them in
-  as topics — say that it would be better as an entity and move on.
+- It describes a **single story** rather than a run of them. One outage with one
+  report is a story and the clusterer already groups it. The same outage with
+  argument, follow-ups and a postmortem is a topic. The test is whether stories
+  keep arriving, not whether the subject is timeless.
+- It is a **long-lived thing you would follow rather than read about** — a
+  company, a lab, a model line. Those are entities, a layer that does not exist
+  yet (see "Topics as an ontology" in `NEXT.md`). Mention it and move on. Note
+  the line is blurry now that topics can be short-lived: "Astra 6.1 launch" is a
+  reasonable topic, "Astra" is an entity.
 
 ## 4. Apply what the user accepts
 
@@ -85,5 +96,29 @@ Offer `uv run trib topics` to apply it immediately, and `uv run trib topics
 --stats` to see where the stories landed. A topic that takes almost everything
 is worded too broadly; one that takes nothing is too narrow or is not something
 the sources cover.
+
+## 5. Retire what has gone quiet
+
+Run this every time, even when proposing nothing:
+
+```
+uv run trib topics --stats
+```
+
+The `last story` column is the one that matters. A topic with nothing new for
+two or three weeks has finished — the argument moved on — and keeping it clutters
+the filter row for a subject that no longer produces anything. Propose retiring
+it, and remove the `[[topics.spine]]` entry for the ones the user agrees to.
+
+Two things make this safe to do freely:
+
+- **The page already hides dead topics by itself.** The filter row is built from
+  the stories actually loaded, so a topic with nothing recent simply does not
+  appear. Retiring is housekeeping for the config, not a fix for the UI.
+- Removing a topic does not delete anything. Its stories keep their items and
+  their place in the feed; they just stop carrying that label.
+
+Because topics die, the spine does not grow without bound, and being wrong about
+a name is cheap. Propose freely and retire honestly.
 
 Do not commit. The user decides when their config is worth a commit.

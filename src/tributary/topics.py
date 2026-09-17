@@ -299,17 +299,23 @@ def for_stories(conn: sqlite3.Connection, story_ids: list[int]) -> dict[int, lis
 
 
 def stats(conn: sqlite3.Connection) -> list[sqlite3.Row]:
-    """Story count per topic, most populated first: the view for tuning the spine.
+    """Story count and last activity per topic, most populated first.
 
     A topic with almost everything under it is too broadly worded; one with
     nothing is either too narrow or describes something the sources do not cover.
+    `newest` is what says whether a topic has gone quiet: topics are allowed to
+    be short-lived, so one with no recent stories has probably finished rather
+    than failed, and is a candidate for retiring.
     """
     return list(
         conn.execute(
             """
-            SELECT t.slug, t.name, COUNT(stp.story_id) AS stories
+            SELECT t.slug, t.name,
+                   COUNT(stp.story_id) AS stories,
+                   MAX(st.last_activity) AS newest
               FROM topics t
               LEFT JOIN story_topics stp ON stp.topic_id = t.id
+              LEFT JOIN stories st       ON st.id = stp.story_id
              GROUP BY t.id
              ORDER BY stories DESC, t.name
             """
