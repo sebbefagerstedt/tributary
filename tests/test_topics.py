@@ -256,3 +256,41 @@ def test_titles_come_back_for_the_reviewer_to_read(conn, source_id, story):
 
 def test_nothing_recent_suggests_nothing(conn):
     assert topics.suggest(conn) == []
+
+
+# --- nesting -----------------------------------------------------------------
+
+def nested() -> TopicsConfig:
+    return TopicsConfig(
+        threshold=0.60,
+        max_per_story=3,
+        spine=[
+            # Child first, to prove declaration order does not matter.
+            TopicConfig("models", "Models", "about models", parent="shelf"),
+            TopicConfig("shelf", "AI models", "about agents"),
+        ],
+    )
+
+
+def test_a_child_knows_its_parent(conn, story, axes):
+    story_id = story(unit(1.0, 0.0))
+    topics.run(conn, nested())
+
+    labels = {t["slug"]: t for t in topics.for_stories(conn, [story_id])[story_id]}
+    assert labels["models"]["parent"] == "shelf"
+    assert labels["models"]["parent_name"] == "AI models"
+
+
+def test_a_shelf_has_no_parent_of_its_own(conn, story, axes):
+    story_id = story(unit(0.0, 1.0))
+    topics.run(conn, nested())
+
+    label = topics.for_stories(conn, [story_id])[story_id][0]
+    assert label["slug"] == "shelf"
+    assert "parent" not in label
+
+
+def test_moving_a_topic_to_another_shelf_changes_the_fingerprint():
+    flat = TopicsConfig(spine=[TopicConfig("a", "A", "about a")])
+    under = TopicsConfig(spine=[TopicConfig("a", "A", "about a", parent="b")])
+    assert flat.fingerprint() != under.fingerprint()

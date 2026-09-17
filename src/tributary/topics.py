@@ -34,15 +34,20 @@ class TopicResult:
 def sync_spine(conn: sqlite3.Connection, profile: TopicsConfig) -> dict[str, int]:
     """Make the topics table match the config, and return slug -> id."""
     with transaction(conn):
+        # Two passes, because a child may be declared before its parent.
         for topic in profile.spine:
             conn.execute(
                 "INSERT INTO topics (slug, name) VALUES (?, ?) "
                 "ON CONFLICT (slug) DO UPDATE SET name = excluded.name",
                 (topic.slug, topic.name),
             )
-    return {
-        row["slug"]: row["id"] for row in conn.execute("SELECT id, slug FROM topics")
-    }
+        ids = {row["slug"]: row["id"] for row in conn.execute("SELECT id, slug FROM topics")}
+        for topic in profile.spine:
+            conn.execute(
+                "UPDATE topics SET parent_id = ? WHERE slug = ?",
+                (ids.get(topic.parent) if topic.parent else None, topic.slug),
+            )
+    return ids
 
 
 def reset_if_profile_changed(conn: sqlite3.Connection, profile: TopicsConfig) -> bool:
@@ -286,15 +291,23 @@ def for_stories(conn: sqlite3.Connection, story_ids: list[int]) -> dict[int, lis
     found: dict[int, list[dict]] = {}
     for row in conn.execute(
         f"""
-        SELECT stp.story_id, t.slug, t.name
+        SELECT stp.story_id, t.slug, t.name,
+               parent.slug AS parent, parent.name AS parent_name
           FROM story_topics stp
-          JOIN topics t ON t.id = stp.topic_id
+          JOIN topics t           ON t.id = stp.topic_id
+          LEFT JOIN topics parent ON parent.id = t.parent_id
          WHERE stp.story_id IN ({placeholders})
          ORDER BY t.name
         """,
         story_ids,
     ):
-        found.setdefault(row["story_id"], []).append({"slug": row["slug"], "name": row["name"]})
+        # The parent travels with each label so the page can build the top row
+        # without being handed the whole tree separately. A story that matched
+        # only a child still knows which shelf it belongs on.
+        label = {"slug": row["slug"], "name": row["name"]}
+        if row["parent"]:
+            label |= {"parent": row["parent"], "parent_name": row["parent_name"]}
+        found.setdefault(row["story_id"], []).append(label)
     return found
 
 

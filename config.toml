@@ -207,41 +207,76 @@ always_drop = []
 # Nothing here is AI-specific by design. Replacing this spine and the triage
 # profile is most of what pointing Tributary at another subject involves.
 
+# Topics nest one level: a shelf and a row on it. `parent` names the slug above.
+# Each topic is scored on its own description, so a story can match a child, a
+# parent, or both; filtering by a parent includes everything on its shelf.
+
 [topics]
 threshold = 0.60
 max_per_story = 3
 
+# --- Models ---
 [[topics.spine]]
 slug = "models"
-name = "Model releases"
-description = "a new model is released, with its benchmarks, capabilities and licence"
+name = "AI models"
+description = "a model is released or updated, with its benchmarks, capabilities and licence"
 
 [[topics.spine]]
-slug = "agents"
-name = "Agents & tools"
-description = "AI agents, tool use, and the protocols that connect models to real systems"
+slug = "frontier"
+parent = "models"
+name = "Frontier models"
+description = "the largest and most capable models from the leading labs, and how they compare"
 
 [[topics.spine]]
-slug = "safety"
-name = "Safety & security"
-description = "AI safety, interpretability, alignment, jailbreaks and model security"
+slug = "open-weights"
+parent = "models"
+name = "Open weights"
+description = "openly licensed model weights anyone can download, run and fine-tune"
 
 [[topics.spine]]
 slug = "local"
+parent = "models"
 name = "Running it yourself"
 description = "running models locally: quantization, inference speed and GPU requirements"
 
-[[topics.spine]]
-slug = "research"
-name = "Research"
-description = "research on reasoning, training methods, architecture and evaluation"
-
+# --- Building ---
 [[topics.spine]]
 slug = "building"
 name = "Building with it"
 description = "how developers build with models in practice: prompting, RAG, fine-tuning"
 
 [[topics.spine]]
+slug = "agents"
+parent = "building"
+name = "Agents & tools"
+description = "AI agents, tool use, and the protocols that connect models to real systems"
+
+[[topics.spine]]
+slug = "evals"
+parent = "building"
+name = "Evals & benchmarks"
+description = "measuring what models can actually do, and where benchmarks mislead"
+
+# --- Research ---
+[[topics.spine]]
+slug = "research"
+name = "Research"
+description = "research on reasoning, training methods, architecture and representation"
+
+[[topics.spine]]
+slug = "safety"
+parent = "research"
+name = "Safety & security"
+description = "AI safety, interpretability, alignment, jailbreaks and model security"
+
+# --- The world around it ---
+[[topics.spine]]
 slug = "industry"
 name = "Industry & money"
-description = "AI companies, funding, chips, datacenters, policy and regulation"
+description = "AI companies, funding rounds, acquisitions, chips and datacenters"
+
+[[topics.spine]]
+slug = "policy"
+parent = "industry"
+name = "Policy & courts"
+description = "regulation, copyright suits and export controls as they affect what gets built"

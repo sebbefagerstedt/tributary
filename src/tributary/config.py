@@ -68,6 +68,9 @@ class TopicConfig:
     slug: str
     name: str
     description: str
+    # The slug this sits under, if any. One level only: browsing wants a shelf
+    # and a row, not a tree to get lost in.
+    parent: str | None = None
 
 
 @dataclass(slots=True)
@@ -88,7 +91,9 @@ class TopicsConfig:
             {
                 "threshold": self.threshold,
                 "max_per_story": self.max_per_story,
-                "spine": sorted((t.slug, t.name, t.description) for t in self.spine),
+                "spine": sorted(
+                    (t.slug, t.name, t.description, t.parent or "") for t in self.spine
+                ),
             },
             sort_keys=True,
         )
@@ -180,9 +185,18 @@ def _parse(raw: dict, path: Path) -> Config:
             raise ValueError(f"{path}: topic entry missing {sorted(missing)}: {entry!r}")
         spine.append(
             TopicConfig(
-                slug=entry["slug"], name=entry["name"], description=entry["description"]
+                slug=entry["slug"],
+                name=entry["name"],
+                description=entry["description"],
+                parent=entry.get("parent"),
             )
         )
+    known = {topic.slug for topic in spine}
+    for topic in spine:
+        if topic.parent and topic.parent not in known:
+            raise ValueError(f"{path}: topic {topic.slug!r} has unknown parent {topic.parent!r}")
+        if topic.parent == topic.slug:
+            raise ValueError(f"{path}: topic {topic.slug!r} is its own parent")
     topics = TopicsConfig(
         threshold=float(raw_topics.get("threshold", DEFAULT_TOPIC_THRESHOLD)),
         max_per_story=int(raw_topics.get("max_per_story", DEFAULT_MAX_TOPICS)),

@@ -133,3 +133,55 @@ def test_no_topics_section_is_fine(tmp_path):
     """Topics are optional; the feed works without a spine."""
     cfg = config_mod.load(write(tmp_path, '[tributary]\ndb_path = "/tmp/x.db"\n'))
     assert cfg.topics.spine == []
+
+
+def test_a_topic_can_sit_under_another(tmp_path):
+    path = write(
+        tmp_path,
+        """
+        [[topics.spine]]
+        slug = "models"
+        name = "AI models"
+        description = "a model is released"
+
+        [[topics.spine]]
+        slug = "frontier"
+        parent = "models"
+        name = "Frontier models"
+        description = "the largest models from the leading labs"
+        """,
+    )
+    spine = {t.slug: t for t in config_mod.load(path).topics.spine}
+    assert spine["frontier"].parent == "models"
+    assert spine["models"].parent is None
+
+
+def test_a_parent_that_does_not_exist_is_rejected(tmp_path):
+    """Otherwise the shelf silently vanishes and its children look top-level."""
+    path = write(
+        tmp_path,
+        """
+        [[topics.spine]]
+        slug = "frontier"
+        parent = "typo"
+        name = "Frontier"
+        description = "big models"
+        """,
+    )
+    with pytest.raises(ValueError, match="unknown parent"):
+        config_mod.load(path)
+
+
+def test_a_topic_cannot_be_its_own_parent(tmp_path):
+    path = write(
+        tmp_path,
+        """
+        [[topics.spine]]
+        slug = "loop"
+        parent = "loop"
+        name = "Loop"
+        description = "round and round"
+        """,
+    )
+    with pytest.raises(ValueError, match="its own parent"):
+        config_mod.load(path)
