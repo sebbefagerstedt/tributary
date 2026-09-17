@@ -193,11 +193,9 @@ main { max-width: 720px; margin: 0 auto; padding: 14px 14px 80px; }
   animation: spin .7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-.warn {
-  background: color-mix(in srgb, #dc2626 12%, var(--surface));
-  border: 1px solid color-mix(in srgb, #dc2626 30%, var(--line));
-  color: var(--text); border-radius: 10px; padding: 10px 13px;
-  margin-bottom: 12px; font-size: 13.5px;
+.health {
+  color: var(--faint); font-size: 12px; text-align: center;
+  margin: 18px 0 0; padding: 0 8px;
 }
 @media (prefers-reduced-motion: reduce) {
   *, .sheet { transition: none !important; animation: none !important; }
@@ -241,14 +239,17 @@ const KINDS = {
   discussion: 'var(--discussion)', article: 'var(--article)', video: 'var(--video)',
 };
 const LABEL = { discussion: 'talk', article: 'news', repo: 'code' };
-/* What a story set off, in the order the wake tends to arrive. "seed" is the
-   announcement itself rather than a reaction to it, so it earns no chip. */
-const ROLE_CHIP = {
+/* What else is attached to a story, counted by what each item *is* rather than
+   by the role it plays in the narrative. Role said "repo" for a model, because
+   both are things built on a story; kind is the word a reader expects. */
+const KIND_CHIP = {
   paper: ['paper', 'var(--paper)'],
-  code: ['repo', 'var(--repo)'],
+  model: ['model', 'var(--model)'],
+  repo: ['repo', 'var(--repo)'],
   video: ['video', 'var(--video)'],
   discussion: ['discussion', 'var(--discussion)'],
-  coverage: ['article', 'var(--article)'],
+  article: ['article', 'var(--article)'],
+  post: ['post', 'var(--article)'],
 };
 const main = document.getElementById('main');
 const sheet = document.getElementById('sheet');
@@ -302,12 +303,14 @@ function engagement(counts) {
 
 function chipsHTML(s) {
   const counts = {};
-  for (const item of s.items || []) counts[item.role] = (counts[item.role] || 0) + 1;
+  for (const item of s.items || []) counts[item.kind] = (counts[item.kind] || 0) + 1;
+  // The headline is already the card; the chips are what else came with it.
+  if (counts[s.kind]) counts[s.kind] -= 1;
 
-  const chips = Object.entries(ROLE_CHIP)
-    .filter(([role]) => counts[role])
-    .map(([role, [label, colour]]) =>
-      `<span class="chip" style="--c:${colour}">${plural(counts[role], label)}</span>`);
+  const chips = Object.entries(KIND_CHIP)
+    .filter(([kind]) => counts[kind])
+    .map(([kind, [label, colour]]) =>
+      `<span class="chip" style="--c:${colour}">${plural(counts[kind], label)}</span>`);
 
   if ((s.sources || []).length > 1) {
     chips.push(`<span class="chip">${plural(s.sources.length, 'source')}</span>`);
@@ -395,10 +398,6 @@ function render() {
     `${status.stories} stories · updated ${age} ago`;
 
   let html = '';
-  if (status.broken_sources.length) {
-    const names = status.broken_sources.map((b) => esc(b.name)).join(', ');
-    html += `<div class="warn"><b>${status.broken_sources.length} source(s) failing:</b> ${names}</div>`;
-  }
   if (!stories.length) {
     html += `<div class="empty">${
       view === 'saved' ? 'Nothing saved yet.'
@@ -406,6 +405,14 @@ function render() {
       : 'Nothing here. Run <code>trib run</code> to fetch.'}</div>`;
   } else {
     html += stories.map(cardHTML).join('');
+  }
+  /* Source health is operational detail, not news. It stays in the bundle for
+     `trib sources` and for anyone who scrolls to the end, but a red box above
+     the feed made every morning start with a fault report. */
+  if (status.broken_sources.length) {
+    const names = status.broken_sources.map((b) => esc(b.name)).join(', ');
+    html += `<p class="health">${plural(status.broken_sources.length, 'source')} `
+      + `not responding: ${names}</p>`;
   }
   main.innerHTML = html;
 }

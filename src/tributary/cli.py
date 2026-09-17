@@ -585,14 +585,42 @@ def topics_cmd(
     stats: Annotated[
         bool, typer.Option("--stats", help="Story count per topic, for tuning the spine.")
     ] = False,
+    suggest: Annotated[
+        bool, typer.Option("--suggest", help="Group recent stories so new topics can be named.")
+    ] = False,
+    days: Annotated[int, typer.Option("--days", help="How far back --suggest looks.")] = 7,
     reset: Annotated[
         bool, typer.Option("--reset", help="Discard assignments and re-label every story.")
     ] = False,
 ) -> None:
     """Label stories with what they are about."""
     cfg, conn = _open(config)
+
+    if suggest:
+        # Printed rather than tabulated: the reader is a person or a model
+        # deciding what to call these, and headlines are the evidence.
+        found = topics.suggest(conn, days=days)
+        if not found:
+            console.print(f"[yellow]Nothing clustered in the last {days} days.[/]")
+            return
+        console.print(f"[bold]{len(found)} groups[/] over the last {days} days\n")
+        for number, candidate in enumerate(found, start=1):
+            claimed = (
+                ", ".join(f"{name} ({n})" for name, n in sorted(candidate.covered.items()))
+                or "nothing"
+            )
+            console.print(
+                f"[cyan]Group {number}[/] — {candidate.size} stories, "
+                f"{candidate.uncovered} unclaimed · covered by: {claimed}"
+            )
+            for title in candidate.titles[:8]:
+                console.print(f"    {truncate(title, 90)}")
+            console.print()
+        return
+
     if not cfg.topics.spine:
-        err.print("[yellow]No topics configured.[/] Add a [topics.spine] section.")
+        # Escaped: rich reads square brackets as markup and would eat the name.
+        err.print(r"[yellow]No topics configured.[/] Add a \[\[topics.spine]] section.")
         raise typer.Exit(1)
 
     if not stats:
@@ -608,9 +636,11 @@ def topics_cmd(
             f"{result.unmatched} matched nothing on the spine"
         )
 
-    table = Table("topic", "stories", title="Topics")
+    table = Table("topic", "stories", "last story", title="Topics")
     for row in topics.stats(conn):
-        table.add_row(row["name"], str(row["stories"]))
+        # Topics are allowed to be short-lived, so "quiet since" is the column
+        # that says whether one has finished rather than failed.
+        table.add_row(row["name"], str(row["stories"]), (row["newest"] or "never")[:10])
     console.print(table)
 
 
@@ -889,10 +919,13 @@ def run(
 
     clustered = cluster_mod.run(conn)
     info = cluster_mod.stats(conn)
+    # The near-miss count belongs in the scheduled log too: a merge rate that
+    # looks too low is only diagnosable next to the band that just missed.
+    near = f", {len(clustered.ambiguous)} near-misses" if clustered.ambiguous else ""
     console.print(
         f"[cyan]cluster[/] {clustered.assigned} assigned "
-        f"({clustered.joined_by_identifier} by id, {clustered.joined_by_similarity} by similarity) "
-        f"— {info['stories']} stories"
+        f"({clustered.joined_by_identifier} by id, {clustered.joined_by_similarity} by similarity"
+        f"{near}) — {info['stories']} stories"
     )
 
     # After clustering: topics describe a story, which does not exist until here.

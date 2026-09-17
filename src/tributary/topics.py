@@ -125,6 +125,109 @@ def centroids(conn: sqlite3.Connection, story_ids: list[int]) -> tuple[list[int]
     return found, stacked / np.where(norms == 0, 1.0, norms)
 
 
+# Subject-level, and deliberately far looser than the 0.92 that merges two items
+# into one story: this groups things that are *about the same sort of thing*, not
+# things that are the same event.
+GROUP_SIMILARITY = 0.78
+
+
+@dataclass(slots=True)
+class Candidate:
+    """A cluster of recent stories with no good name yet."""
+
+    titles: list[str] = field(default_factory=list)
+    size: int = 0
+    covered: dict[str, int] = field(default_factory=dict)  # existing topics these carry
+
+    @property
+    def uncovered(self) -> int:
+        """Stories in this group that no current topic claims."""
+        return self.size - sum(self.covered.values())
+
+
+def suggest(
+    conn: sqlite3.Connection,
+    days: int = 7,
+    min_size: int = 3,
+    similarity: float = GROUP_SIMILARITY,
+) -> list[Candidate]:
+    """Group recent stories by subject so a human can name the groups.
+
+    Naming is the part that cannot be automated well without a model, and the
+    pipeline deliberately has no API key. So this stops at the useful half:
+    it finds what clusters, shows what is in each cluster, and says which
+    existing topics already claim it. Somebody -- or something -- with judgement
+    reads the output and proposes the names.
+    """
+    story_ids = [
+        row["id"]
+        for row in conn.execute(
+            "SELECT id FROM stories WHERE last_activity >= datetime('now', ?) "
+            "ORDER BY last_activity DESC",
+            (f"-{int(days)} days",),
+        )
+    ]
+    found, vectors = centroids(conn, story_ids)
+    if not found:
+        return []
+
+    members: list[list[int]] = []
+    sums: list[np.ndarray] = []
+    heads: list[np.ndarray] = []
+    for position, vector in enumerate(vectors):
+        best, score = -1, similarity
+        for group, head in enumerate(heads):
+            if (found_score := float(head @ vector)) >= score:
+                best, score = group, found_score
+        if best < 0:
+            members.append([position])
+            sums.append(vector.copy())
+            heads.append(vector.copy())
+        else:
+            members[best].append(position)
+            sums[best] = sums[best] + vector
+            norm = float(np.linalg.norm(sums[best]))
+            heads[best] = sums[best] / (norm or 1.0)
+
+    titles = _titles(conn, found)
+    labels = for_stories(conn, found)
+
+    candidates = []
+    for group in members:
+        if len(group) < min_size:
+            continue
+        covered: dict[str, int] = {}
+        for position in group:
+            for topic in labels.get(found[position], []):
+                covered[topic["name"]] = covered.get(topic["name"], 0) + 1
+        candidates.append(
+            Candidate(
+                titles=[titles.get(found[p], "") for p in group if titles.get(found[p])],
+                size=len(group),
+                covered=covered,
+            )
+        )
+    return sorted(candidates, key=lambda c: (c.uncovered, c.size), reverse=True)
+
+
+def _titles(conn: sqlite3.Connection, story_ids: list[int]) -> dict[int, str]:
+    """One representative headline per story: the earliest item in it."""
+    placeholders = ",".join("?" * len(story_ids))
+    found: dict[int, str] = {}
+    for row in conn.execute(
+        f"""
+        SELECT si.story_id, i.title
+          FROM story_items si
+          JOIN items i ON i.id = si.item_id
+         WHERE si.story_id IN ({placeholders})
+         ORDER BY COALESCE(i.published_at, i.fetched_at) ASC
+        """,
+        story_ids,
+    ):
+        found.setdefault(row["story_id"], row["title"])
+    return found
+
+
 def run(
     conn: sqlite3.Connection,
     profile: TopicsConfig,
@@ -196,17 +299,23 @@ def for_stories(conn: sqlite3.Connection, story_ids: list[int]) -> dict[int, lis
 
 
 def stats(conn: sqlite3.Connection) -> list[sqlite3.Row]:
-    """Story count per topic, most populated first: the view for tuning the spine.
+    """Story count and last activity per topic, most populated first.
 
     A topic with almost everything under it is too broadly worded; one with
     nothing is either too narrow or describes something the sources do not cover.
+    `newest` is what says whether a topic has gone quiet: topics are allowed to
+    be short-lived, so one with no recent stories has probably finished rather
+    than failed, and is a candidate for retiring.
     """
     return list(
         conn.execute(
             """
-            SELECT t.slug, t.name, COUNT(stp.story_id) AS stories
+            SELECT t.slug, t.name,
+                   COUNT(stp.story_id) AS stories,
+                   MAX(st.last_activity) AS newest
               FROM topics t
               LEFT JOIN story_topics stp ON stp.topic_id = t.id
+              LEFT JOIN stories st       ON st.id = stp.story_id
              GROUP BY t.id
              ORDER BY stories DESC, t.name
             """
