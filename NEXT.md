@@ -56,13 +56,60 @@ a paper's arXiv ID joins that paper's story as `code`; an HN thread linking an
 announcement joins it as `discussion`. The ripple is computed on every run, and
 renders as coloured chips on the card and grouped sections on the story sheet.
 
-In-app community — comments, accounts, votes of our own — is parked rather than
-rejected. It would mean a writable backend, which ends the static-Pages,
-zero-cost model.
+**The ripple is not the whole of it, though.** Asked for 2026-09-17: *users need
+to be able to post and comment directly on a topic.* That was previously written
+down here as parked; it is not parked, it is a requirement. See "Posting and
+commenting" below — it is the one item in this file that changes the
+architecture rather than adding to it.
 
 ---
 
 ## What is left to build
+
+### Posting and commenting — the one that changes the architecture
+
+**Users need to be able to post and comment directly on a topic.** Asked for
+2026-09-17, and it is what finishes the idea the rest of the app has been
+building toward: a topic you *enter* is a place, and a place is where people
+write. It also joins up two earlier notes — that users should tag news onto
+topics themselves, and that they should be able to create a story by hand —
+into one capability rather than three features.
+
+**The read path already exists.** `Kind.POST` is defined, `cluster.py` maps it
+to the `coverage` role and `_KIND_PRIORITY` ranks it — no adapter has ever
+produced one. A user's post on a topic is an item like any other: it joins
+`story_items`, takes a role, earns a chip, and appears in the wake. The
+`follows` table (`target_kind: topic|entity|source`) has been sitting unused
+since the first commit and is the subscription side of the same feature.
+
+**The write path is what does not exist, and it is not a small thing.** Every
+deployment assumption in this repo comes from the app being read-only:
+
+- `data.json` is a static bundle rebuilt every three hours. Posts have to appear
+  when written, not on the next cron tick.
+- Per-device state lives in `localStorage` *because a static host has nowhere
+  else to put it*. That works for seen/saved/dismissed, which are preferences.
+  It cannot work for a post, whose entire purpose is that someone else reads it.
+- So this needs a writable backend, with identity, moderation and spam handling
+  behind it, and it ends the zero-cost GitHub Pages model. `trib serve` already
+  exists and is the obvious starting point, but a server someone else can post
+  to is a different thing from one you run locally.
+
+**What it does not need is an API key.** Posting is not an LLM feature, and the
+no-API-key constraint holds — worth stating, because "community features" and
+"AI features" tend to get budgeted together and these should not be.
+
+Open questions, none decided:
+
+- Is a comment an item (so it joins the wake and gets a role), or its own table?
+  Item-shaped reuses everything; comment-shaped avoids polluting the corpus that
+  clustering and topic assignment run over.
+- Does a user post get triaged and embedded like fetched material? If it does,
+  it can be clustered and labelled automatically. If it does not, the author
+  places it by hand — which is closer to how Reddit works, and to the
+  propose-then-accept model already chosen for topics.
+- Who can post, at what point does that need real accounts, and what happens the
+  first time someone abusive arrives.
 
 ### Ready to start
 
