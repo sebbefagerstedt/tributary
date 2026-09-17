@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
+from tributary import store
 from tributary.config import SourceConfig
 from tributary.models import Kind, RawItem
 from tributary.store import mark_fetched, record_items, source_health, sync_sources
@@ -111,3 +112,71 @@ def test_failed_fetch_keeps_previous_state(conn, source_id):
 
 def test_empty_item_list_is_a_no_op(conn, source_id):
     assert record_items(conn, source_id, []).total == 0
+
+
+# --- the retention horizon ---------------------------------------------------
+# Feeds that serve their whole archive have no cursor and no useful validators,
+# so they re-deliver years-old entries on every run. Storing those means
+# embedding and clustering work that the next prune throws away.
+
+
+def dated(n: int, published):
+    return RawItem(
+        external_id=f"old{n}",
+        kind=Kind.ARTICLE,
+        url=f"https://e.test/{n}",
+        title=f"Item {n}",
+        published_at=published,
+    )
+
+
+def test_an_item_older_than_the_window_is_never_stored(conn, source_id):
+    ancient = datetime.now(UTC) - timedelta(days=400)
+    result = store.record_items(conn, source_id, [dated(1, ancient)])
+
+    assert (result.inserted, result.stale) == (0, 1)
+    assert conn.execute("SELECT COUNT(*) c FROM items").fetchone()["c"] == 0
+
+
+def test_a_recent_item_is_stored(conn, source_id):
+    fresh = datetime.now(UTC) - timedelta(days=2)
+    result = store.record_items(conn, source_id, [dated(1, fresh)])
+
+    assert (result.inserted, result.stale) == (1, 0)
+
+
+def test_an_undated_item_is_treated_as_current(conn, source_id):
+    """Plenty of sources give no date; refusing them would empty the feed."""
+    assert store.record_items(conn, source_id, [dated(1, None)]).inserted == 1
+
+
+def test_a_naive_timestamp_is_read_as_utc(conn, source_id):
+    """Comparing naive against aware raises, which would fail the whole source."""
+    naive = datetime.now() - timedelta(days=400)
+    assert store.record_items(conn, source_id, [dated(1, naive)]).stale == 1
+
+
+def test_an_item_already_stored_is_not_dropped_when_it_ages_out(conn, source_id):
+    """It should leave through prune, not vanish from under the feed mid-window."""
+    edge = datetime.now(UTC) - timedelta(days=5)
+    store.record_items(conn, source_id, [dated(1, edge)])
+
+    aged = dated(1, datetime.now(UTC) - timedelta(days=400))
+    aged.title = "Item 1 revised"
+    result = store.record_items(conn, source_id, [aged])
+
+    assert (result.updated, result.stale) == (1, 0)
+
+
+def test_the_horizon_can_be_turned_off(conn, source_id):
+    ancient = datetime.now(UTC) - timedelta(days=4000)
+    assert store.record_items(conn, source_id, [dated(1, ancient)], max_age_days=None).inserted == 1
+
+
+def test_the_horizon_matches_the_prune_window(conn, source_id):
+    """If ingest kept more than prune retains, every run would re-import the gap."""
+    just_inside = datetime.now(UTC) - timedelta(days=store.MAX_ITEM_AGE_DAYS - 1)
+    just_outside = datetime.now(UTC) - timedelta(days=store.MAX_ITEM_AGE_DAYS + 1)
+
+    result = store.record_items(conn, source_id, [dated(1, just_inside), dated(2, just_outside)])
+    assert (result.inserted, result.stale) == (1, 1)

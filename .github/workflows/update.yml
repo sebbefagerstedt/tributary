@@ -13,9 +13,9 @@ on:
     # matters enough to chase when GitHub drops one.
     #
     # Minute 17, not 0. GitHub queues every repository's on-the-hour schedules
-    # at once and drops them under load, and on this repo the first two windows
-    # at minute 0 never fired at all -- no `schedule` run was ever created.
-    # An odd minute is the standard way out.
+    # at once and delays them under load; minute 0 here ran about 18 minutes
+    # late, which is normal rather than broken. An odd minute just shortens
+    # that wait.
     #
     # Cron is UTC and cannot follow daylight saving, so in Swedish summer time
     # these land at 02:17, 05:17, 08:17 ... 23:17 local, an hour earlier in
