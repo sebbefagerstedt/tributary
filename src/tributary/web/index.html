@@ -87,6 +87,15 @@ header {
 }
 .filter .n { opacity: .6; margin-left: 5px; font-variant-numeric: tabular-nums; }
 
+.search {
+  display: block; width: 100%; max-width: 720px; margin: 8px auto 0;
+  font: inherit; font-size: 14px; color: var(--text);
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 10px; padding: 8px 12px; -webkit-appearance: none;
+}
+.search::placeholder { color: var(--faint); }
+.search:focus { outline: none; border-color: var(--accent); }
+
 main { max-width: 720px; margin: 0 auto; padding: 14px 14px 80px; }
 
 .card {
@@ -214,6 +223,8 @@ main { max-width: 720px; margin: 0 auto; padding: 14px 14px 80px; }
     </div>
   </div>
   <div class="filters" id="filters"></div>
+  <input id="search" class="search" type="search" autocomplete="off"
+    placeholder="Search titles and summaries" aria-label="Search stories">
 </header>
 
 <main id="main"><div class="spinner"></div></main>
@@ -258,6 +269,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
 
 let view = localStorage.getItem('view') || 'feed';
 let topic = localStorage.getItem('topic') || '';
+let query = '';   // deliberately not persisted: a stale search on open is a bug
 let bundle = null;
 let current = null;
 let hasServer = true;   // set false on the first failed POST
@@ -353,9 +365,20 @@ function cardHTML(s) {
 
 const hasTopic = (s, slug) => (s.topics || []).some((t) => t.slug === slug);
 
+/* Searches the story and everything attached to it, so a paper found by the
+   title of the thread arguing about it still comes back. */
+function matches(s, needle) {
+  const hay = [s.title, s.summary, s.source, ...(s.topics || []).map((t) => t.name),
+    ...(s.items || []).flatMap((i) => [i.title, i.source])];
+  return hay.some((text) => text && text.toLowerCase().includes(needle));
+}
+
 function visible() {
   let all = bundle.stories.filter((s) => !marks.dismissed.has(s.story_id));
   if (topic) all = all.filter((s) => hasTopic(s, topic));
+  // Search cuts across the tabs: looking for something you saved weeks ago
+  // should not depend on which tab you left selected.
+  if (query) return all.filter((s) => matches(s, query));
   if (view === 'saved') return all.filter((s) => marks.saved.has(s.story_id));
   if (view === 'unseen') return all.filter((s) => !marks.seen.has(s.story_id));
   return all;
@@ -400,7 +423,8 @@ function render() {
   let html = '';
   if (!stories.length) {
     html += `<div class="empty">${
-      view === 'saved' ? 'Nothing saved yet.'
+      query ? `Nothing matches <code>${esc(query)}</code>.`
+      : view === 'saved' ? 'Nothing saved yet.'
       : view === 'unseen' ? 'All caught up.'
       : 'Nothing here. Run <code>trib run</code> to fetch.'}</div>`;
   } else {
@@ -532,6 +556,11 @@ document.addEventListener('click', (event) => {
 document.addEventListener('error', (event) => {
   if (event.target instanceof HTMLImageElement) event.target.remove();
 }, true);
+
+document.getElementById('search').addEventListener('input', (event) => {
+  query = event.target.value.trim().toLowerCase();
+  render();
+});
 
 document.getElementById('close').addEventListener('click', closeSheet);
 document.getElementById('save-detail').addEventListener('click', (event) => {

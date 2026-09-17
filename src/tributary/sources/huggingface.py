@@ -7,6 +7,7 @@ would otherwise have to be matched by text similarity.
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 
 from tributary.http import get_json
@@ -19,10 +20,27 @@ SUMMARY_LIMIT = 2000
 MODES = ("models", "datasets", "papers")
 ARXIV_TAG = "arxiv:"
 
+# A UUID, or a run of 12+ hex characters: the signature of a generated name.
+_MACHINE_NAME = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-f]{12,}", re.I
+)
+
 
 def _owner(repo_id: str) -> str | None:
     """The account a hub repo belongs to, e.g. 'deepseek-ai/DeepSeek-V4' -> 'deepseek-ai'."""
     return repo_id.split("/")[0] if "/" in repo_id else None
+
+
+def _is_machine_named(repo_id: str) -> bool:
+    """Repos named by a job runner rather than a person.
+
+    Automated training services publish to the hub continuously, with ids like
+    `tournament-tourn_5c64e784a087074a_20260914-059bf721-cca5-4d02-9832-...`.
+    They inherit a base model's card, so they carry its arXiv tag and survive
+    `cites_paper` -- one reached the top of the live feed. Nobody wants to read
+    about a run id, and a name that is mostly a hash is a reliable tell.
+    """
+    return bool(_MACHINE_NAME.search(repo_id))
 
 
 def _arxiv_from_tags(tags) -> str | None:
@@ -91,7 +109,7 @@ class HuggingFaceSource(Source):
 
     def _build_model(self, entry: dict) -> RawItem | None:
         repo_id = entry.get("id") or entry.get("modelId")
-        if not repo_id:
+        if not repo_id or _is_machine_named(repo_id):
             return None
         return RawItem(
             external_id=repo_id,

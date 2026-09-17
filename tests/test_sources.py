@@ -222,6 +222,25 @@ def test_without_cites_paper_nothing_is_dropped(httpx_mock):
     assert len(items) == 2
 
 
+def test_a_machine_named_repo_is_not_news(httpx_mock):
+    """Training services publish continuously, inherit a base model's card, and
+    so carry its arXiv tag -- one reached the top of the live feed."""
+    httpx_mock.add_response(json=[
+        {"id": "gradients-io-tournaments/tournament-tourn_5c64e784a087074a_20260914",
+         "tags": ["arxiv:2609.1"]},
+        {"id": "org/run-059bf721-cca5-4d02-9832-a794cf37074b", "tags": []},
+        {"id": "deepseek-ai/DeepSeek-V4", "tags": []},
+    ])
+    items, _ = HuggingFaceSource(cfg("hf", mode="models")).fetch({})
+    assert [i.external_id for i in items] == ["deepseek-ai/DeepSeek-V4"]
+
+
+def test_a_normal_name_with_hex_in_it_survives(httpx_mock):
+    httpx_mock.add_response(json=[{"id": "org/Llama-3-8b-abliterated", "tags": []}])
+    items, _ = HuggingFaceSource(cfg("hf", mode="models")).fetch({})
+    assert len(items) == 1
+
+
 def test_hf_unknown_mode_is_rejected():
     with pytest.raises(FetchError, match="unknown hf mode"):
         HuggingFaceSource(cfg("hf", mode="wat")).fetch({})
