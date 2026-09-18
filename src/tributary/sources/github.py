@@ -66,16 +66,26 @@ class GitHubSource(Source):
             etags[repo] = repo_state
             if payload is None:
                 continue
+            keep_pre = bool(options.get("prereleases", False))
             items.extend(
-                built for release in payload if (built := self._build(repo, release))
+                built
+                for release in payload
+                if (built := self._build(repo, release, keep_pre))
             )
 
         if failures and not items:
             raise FetchError("; ".join(failures[:3]))
         return items, {"etags": etags, "failures": failures}
 
-    def _build(self, repo: str, release: dict) -> RawItem | None:
+    def _build(self, repo: str, release: dict, keep_pre: bool = False) -> RawItem | None:
         if release.get("draft"):
+            return None
+        # Prereleases are skipped by default. That is not a taste call: it is
+        # how llama.cpp publishes a build per merged commit (`b11006`, `b11007`,
+        # ...) and how Ollama ships release candidates, and together they were
+        # most of this source -- nine of its last fourteen items, none of them
+        # news. Set `prereleases = true` on a source that means them.
+        if release.get("prerelease") and not keep_pre:
             return None
         tag = release.get("tag_name")
         url = release.get("html_url")

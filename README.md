@@ -54,7 +54,8 @@ so a scheduler notices a broken feed. The stages are also separate commands
 | `trib story <id>` | every item attached to one story |
 | `trib cluster` | `--reset` re-clusters; `--threshold` overrides the merge bar |
 | `trib describe` | fetch model cards for items that arrived as a bare title; `--reset` retries past failures |
-| `trib topics` | label stories by subject; `--stats` story count per topic, `--suggest` groups recent stories so new ones can be named, `--reset` re-labels |
+| `trib topics` | give each story one home topic, and match facets and entities; `--stats` story count per topic, `--suggest` groups recent stories and counts the ones parked on a shelf, `--reset` re-labels |
+| `trib entities` | stories per entity; `--suggest` proposes names that recur and are not seeded yet |
 | `trib calibrate` | measures clustering thresholds against ground truth |
 | `trib list` | `--state kept\|rejected\|pending`, `--ids`, `-n <limit>` |
 | `trib sources` | per-source health: counts, last fetch, last error |

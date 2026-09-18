@@ -28,6 +28,7 @@ class TopicResult:
     stories: int = 0
     assigned: int = 0
     unmatched: int = 0  # scored, but nothing on the spine fitted
+    parked: int = 0  # the shelf was clear, the leaf was not
     by_topic: dict[str, int] = field(default_factory=dict)
 
 
@@ -50,13 +51,21 @@ def sync_spine(conn: sqlite3.Connection, profile: TopicsConfig) -> dict[str, int
     return ids
 
 
-def reset_if_profile_changed(conn: sqlite3.Connection, profile: TopicsConfig) -> bool:
+def reset_if_profile_changed(
+    conn: sqlite3.Connection,
+    profile: TopicsConfig,
+    fingerprint: str | None = None,
+) -> bool:
     """Re-assign everything when the spine changes.
 
     Editing a description would otherwise only affect stories clustered after the
     edit, leaving the back catalogue labelled by a spine that no longer exists.
+
+    Callers pass the config-wide label fingerprint, which covers facets and
+    entities too: all three are matched in one pass, so a change to any of them
+    has to re-run all of it rather than leave the corpus half relabelled.
     """
-    fingerprint = profile.fingerprint()
+    fingerprint = fingerprint or profile.fingerprint()
     row = conn.execute("SELECT value FROM meta WHERE key = 'topic_spine'").fetchone()
     if row and row["value"] == fingerprint:
         return False
@@ -143,11 +152,29 @@ class Candidate:
     titles: list[str] = field(default_factory=list)
     size: int = 0
     covered: dict[str, int] = field(default_factory=dict)  # existing topics these carry
+    claimed: int = 0  # stories at least one of those topics reached
+    parked: int = 0  # stories sitting on a shelf because no leaf fitted them
 
     @property
     def uncovered(self) -> int:
-        """Stories in this group that no current topic claims."""
-        return self.size - sum(self.covered.values())
+        """Stories in this group that no current topic claims.
+
+        Counted as whole stories, not by subtracting `covered`: a story carries
+        up to `max_per_story` topics, so those counts sum past the size of the
+        group and the subtraction goes negative.
+        """
+        return self.size - self.claimed
+
+    @property
+    def unplaced(self) -> int:
+        """Stories with no specific home: nothing claimed them, or they parked.
+
+        Under one-home assignment almost every story is claimed by *something*,
+        so "unclaimed" stopped being a useful signal. A story parked on a shelf
+        is the new one -- it means the shelf fits and none of its leaves does,
+        which is exactly what a missing leaf looks like.
+        """
+        return self.uncovered + self.parked
 
 
 def suggest(
@@ -196,23 +223,35 @@ def suggest(
 
     titles = _titles(conn, found)
     labels = for_stories(conn, found)
+    shelves = {
+        row["slug"]
+        for row in conn.execute(
+            "SELECT DISTINCT p.slug FROM topics c JOIN topics p ON p.id = c.parent_id"
+        )
+    }
 
     candidates = []
     for group in members:
         if len(group) < min_size:
             continue
         covered: dict[str, int] = {}
+        claimed = parked = 0
         for position in group:
-            for topic in labels.get(found[position], []):
+            found_topics = labels.get(found[position], [])
+            claimed += bool(found_topics)
+            parked += any(topic["slug"] in shelves for topic in found_topics)
+            for topic in found_topics:
                 covered[topic["name"]] = covered.get(topic["name"], 0) + 1
         candidates.append(
             Candidate(
                 titles=[titles.get(found[p], "") for p in group if titles.get(found[p])],
                 size=len(group),
                 covered=covered,
+                claimed=claimed,
+                parked=parked,
             )
         )
-    return sorted(candidates, key=lambda c: (c.uncovered, c.size), reverse=True)
+    return sorted(candidates, key=lambda c: (c.unplaced, c.size), reverse=True)
 
 
 def _titles(conn: sqlite3.Connection, story_ids: list[int]) -> dict[int, str]:
@@ -239,9 +278,21 @@ def run(
     model_name: str = DEFAULT_MODEL,
     limit: int | None = None,
 ) -> TopicResult:
-    """Score every unassigned story against the spine."""
+    """Give every unassigned story the one home that fits it best.
+
+    Only leaves are scored, and the best one wins outright. There is no
+    threshold deciding what counts as a match and no cap on how many topics a
+    story may take, because both were answering a question that does not need
+    asking: of these topics, which one is this? A comparison needs no scale, so
+    nothing here drifts when the embedding model changes or the spine grows.
+
+    The floor is not a threshold in that sense -- it catches a story the spine
+    has no opinion about at all, which over the whole corpus is one story in
+    2239. If it starts firing, the spine is missing something.
+    """
     result = TopicResult()
-    if not profile.spine:
+    leaves = profile.leaves()
+    if not leaves:
         return result
 
     ids = sync_spine(conn, profile)
@@ -250,37 +301,58 @@ def run(
         return result
 
     descriptions = np.array(
-        embed([topic.description for topic in profile.spine], model_name), dtype=np.float32
+        embed([topic.description for topic in leaves], model_name), dtype=np.float32
     )
     scores = vectors @ descriptions.T
+    parent_of = {topic.slug: topic.parent for topic in profile.spine}
     result.stories = len(story_ids)
 
     with transaction(conn):
         for story_id, row in zip(story_ids, scores, strict=True):
-            ranked = sorted(
-                (
-                    (float(score), topic)
-                    for score, topic in zip(row, profile.spine, strict=True)
-                    if score >= profile.threshold
-                ),
-                key=lambda pair: pair[0],
-                reverse=True,
-            )[: profile.max_per_story]
-
-            for _, topic in ranked:
+            home = _home(row, leaves, parent_of, profile)
+            if home is None:
+                result.unmatched += 1
+            else:
+                slug, parked = home
                 conn.execute(
                     "INSERT OR IGNORE INTO story_topics (story_id, topic_id) VALUES (?, ?)",
-                    (story_id, ids[topic.slug]),
+                    (story_id, ids[slug]),
                 )
-                result.by_topic[topic.slug] = result.by_topic.get(topic.slug, 0) + 1
-            if ranked:
+                result.by_topic[slug] = result.by_topic.get(slug, 0) + 1
                 result.assigned += 1
-            else:
-                result.unmatched += 1
+                result.parked += parked
             conn.execute(
                 "INSERT OR IGNORE INTO topic_assigned (story_id) VALUES (?)", (story_id,)
             )
     return result
+
+
+def _home(
+    row: np.ndarray,
+    leaves: list,
+    parent_of: dict[str, str | None],
+    profile: TopicsConfig,
+) -> tuple[str, bool] | None:
+    """The one topic a story belongs under, and whether it parked on a shelf.
+
+    Parking is for the case where the shelf is obvious and the leaf is a
+    coin-toss: two leaves on the same shelf within `park_margin` of each other.
+    Forcing a choice there would be inventing precision the scores do not have,
+    and the pile that collects on a shelf is the signal that a leaf is missing.
+    """
+    order = np.argsort(-row)
+    best = int(order[0])
+    if float(row[best]) < profile.floor:
+        return None
+
+    winner = leaves[best].slug
+    shelf = parent_of.get(winner)
+    if shelf and len(order) > 1:
+        runner_up = leaves[int(order[1])].slug
+        close = float(row[best]) - float(row[int(order[1])]) < profile.park_margin
+        if close and parent_of.get(runner_up) == shelf:
+            return shelf, True
+    return winner, False
 
 
 def for_stories(conn: sqlite3.Connection, story_ids: list[int]) -> dict[int, list[dict]]:

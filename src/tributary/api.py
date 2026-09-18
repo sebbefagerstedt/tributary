@@ -132,7 +132,11 @@ def create_app(config_path: Path | None = None) -> FastAPI:
         bundle, whether a server built it just now or a scheduled job wrote it
         to disk hours ago.
         """
-        return JSONResponse(export_mod.build_bundle(conn(), limit=limit, days=days))
+        return JSONResponse(
+            export_mod.build_bundle(
+                conn(), limit=limit, days=days, facet_names=state["config"].facets
+            )
+        )
 
     @app.get("/api/status")
     def status() -> JSONResponse:

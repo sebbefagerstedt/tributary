@@ -17,8 +17,8 @@ import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
+from tributary import entities, facets, topics, triage
 from tributary import feed as feed_mod
-from tributary import topics, triage
 from tributary.text import truncate
 
 WEB_DIR = Path(__file__).parent / "web"
@@ -57,6 +57,7 @@ def build_bundle(
     conn: sqlite3.Connection,
     limit: int = DEFAULT_LIMIT,
     days: int | None = DEFAULT_DAYS,
+    facet_names: list | None = None,
 ) -> dict:
     """Everything the page needs, in one object.
 
@@ -64,7 +65,10 @@ def build_bundle(
     is a few hundred kilobytes, and one request beats eighty.
     """
     cards = feed_mod.build(conn, limit=limit, days=days, include_seen=True)
-    labels = topics.for_stories(conn, [card.story_id for card in cards])
+    story_ids = [card.story_id for card in cards]
+    labels = topics.for_stories(conn, story_ids)
+    marks = facets.for_stories(conn, story_ids)
+    named = entities.for_stories(conn, story_ids)
 
     stories = []
     for card in cards:
@@ -86,6 +90,10 @@ def build_bundle(
                 "item_count": card.item_count,
                 "media_url": card.media_url,
                 "topics": labels.get(card.story_id, []),
+                # Where it lives, what it is, who it is about: three axes, and
+                # only the first is a place you browse to.
+                "facets": marks.get(card.story_id, []),
+                "entities": named.get(card.story_id, []),
                 # The loudest thread wins the card: two small threads are not
                 # the same story-level signal as one big argument.
                 "engagement": {
@@ -130,6 +138,10 @@ def build_bundle(
             "broken_sources": broken,
             **counts,
         },
+        # Facets are stored by slug, so the page is told what to call them.
+        # Passing them through beats deriving a label from the slug, which would
+        # quietly rename a facet whenever someone edited the config.
+        "facets": [{"slug": f.slug, "name": f.name} for f in facet_names or []],
         "stories": stories,
     }
 
@@ -139,6 +151,7 @@ def write_site(
     out_dir: Path,
     limit: int = DEFAULT_LIMIT,
     days: int | None = DEFAULT_DAYS,
+    facet_names: list | None = None,
 ) -> dict:
     """Write a self-contained static site into ``out_dir``."""
     out_dir = Path(out_dir)
@@ -147,7 +160,7 @@ def write_site(
     for name in ("index.html", "manifest.json", "sw.js", "icon.svg"):
         shutil.copy2(WEB_DIR / name, out_dir / name)
 
-    bundle = build_bundle(conn, limit=limit, days=days)
+    bundle = build_bundle(conn, limit=limit, days=days, facet_names=facet_names)
     data_file = out_dir / "data.json"
     data_file.write_text(json.dumps(bundle, ensure_ascii=False, separators=(",", ":")))
 

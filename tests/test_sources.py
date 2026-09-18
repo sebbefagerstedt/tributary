@@ -254,7 +254,7 @@ def test_hf_unexpected_shape_is_reported(httpx_mock):
 
 # --- GitHub ------------------------------------------------------------------
 
-def release(tag="v1.0", draft=False):
+def release(tag="v1.0", draft=False, prerelease=False):
     return {
         "tag_name": tag,
         "name": tag,
@@ -262,7 +262,7 @@ def release(tag="v1.0", draft=False):
         "published_at": "2026-09-09T08:54:49Z",
         "body": "# Highlights\nStuff.",
         "draft": draft,
-        "prerelease": False,
+        "prerelease": prerelease,
         "author": {"login": "releaser"},
     }
 
@@ -281,6 +281,25 @@ def test_github_skips_drafts(httpx_mock):
     httpx_mock.add_response(json=[release("v1.0"), release("v2.0-draft", draft=True)])
     items, _ = GitHubSource(cfg("github", repos=["o/r"])).fetch({})
     assert [i.external_id for i in items] == ["o/r@v1.0"]
+
+
+def test_github_skips_prereleases_by_default(httpx_mock):
+    """llama.cpp tags a prerelease per merged commit; none of them is news."""
+    httpx_mock.add_response(
+        json=[
+            release("v1.0"),
+            release("b11006", prerelease=True),
+            release("v1.1-rc0", prerelease=True),
+        ]
+    )
+    items, _ = GitHubSource(cfg("github", repos=["o/r"])).fetch({})
+    assert [i.external_id for i in items] == ["o/r@v1.0"]
+
+
+def test_github_keeps_prereleases_when_asked(httpx_mock):
+    httpx_mock.add_response(json=[release("v1.0"), release("v1.1-rc0", prerelease=True)])
+    items, _ = GitHubSource(cfg("github", repos=["o/r"], prereleases=True)).fetch({})
+    assert [i.external_id for i in items] == ["o/r@v1.0", "o/r@v1.1-rc0"]
 
 
 def test_github_stores_validators_per_repo(httpx_mock):

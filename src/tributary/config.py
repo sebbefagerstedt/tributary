@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -16,6 +17,10 @@ from pathlib import Path
 from platformdirs import user_config_path, user_data_path
 
 APP = "tributary"
+
+# Mirrors the `kind` column on `entities`, which has carried this list since the
+# first migration.
+ENTITY_KINDS = frozenset({"model", "org", "person", "tool", "paper", "dataset"})
 
 
 @dataclass(slots=True)
@@ -59,8 +64,14 @@ class TriageConfig:
         return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
 
-DEFAULT_TOPIC_THRESHOLD = 0.60
-DEFAULT_MAX_TOPICS = 3
+# A story goes to the topic that fits it best, so there is no threshold to tune.
+# The floor only catches stories the spine has no opinion about at all; it sits
+# far below where real scores land (p01 is 0.59 over the whole corpus).
+DEFAULT_TOPIC_FLOOR = 0.55
+
+# Two leaves on the same shelf this close means the shelf is clear and the leaf
+# is not, so the story sits on the shelf instead of being forced onto one of them.
+DEFAULT_PARK_MARGIN = 0.02
 
 
 @dataclass(slots=True)
@@ -74,23 +85,62 @@ class TopicConfig:
 
 
 @dataclass(slots=True)
-class TopicsConfig:
-    """What the feed is about, as opposed to what is worth keeping.
+class FacetConfig:
+    """A property a story has, rather than a place it lives.
 
-    Scored exactly like triage, so `description` is a sentence describing the
-    kind of story that belongs under the topic, not a list of search terms.
+    Matched by regex because that is what works: "agents" is a word that appears
+    or does not, and looking for it finds five times what scoring a description
+    against an embedding does. Facets stack on top of a topic as filters.
     """
 
-    threshold: float = DEFAULT_TOPIC_THRESHOLD
-    max_per_story: int = DEFAULT_MAX_TOPICS
+    slug: str
+    name: str
+    pattern: str
+
+
+@dataclass(slots=True)
+class EntityConfig:
+    """Someone or something a story is about: a lab, a model line, a tool.
+
+    Seeded here for the ones worth having on day one; the rest arrive by
+    extraction and are accepted by hand. Matching is by name and alias, never by
+    similarity -- proper nouns do not need a model to recognise.
+    """
+
+    kind: str  # model|org|person|tool|paper|dataset
+    name: str
+    aliases: list[str] = field(default_factory=list)
+
+    def names(self) -> list[str]:
+        return [self.name, *self.aliases]
+
+
+@dataclass(slots=True)
+class TopicsConfig:
+    """Where a story lives: exactly one place, chosen by best fit.
+
+    `description` is a sentence describing the kind of story that belongs here,
+    not a list of search terms -- it is embedded and compared, the same way
+    triage works. Only leaves are scored; a shelf earns its stories from
+    whichever of its leaves wins, which is why a shelf's description is
+    documentation rather than an input.
+    """
+
+    floor: float = DEFAULT_TOPIC_FLOOR
+    park_margin: float = DEFAULT_PARK_MARGIN
     spine: list[TopicConfig] = field(default_factory=list)
+
+    def leaves(self) -> list[TopicConfig]:
+        """The topics that get scored: everything nothing else sits under."""
+        shelves = {t.parent for t in self.spine if t.parent}
+        return [t for t in self.spine if t.slug not in shelves]
 
     def fingerprint(self) -> str:
         """Identity of this spine, so a change can trigger re-assignment."""
         payload = json.dumps(
             {
-                "threshold": self.threshold,
-                "max_per_story": self.max_per_story,
+                "floor": self.floor,
+                "park_margin": self.park_margin,
                 "spine": sorted(
                     (t.slug, t.name, t.description, t.parent or "") for t in self.spine
                 ),
@@ -106,7 +156,28 @@ class Config:
     sources: list[SourceConfig] = field(default_factory=list)
     triage: TriageConfig = field(default_factory=TriageConfig)
     topics: TopicsConfig = field(default_factory=TopicsConfig)
+    facets: list[FacetConfig] = field(default_factory=list)
+    entities: list[EntityConfig] = field(default_factory=list)
     path: Path | None = None  # where this config was loaded from, for diagnostics
+
+    def label_fingerprint(self) -> str:
+        """Identity of everything that labels a story.
+
+        Facets and entities are matched in the same pass as topics, so a change
+        to any of the three has to re-run all of it. One fingerprint keeps that
+        honest -- the alternative is three, and three ways to be half re-labelled.
+        """
+        payload = json.dumps(
+            {
+                "topics": self.topics.fingerprint(),
+                "facets": sorted((f.slug, f.name, f.pattern) for f in self.facets),
+                "entities": sorted(
+                    (e.kind, e.name, *sorted(e.aliases)) for e in self.entities
+                ),
+            },
+            sort_keys=True,
+        )
+        return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
 
 def default_db_path() -> Path:
@@ -198,10 +269,49 @@ def _parse(raw: dict, path: Path) -> Config:
         if topic.parent == topic.slug:
             raise ValueError(f"{path}: topic {topic.slug!r} is its own parent")
     topics = TopicsConfig(
-        threshold=float(raw_topics.get("threshold", DEFAULT_TOPIC_THRESHOLD)),
-        max_per_story=int(raw_topics.get("max_per_story", DEFAULT_MAX_TOPICS)),
+        floor=float(raw_topics.get("floor", DEFAULT_TOPIC_FLOOR)),
+        park_margin=float(raw_topics.get("park_margin", DEFAULT_PARK_MARGIN)),
         spine=spine,
     )
+    if not topics.leaves() and spine:
+        raise ValueError(f"{path}: every topic is a parent of another; nothing to score")
+
+    facets = []
+    for entry in raw.get("facets", []):
+        missing = {"slug", "name", "pattern"} - entry.keys()
+        if missing:
+            raise ValueError(f"{path}: facet entry missing {sorted(missing)}: {entry!r}")
+        try:
+            re.compile(entry["pattern"])
+        except re.error as exc:
+            raise ValueError(f"{path}: facet {entry['slug']!r} has a bad pattern: {exc}") from exc
+        facets.append(
+            FacetConfig(slug=entry["slug"], name=entry["name"], pattern=entry["pattern"])
+        )
+
+    entities = []
+    for entry in raw.get("entities", []):
+        missing = {"kind", "name"} - entry.keys()
+        if missing:
+            raise ValueError(f"{path}: entity entry missing {sorted(missing)}: {entry!r}")
+        if entry["kind"] not in ENTITY_KINDS:
+            raise ValueError(
+                f"{path}: entity {entry['name']!r} has unknown kind {entry['kind']!r} "
+                f"(expected one of {sorted(ENTITY_KINDS)})"
+            )
+        entities.append(
+            EntityConfig(
+                kind=entry["kind"],
+                name=entry["name"],
+                aliases=list(entry.get("aliases", [])),
+            )
+        )
     return Config(
-        db_path=resolved, sources=sources, triage=triage, topics=topics, path=path
+        db_path=resolved,
+        sources=sources,
+        triage=triage,
+        topics=topics,
+        facets=facets,
+        entities=entities,
+        path=path,
     )

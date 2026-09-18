@@ -13,7 +13,16 @@ from tributary import calibrate as calibrate_mod
 from tributary import cluster as cluster_mod
 from tributary import config as config_mod
 from tributary import db as db_mod
-from tributary import describe, embeddings, enrich, store, topics, triage
+from tributary import (
+    describe,
+    embeddings,
+    enrich,
+    entities,
+    facets,
+    store,
+    topics,
+    triage,
+)
 from tributary import export as export_mod
 from tributary import feed as feed_mod
 from tributary.pipeline import fetch_all
@@ -637,7 +646,8 @@ def topics_cmd(
             )
             console.print(
                 f"[cyan]Group {number}[/] — {candidate.size} stories, "
-                f"{candidate.uncovered} unclaimed · covered by: {claimed}"
+                f"{candidate.parked} parked on a shelf, {candidate.uncovered} with no topic"
+                f" · homes: {claimed}"
             )
             for title in candidate.titles[:8]:
                 console.print(f"    {truncate(title, 90)}")
@@ -653,13 +663,20 @@ def topics_cmd(
         if reset:
             topics.reset(conn)
             console.print("[yellow]Cleared all topic assignments.[/]")
-        elif topics.reset_if_profile_changed(conn, cfg.topics):
+        elif topics.reset_if_profile_changed(conn, cfg.topics, cfg.label_fingerprint()):
             console.print("[yellow]Spine changed — re-labelling every story.[/]")
 
         result = topics.run(conn, cfg.topics)
         console.print(
             f"[green]{result.assigned} stories labelled[/] of {result.stories} scored — "
+            f"{result.parked} parked on a shelf, "
             f"{result.unmatched} matched nothing on the spine"
+        )
+        marked = facets.run(conn, cfg.facets)
+        named = entities.run(conn, cfg.entities)
+        console.print(
+            f"[green]{marked.matched} stories carry a facet[/] "
+            f"and {named.matched} name an entity"
         )
 
     table = Table("topic", "stories", "last story", title="Topics")
@@ -667,6 +684,40 @@ def topics_cmd(
         # Topics are allowed to be short-lived, so "quiet since" is the column
         # that says whether one has finished rather than failed.
         table.add_row(row["name"], str(row["stories"]), (row["newest"] or "never")[:10])
+    console.print(table)
+
+
+@app.command(name="entities")
+def entities_cmd(
+    config: ConfigOpt = None,
+    suggest: Annotated[
+        bool,
+        typer.Option("--suggest", help="Propose names that recur and nobody has seeded yet."),
+    ] = False,
+    days: Annotated[int, typer.Option("--days", help="How far back --suggest looks.")] = 14,
+) -> None:
+    """Who stories are about: labs, model lines, tools."""
+    cfg, conn = _open(config)
+
+    if suggest:
+        # Proposals, not decisions. Accepting one means adding it to
+        # `[[entities]]` in the config, which is what `/suggest-topics` does.
+        found = entities.suggest(conn, cfg.entities, days=days)
+        if not found:
+            console.print(f"[yellow]No new names recurring in the last {days} days.[/]")
+            return
+        console.print(f"[bold]{len(found)} candidates[/] over the last {days} days\n")
+        for candidate in found:
+            console.print(f"[cyan]{candidate.name}[/] — {candidate.stories} stories")
+            for title in candidate.titles:
+                console.print(f"    {truncate(title, 90)}")
+        return
+
+    named = entities.run(conn, cfg.entities)
+    console.print(f"[green]{named.matched} of {named.stories} stories name an entity[/]")
+    table = Table("kind", "entity", "stories", title="Entities")
+    for row in entities.stats(conn):
+        table.add_row(row["kind"], row["name"], str(row["stories"]))
     console.print(table)
 
 
@@ -799,8 +850,8 @@ def export_cmd(
     ] = export_mod.DEFAULT_DAYS,
 ) -> None:
     """Write a static site that needs no server. For GitHub Pages and friends."""
-    _, conn = _open(config)
-    result = export_mod.write_site(conn, out, limit=limit, days=days)
+    cfg, conn = _open(config)
+    result = export_mod.write_site(conn, out, limit=limit, days=days, facet_names=cfg.facets)
     size = result["bytes"] / 1024
     console.print(
         f"[green]Wrote {result['stories']} stories[/] to {result['path']} "
@@ -973,11 +1024,14 @@ def run(
 
     # After clustering: topics describe a story, which does not exist until here.
     if cfg.topics.spine:
-        topics.reset_if_profile_changed(conn, cfg.topics)
+        topics.reset_if_profile_changed(conn, cfg.topics, cfg.label_fingerprint())
         labelled = topics.run(conn, cfg.topics)
+        marked = facets.run(conn, cfg.facets)
+        named = entities.run(conn, cfg.entities)
         console.print(
-            f"[cyan]topics[/]  {labelled.assigned} stories labelled, "
-            f"{labelled.unmatched} off-spine"
+            f"[cyan]topics[/]  {labelled.assigned} stories labelled "
+            f"({labelled.parked} parked), {labelled.unmatched} off-spine; "
+            f"{marked.matched} faceted, {named.matched} with entities"
         )
 
     if failed:

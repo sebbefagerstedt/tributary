@@ -65,6 +65,30 @@ name = "The Gradient"
 url = "https://thegradient.pub/rss/"
 
 # --- Press -------------------------------------------------------------------
+# Substack is deliberately absent from this list. It blocks GitHub Actions IPs,
+# which is why Import AI 403s on a run and works locally, and adding more of it
+# would mean sources that behave differently depending on where trib runs.
+
+[[sources]]
+kind = "rss"
+name = "Ars Technica AI"
+url = "https://arstechnica.com/ai/feed/"
+
+[[sources]]
+kind = "rss"
+name = "MIT Technology Review AI"
+url = "https://www.technologyreview.com/topic/artificial-intelligence/feed"
+
+[[sources]]
+kind = "rss"
+name = "IEEE Spectrum AI"
+url = "https://spectrum.ieee.org/feeds/topic/artificial-intelligence.rss"
+
+[[sources]]
+kind = "rss"
+name = "SemiAnalysis"
+url = "https://www.semianalysis.com/feed"
+
 
 [[sources]]
 kind = "rss"
@@ -79,9 +103,91 @@ url = "https://news.mit.edu/rss/topic/artificial-intelligence2"
 [[sources]]
 kind = "rss"
 name = "MarkTechPost"
-url = "https://www.marktechpost.com/feed/"
+# The site's own /feed/ returns 403; this FeedBurner mirror is the same content
+# and still serves valid RSS. Verified 2026-09-17.
+url = "https://feeds.feedburner.com/Marktechpost"
+
+# --- Labs and infrastructure -------------------------------------------------
+
+[[sources]]
+kind = "rss"
+name = "Mistral AI"
+url = "https://mistral.ai/rss.xml"
+
+[[sources]]
+kind = "rss"
+name = "Ai2"
+url = "https://allenai.org/rss.xml"
+
+[[sources]]
+kind = "rss"
+name = "Together AI"
+url = "https://www.together.ai/blog/rss.xml"
+
+[[sources]]
+kind = "rss"
+name = "NVIDIA"
+url = "https://blogs.nvidia.com/feed/"
+
+[[sources]]
+kind = "rss"
+name = "vLLM"
+url = "https://vllm.ai/blog/atom.xml"
+
+[[sources]]
+kind = "rss"
+name = "LangChain"
+url = "https://blog.langchain.dev/rss.xml"
+
+# --- Safety and policy -------------------------------------------------------
+
+[[sources]]
+kind = "rss"
+name = "Alignment Forum"
+url = "https://www.alignmentforum.org/feed.xml"
+
+# The curated view, not the firehose: ~2 editor-picked posts a week against ~120.
+[[sources]]
+kind = "rss"
+name = "LessWrong (curated)"
+url = "https://www.lesswrong.com/feed.xml?view=curated-rss"
+
+[[sources]]
+kind = "rss"
+name = "METR"
+url = "https://metr.org/feed.xml"
+
+[[sources]]
+kind = "rss"
+name = "CSET"
+url = "https://cset.georgetown.edu/feed/"
 
 # --- Discussion --------------------------------------------------------------
+
+# Reddit needs no API key -- the .rss endpoints are public Atom and work
+# unauthenticated. Three things make it work, and all three matter:
+#
+#   - A descriptive User-Agent. A default or blank one gets 403 HTML before the
+#     rate limiter is even reached. `http.py` already sends one.
+#   - The multireddit form. Reddit allows roughly one request per IP per minute,
+#     and `a+b+c` spends a single token to cover all three, correctly interleaved.
+#     Separate sources would 429 each other.
+#   - `www.reddit.com`. `old.reddit.com/.rss` now redirects to a login.
+#
+# Self-text posts carry real prose; link posts are title-and-thumbnail only, so
+# this behaves like Hacker News for half its items.
+[[sources]]
+kind = "rss"
+name = "Reddit AI"
+url = "https://www.reddit.com/r/LocalLLaMA+MachineLearning+singularity/.rss"
+
+# Titles and links only -- the description is a bare "Comments" link, so these
+# items depend on `describe.py` for anything to embed.
+[[sources]]
+kind = "rss"
+name = "lobste.rs AI"
+url = "https://lobste.rs/t/ai.rss"
+
 
 [[sources]]
 kind = "hn"
@@ -118,19 +224,6 @@ name = "HF Trending Models"
 mode = "models"
 sort = "likes7d"
 limit = 50
-
-# What a paper set off. Newest-first over the hub is mostly daily fine-tunes and
-# requants, so `cites_paper` keeps only repos whose card links an arXiv paper --
-# those carry the paper's id, which is a strong identifier, so they land in that
-# paper's story rather than starting one of their own. The filter runs after the
-# fetch, so ask for far more than you expect to keep.
-[[sources]]
-kind = "hf"
-name = "HF New Implementations"
-mode = "models"
-sort = "createdAt"
-cites_paper = true
-limit = 300
 
 [[sources]]
 kind = "github"
@@ -194,89 +287,464 @@ always_keep = ["anthropic", "claude", "gpt-", "gemini", "llama", "deepseek", "qw
 always_drop = []
 
 # --- Topics ------------------------------------------------------------------
-# What the feed is about, as opposed to what is worth keeping. Scored the same
-# way triage is -- cosine similarity against embedded prose -- so a description
-# is a sentence describing the kind of story that belongs here, not search
-# terms. Still no API key: this is the same local model.
+# Where a story lives. A story gets exactly one home, chosen by best fit, so
+# there is nothing to tune: no threshold, no cap, no ranking. Adding a topic
+# takes stories from its neighbours rather than adding another label to them.
 #
-# A story takes every topic it clears, up to `max_per_story`, so overlapping
-# descriptions are fine. Tune with `trib topics --stats`: a topic holding almost
-# everything is worded too broadly, one holding nothing is too narrow or is not
-# something the sources actually cover.
+# Only leaves are scored. A shelf earns its stories from whichever of its leaves
+# wins, so a shelf's `description` is documentation for whoever edits this file,
+# never an input -- that is what stopped a broad topic swallowing the feed.
 #
-# Nothing here is AI-specific by design. Replacing this spine and the triage
-# profile is most of what pointing Tributary at another subject involves.
-
-# Topics nest one level: a shelf and a row on it. `parent` names the slug above.
-# Each topic is scored on its own description, so a story can match a child, a
-# parent, or both; filtering by a parent includes everything on its shelf.
+# A description is a sentence describing the kind of story that belongs here,
+# not search terms. It is embedded and compared, so write it the way the stories
+# themselves are written. Keywords belong in `[[facets]]` below, which is a
+# different mechanism for a different job.
+#
+# Nothing here is AI-specific by design. Replacing this spine, the facets and
+# the triage profile is most of what pointing Tributary at another subject means.
 
 [topics]
-threshold = 0.60
-max_per_story = 3
+# Not a tuning knob. A story scoring below this against every leaf is one the
+# spine has no opinion about at all; over the whole corpus that is 1 story in
+# 2239. If you find yourself raising it, the spine is wrong, not this number.
+floor = 0.55
 
-# --- Models ---
+# Two leaves on the same shelf within this of each other means the shelf is
+# clear and the leaf is not, so the story sits on the shelf. Those piles are
+# where `/suggest-topics` looks for a leaf that is missing.
+park_margin = 0.02
+
+# --- Language models ---
 [[topics.spine]]
 slug = "models"
-name = "AI models"
-description = "a model is released or updated, with its benchmarks, capabilities and licence"
+name = "Language models"
+description = "the models themselves, as things that get released and used"
 
 [[topics.spine]]
 slug = "frontier"
 parent = "models"
-name = "Frontier models"
-description = "the largest and most capable models from the leading labs, and how they compare"
+name = "Frontier model releases"
+description = "a leading lab releases or updates its flagship model, and what changed about it"
 
 [[topics.spine]]
 slug = "open-weights"
 parent = "models"
-name = "Open weights"
-description = "openly licensed model weights anyone can download, run and fine-tune"
+name = "Open-weight models"
+description = "an openly licensed model anyone can download, run and fine-tune themselves"
+
+[[topics.spine]]
+slug = "small-models"
+parent = "models"
+name = "Small & on-device models"
+description = "small models built to run on a laptop or a phone rather than a datacenter"
+
+# --- Training & architecture ---
+[[topics.spine]]
+slug = "training"
+name = "Training & architecture"
+description = "how a model is built and improved before anyone serves it"
+
+[[topics.spine]]
+slug = "reasoning"
+parent = "training"
+name = "Reasoning & post-training"
+description = "teaching a model to reason better after pre-training, with reinforcement learning, distillation or self-feedback"
+
+[[topics.spine]]
+slug = "architecture"
+parent = "training"
+name = "Model architecture"
+description = "the design of the network itself: attention, state-space models, sparsity and pruning"
+
+[[topics.spine]]
+slug = "finetuning"
+parent = "training"
+name = "Fine-tuning & adaptation"
+description = "adapting an existing model to a narrower task with fine-tuning, LoRA adapters or continual learning"
+
+# --- Inference & hardware ---
+[[topics.spine]]
+slug = "inference"
+name = "Inference & hardware"
+description = "what it takes to actually run a model, and on what"
+
+[[topics.spine]]
+slug = "efficiency"
+parent = "inference"
+name = "Speed, memory & cost"
+description = "serving a model cheaply and quickly: KV cache, quantization, batching, early exit and throughput"
 
 [[topics.spine]]
 slug = "local"
-parent = "models"
-name = "Running it yourself"
-description = "running models locally: quantization, inference speed and GPU requirements"
+parent = "inference"
+name = "Running models locally"
+description = "running a model on your own machine: GPU requirements, laptops and local inference tooling"
 
-# --- Building ---
 [[topics.spine]]
-slug = "building"
-name = "Building with it"
-description = "how developers build with models in practice: prompting, RAG, fine-tuning"
+slug = "chips"
+parent = "inference"
+name = "Chips & datacenters"
+description = "the hardware AI runs on: accelerators, GPU supply and datacenter buildouts"
 
+# --- AI agents ---
 [[topics.spine]]
 slug = "agents"
-parent = "building"
-name = "Agents & tools"
-description = "AI agents, tool use, and the protocols that connect models to real systems"
+name = "AI agents"
+description = "models given a job to carry out rather than a question to answer"
 
+[[topics.spine]]
+slug = "coding-agents"
+parent = "agents"
+name = "Coding agents"
+description = "agents that write, review and ship software, and the benchmarks that judge them"
+
+[[topics.spine]]
+slug = "computer-use"
+parent = "agents"
+name = "Computer & browser use"
+description = "agents that operate a computer directly, clicking and browsing the way a person would"
+
+[[topics.spine]]
+slug = "agent-memory"
+parent = "agents"
+name = "Agent memory & planning"
+description = "how an agent remembers what it did, plans ahead and improves over a long task"
+
+[[topics.spine]]
+slug = "multi-agent"
+parent = "agents"
+name = "Multi-agent systems"
+description = "several agents working together, and what emerges from their coordination"
+
+[[topics.spine]]
+slug = "agent-failure"
+parent = "agents"
+name = "When agents fail"
+description = "agents that cheat, stall or act unsupervised, and the oversight that catches them"
+
+# --- Building with AI ---
+[[topics.spine]]
+slug = "building"
+name = "Building with AI"
+description = "what developers put around a model to make something useful"
+
+[[topics.spine]]
+slug = "rag"
+parent = "building"
+name = "Retrieval & RAG"
+description = "grounding a model's answers in retrieved documents, and the ways that retrieval goes wrong"
+
+[[topics.spine]]
+slug = "prompting"
+parent = "building"
+name = "Prompting & context"
+description = "getting more out of a model through how it is prompted and what context it is given"
+
+[[topics.spine]]
+slug = "devtools"
+parent = "building"
+name = "Developer tools & APIs"
+description = "the SDKs, APIs and protocols developers build on top of models"
+
+# --- Images, video & audio ---
+[[topics.spine]]
+slug = "media"
+name = "Images, video & audio"
+description = "everything that is not text: pictures, video, speech and 3D"
+
+[[topics.spine]]
+slug = "vlm"
+parent = "media"
+name = "Vision-language models"
+description = "models that look at an image or a video and answer questions about what is in it"
+
+[[topics.spine]]
+slug = "genmedia"
+parent = "media"
+name = "Image & video generation"
+description = "generating images and video with diffusion and related generative models"
+
+[[topics.spine]]
+slug = "speech"
+parent = "media"
+name = "Speech & audio"
+description = "speech recognition, voice synthesis and models that listen and talk"
+
+[[topics.spine]]
+slug = "world-models"
+parent = "media"
+name = "3D & world models"
+description = "generating 3D scenes and models that simulate an environment to act in"
+
+# --- Benchmarks & evaluation ---
 [[topics.spine]]
 slug = "evals"
-parent = "building"
-name = "Evals & benchmarks"
-description = "measuring what models can actually do, and where benchmarks mislead"
+name = "Benchmarks & evaluation"
+description = "measuring what models do, and whether the measurement means anything"
 
-# --- Research ---
 [[topics.spine]]
-slug = "research"
-name = "Research"
-description = "research on reasoning, training methods, architecture and representation"
+slug = "benchmarks"
+parent = "evals"
+name = "Benchmarks & leaderboards"
+description = "measuring what models can actually do, and where a benchmark misleads"
 
+[[topics.spine]]
+slug = "behaviour"
+parent = "evals"
+name = "How models behave"
+description = "empirical studies of model behaviour: calibration, confidence, values and bias"
+
+# --- Safety & security ---
 [[topics.spine]]
 slug = "safety"
-parent = "research"
 name = "Safety & security"
-description = "AI safety, interpretability, alignment, jailbreaks and model security"
+description = "the ways models go wrong, and the work to stop them"
 
-# --- The world around it ---
+[[topics.spine]]
+slug = "alignment"
+parent = "safety"
+name = "Alignment & interpretability"
+description = "understanding and steering what a model has learned inside itself"
+
+[[topics.spine]]
+slug = "attacks"
+parent = "safety"
+name = "Jailbreaks & attacks"
+description = "prompt injection, jailbreaks and adversarial attacks against deployed models"
+
+[[topics.spine]]
+slug = "misuse"
+parent = "safety"
+name = "Misuse & serious risk"
+description = "models used for harm: bio, cyber and influence operations, and what guards against it"
+
+# --- AI in the real world ---
+[[topics.spine]]
+slug = "applied"
+name = "AI in the real world"
+description = "AI applied to a field that existed before it did"
+
+[[topics.spine]]
+slug = "medicine"
+parent = "applied"
+name = "Medicine & biology"
+description = "applying models to medicine and biology: diagnosis, medical imaging and patient data"
+
+[[topics.spine]]
+slug = "science"
+parent = "applied"
+name = "Science & maths"
+description = "models used to do science: mathematics, physics, chemistry and lab work"
+
+[[topics.spine]]
+slug = "robotics"
+parent = "applied"
+name = "Robotics & embodied AI"
+description = "robots and embodied agents that perceive and act in the physical world"
+
+[[topics.spine]]
+slug = "society"
+parent = "applied"
+name = "Work, education & society"
+description = "how AI lands in workplaces, classrooms and everyday life"
+
+# --- Industry & policy ---
 [[topics.spine]]
 slug = "industry"
-name = "Industry & money"
-description = "AI companies, funding rounds, acquisitions, chips and datacenters"
+name = "Industry & policy"
+description = "the business and politics around the technology"
 
 [[topics.spine]]
-slug = "policy"
+slug = "companies"
 parent = "industry"
-name = "Policy & courts"
-description = "regulation, copyright suits and export controls as they affect what gets built"
+name = "Companies & money"
+description = "AI companies, funding, acquisitions and competitive moves between labs"
+
+[[topics.spine]]
+slug = "regulation"
+parent = "industry"
+name = "Regulation & courts"
+description = "laws, lawsuits, copyright and export controls shaping what gets built"
+
+[[topics.spine]]
+slug = "argument"
+parent = "industry"
+name = "The public argument"
+description = "public controversy about AI: incidents, open disputes and what the industry owes"
+
+# --- Facets ------------------------------------------------------------------
+# What a story *is*, as opposed to where it lives. A story has one topic and any
+# number of facets, and they stack: "agents" inside "Speed, memory & cost".
+#
+# These are regexes, not descriptions, and that is deliberate. Some subjects cut
+# across the whole spine -- an agent paper is also a safety paper, a benchmark
+# paper, a coding paper -- and similarity cannot separate those because they
+# really are all of them at once. A word either appears or it does not: matching
+# `agent` finds 25% of the feed, where scoring a description against the same
+# corpus found 5% and put the rest under whatever it most resembled.
+#
+# Patterns run case-insensitively over each story's titles and summaries.
+
+[[facets]]
+slug = "agents"
+name = "Agents"
+pattern = "\\bagent(s|ic)?\\b"
+
+[[facets]]
+slug = "benchmark"
+name = "Benchmarks"
+pattern = "\\bbenchmark|\\beval(uation)?s?\\b|leaderboard"
+
+[[facets]]
+slug = "open-source"
+name = "Open source"
+pattern = "\\bopen[- ]source|\\bopen[- ]weight|apache 2|\\bMIT licen"
+
+[[facets]]
+slug = "coding"
+name = "Code"
+pattern = "\\bcode\\b|\\bcoding\\b|software engineer|SWE-bench|\\brepositor"
+
+[[facets]]
+slug = "safety"
+name = "Safety"
+pattern = "\\bsafety\\b|jailbreak|prompt injection|\\balignment\\b|misalign"
+
+[[facets]]
+slug = "multimodal"
+name = "Multimodal"
+pattern = "\\bvision\\b|\\bimage(s)?\\b|\\bvideo\\b|multimodal|\\bvisual\\b"
+
+# --- Entities ----------------------------------------------------------------
+# Who a story is about. A new model is its lab *and* its model line *and* a
+# frontier release -- three different questions, and only the last one is a
+# topic. Entities are the axis that stops the other two being forced into it.
+#
+# Matched by name and alias, never by similarity: these are proper nouns, and
+# recognising a proper noun does not need a model. Seeded here with the ones
+# worth having on day one; everything else arrives by extraction and is accepted
+# by hand, which is the propose-then-accept rule topics already follow.
+#
+# Keep aliases unambiguous. A bare "Meta" matches "meta-learning", which is why
+# the org below is named in full.
+
+[[entities]]
+kind = "org"
+name = "OpenAI"
+aliases = ["Open AI"]
+
+[[entities]]
+kind = "org"
+name = "Anthropic"
+
+[[entities]]
+kind = "org"
+name = "Google DeepMind"
+aliases = ["DeepMind", "Google Research", "Google AI"]
+
+[[entities]]
+kind = "org"
+name = "Meta AI"
+aliases = ["Meta Superintelligence", "FAIR"]
+
+[[entities]]
+kind = "org"
+name = "Mistral AI"
+aliases = ["Mistral"]
+
+[[entities]]
+kind = "org"
+name = "DeepSeek"
+
+[[entities]]
+kind = "org"
+name = "Alibaba Qwen"
+aliases = ["QwenLM"]
+
+[[entities]]
+kind = "org"
+name = "Hugging Face"
+aliases = ["HuggingFace"]
+
+[[entities]]
+kind = "org"
+name = "NVIDIA"
+
+[[entities]]
+kind = "org"
+name = "Microsoft Research"
+
+[[entities]]
+kind = "org"
+name = "Ai2"
+aliases = ["Allen Institute for AI", "AllenAI"]
+
+[[entities]]
+kind = "org"
+name = "xAI"
+
+[[entities]]
+kind = "org"
+name = "Moonshot AI"
+
+[[entities]]
+kind = "model"
+name = "GPT"
+aliases = ["ChatGPT", "GPT-4o", "GPT-5", "GPT-6"]
+
+[[entities]]
+kind = "model"
+name = "Claude"
+
+[[entities]]
+kind = "model"
+name = "Gemini"
+
+[[entities]]
+kind = "model"
+name = "Llama"
+
+[[entities]]
+kind = "model"
+name = "Qwen"
+
+[[entities]]
+kind = "model"
+name = "Grok"
+
+[[entities]]
+kind = "model"
+name = "Kimi"
+
+[[entities]]
+kind = "model"
+name = "OLMo"
+
+[[entities]]
+kind = "model"
+name = "Phi"
+
+[[entities]]
+kind = "tool"
+name = "llama.cpp"
+
+[[entities]]
+kind = "tool"
+name = "Ollama"
+
+[[entities]]
+kind = "tool"
+name = "vLLM"
+
+[[entities]]
+kind = "tool"
+name = "transformers"
+aliases = ["Hugging Face Transformers"]
+
+[[entities]]
+kind = "tool"
+name = "LangChain"
+
+[[entities]]
+kind = "tool"
+name = "PyTorch"

@@ -101,8 +101,8 @@ def test_loads_a_topic_spine(tmp_path):
         db_path = "/tmp/x.db"
 
         [topics]
-        threshold = 0.71
-        max_per_story = 2
+        floor = 0.71
+        park_margin = 0.05
 
         [[topics.spine]]
         slug = "agents"
@@ -111,8 +111,8 @@ def test_loads_a_topic_spine(tmp_path):
         """,
     )
     cfg = config_mod.load(path)
-    assert cfg.topics.threshold == 0.71
-    assert cfg.topics.max_per_story == 2
+    assert cfg.topics.floor == 0.71
+    assert cfg.topics.park_margin == 0.05
     assert cfg.topics.spine[0].slug == "agents"
 
 
@@ -185,3 +185,78 @@ def test_a_topic_cannot_be_its_own_parent(tmp_path):
     )
     with pytest.raises(ValueError, match="its own parent"):
         config_mod.load(path)
+
+
+# --- facets and entities -----------------------------------------------------
+
+def test_loads_facets_and_entities(tmp_path):
+    path = write(
+        tmp_path,
+        """
+        [[facets]]
+        slug = "agents"
+        name = "Agents"
+        pattern = "\\\\bagent"
+
+        [[entities]]
+        kind = "org"
+        name = "OpenAI"
+        aliases = ["Open AI"]
+        """,
+    )
+    cfg = config_mod.load(path)
+    assert cfg.facets[0].pattern == r"\bagent"
+    assert cfg.entities[0].names() == ["OpenAI", "Open AI"]
+
+
+def test_a_facet_with_a_broken_pattern_is_rejected_at_load(tmp_path):
+    """Better at load than as a crash halfway through labelling the corpus."""
+    path = write(
+        tmp_path,
+        """
+        [[facets]]
+        slug = "bad"
+        name = "Bad"
+        pattern = "(unclosed"
+        """,
+    )
+    with pytest.raises(ValueError, match="bad pattern"):
+        config_mod.load(path)
+
+
+def test_an_entity_of_an_unknown_kind_is_rejected(tmp_path):
+    path = write(
+        tmp_path,
+        """
+        [[entities]]
+        kind = "company"
+        name = "OpenAI"
+        """,
+    )
+    with pytest.raises(ValueError, match="unknown kind"):
+        config_mod.load(path)
+
+
+def test_only_topics_nothing_sits_under_are_leaves():
+    shelf = config_mod.TopicConfig("models", "Models", "about models")
+    leaf = config_mod.TopicConfig("frontier", "Frontier", "about frontier", parent="models")
+    alone = config_mod.TopicConfig("policy", "Policy", "about policy")
+    spine = config_mod.TopicsConfig(spine=[shelf, leaf, alone])
+
+    assert [t.slug for t in spine.leaves()] == ["frontier", "policy"]
+
+
+def test_changing_a_facet_or_an_entity_changes_the_label_fingerprint(tmp_path):
+    """All three axes are matched in one pass, so any of them re-runs all of it."""
+    base = config_mod.Config(db_path=tmp_path / "x.db")
+    faceted = config_mod.Config(
+        db_path=tmp_path / "x.db",
+        facets=[config_mod.FacetConfig("agents", "Agents", r"\bagent")],
+    )
+    named = config_mod.Config(
+        db_path=tmp_path / "x.db",
+        entities=[config_mod.EntityConfig("org", "OpenAI")],
+    )
+
+    assert len({base.label_fingerprint(), faceted.label_fingerprint(),
+                named.label_fingerprint()}) == 3
