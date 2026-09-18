@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+
+import pytest
 
 from tributary import feed
 
@@ -91,3 +93,88 @@ def test_lead_prefers_the_paper_over_coverage_of_it():
     paper = {"kind": "paper", "role": "paper", "triage_score": 0.7}
     rewrite = {"kind": "article", "role": "seed", "triage_score": 0.9}
     assert feed._lead_rank(paper) < feed._lead_rank(rewrite)
+
+
+# --- renewal -----------------------------------------------------------------
+
+def make_story(conn, source_id, members, story_id=None):
+    """A story whose members sit at the ages given, in hours before NOW.
+
+    Written straight into the tables rather than through the clusterer: this is
+    a measurement about dates, and the clusterer would drag embeddings into it.
+    """
+    story_id = conn.execute(
+        "INSERT INTO stories (title, last_activity) VALUES (NULL, ?)",
+        (NOW.isoformat(),),
+    ).lastrowid
+    for n, (age_hours, role, kind) in enumerate(members):
+        stamp = (NOW - timedelta(hours=age_hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        item_id = conn.execute(
+            "INSERT INTO items (source_id, external_id, kind, url, title, published_at, "
+            "triage_state, triage_score, content_hash) "
+            "VALUES (?, ?, ?, ?, ?, ?, 'kept', 0.8, 'h')",
+            (source_id, f"s{story_id}i{n}", kind, f"https://e.test/{story_id}/{n}",
+             f"Story {story_id} item {n}", stamp),
+        ).lastrowid
+        conn.execute(
+            "INSERT INTO story_items (story_id, item_id, role) VALUES (?, ?, ?)",
+            (story_id, item_id, role),
+        )
+    return story_id
+
+
+def test_renewal_reports_no_gap_for_a_story_that_arrived_all_at_once(conn, source_id):
+    make_story(conn, source_id, [(2, "seed", "article")])
+    rows, summary = feed.renewal(conn, now=NOW)
+
+    assert len(rows) == 1
+    assert rows[0].gap_hours == 0
+    assert summary["renewed"] == 0
+
+
+def test_renewal_measures_what_a_late_arrival_bought(conn, source_id):
+    """A three-day-old paper with a thread from an hour ago ranks as an hour old."""
+    make_story(conn, source_id, [(73, "paper", "paper"), (1, "discussion", "discussion")])
+    rows, summary = feed.renewal(conn, now=NOW)
+
+    row = rows[0]
+    assert row.gap_hours == 72
+    assert row.renewed_role == "discussion"
+    # 72 hours is a day and a half of half-lives: 2 ** 1.5.
+    assert row.lift == pytest.approx(2 ** 1.5)
+    assert summary["renewed"] == 1
+    assert summary["by_role"] == {"discussion": 1}
+
+
+def test_renewal_shows_the_positions_a_refreshed_clock_gained(conn, source_id):
+    """The complaint this exists for: an older story sitting above a newer one."""
+    old = make_story(conn, source_id, [(96, "paper", "paper"), (1, "coverage", "article")])
+    make_story(conn, source_id, [(10, "seed", "article")])
+
+    rows, _ = feed.renewal(conn, now=NOW)
+    by_story = {row.story_id: row for row in rows}
+
+    assert by_story[old].position == 1           # the refreshed story leads
+    assert by_story[old].origin_position == 2    # aged from its paper, it would not
+    assert by_story[old].moved == 1
+
+
+def test_renewal_counts_a_story_only_a_late_arrival_put_in_the_feed(conn, source_id):
+    """`carried` is the number that decides whether the clock needs damping."""
+    stale = make_story(conn, source_id, [(24 * 30, "paper", "paper"), (1, "coverage", "article")])
+    for _ in range(3):
+        make_story(conn, source_id, [(4, "seed", "article")])
+
+    rows, summary = feed.renewal(conn, limit=2, now=NOW)
+    carried = [row for row in rows if row.carried]
+
+    # A month-old paper is far outside the feed on its own dates, so it is in
+    # this list only because something joined it an hour ago.
+    assert [row.story_id for row in carried] == [stale]
+    assert summary["carried"] == 1
+
+
+def test_renewal_is_empty_rather_than_failing_on_an_empty_database(conn):
+    rows, summary = feed.renewal(conn, now=NOW)
+    assert rows == []
+    assert summary["stories"] == 0

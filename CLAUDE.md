@@ -54,6 +54,7 @@ uv run trib status             # paths, counts, last fetch, failing sources
 uv run trib topics --stats     # stories per topic
 uv run trib topics --suggest   # recent clusters, sorted by stories parked on a shelf
 uv run trib entities --suggest # recurring names nobody has seeded
+uv run trib renewal            # what late arrivals do to the feed's order
 uv run trib serve              # web app on :8808; --host 0.0.0.0 for a phone
 uv run trib export site        # the static site the workflow publishes
 ```
