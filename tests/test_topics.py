@@ -343,3 +343,25 @@ def test_moving_a_topic_to_another_shelf_changes_the_fingerprint():
     flat = TopicsConfig(spine=[TopicConfig("a", "A", "about a")])
     under = TopicsConfig(spine=[TopicConfig("a", "A", "about a", parent="b")])
     assert flat.fingerprint() != under.fingerprint()
+
+
+def test_parked_stories_are_the_gap_suggest_leads_with(conn, story, axes):
+    """Under one home nearly nothing is unclaimed, so parking is the signal.
+
+    A group whose stories sat on a shelf because no leaf fitted is what a
+    missing leaf looks like, and it should be read first.
+    """
+    parents = {"frontier": "models", "open": "models"}
+    for _ in range(3):
+        story(unit(0.0, 1.0))  # a clear home on its own leaf
+    for _ in range(3):
+        story(unit(1.0, 0.0))  # a coin-toss between two leaves on one shelf
+    topics.run(
+        conn,
+        profile(0.10, "models", "frontier", "open", "agents", parents=parents, park_margin=0.5),
+    )
+
+    groups = topics.suggest(conn, min_size=3)
+    assert [g.parked for g in groups] == [3, 0]
+    assert groups[0].uncovered == 0
+    assert groups[0].unplaced == 3

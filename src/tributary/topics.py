@@ -153,6 +153,7 @@ class Candidate:
     size: int = 0
     covered: dict[str, int] = field(default_factory=dict)  # existing topics these carry
     claimed: int = 0  # stories at least one of those topics reached
+    parked: int = 0  # stories sitting on a shelf because no leaf fitted them
 
     @property
     def uncovered(self) -> int:
@@ -163,6 +164,17 @@ class Candidate:
         group and the subtraction goes negative.
         """
         return self.size - self.claimed
+
+    @property
+    def unplaced(self) -> int:
+        """Stories with no specific home: nothing claimed them, or they parked.
+
+        Under one-home assignment almost every story is claimed by *something*,
+        so "unclaimed" stopped being a useful signal. A story parked on a shelf
+        is the new one -- it means the shelf fits and none of its leaves does,
+        which is exactly what a missing leaf looks like.
+        """
+        return self.uncovered + self.parked
 
 
 def suggest(
@@ -211,16 +223,23 @@ def suggest(
 
     titles = _titles(conn, found)
     labels = for_stories(conn, found)
+    shelves = {
+        row["slug"]
+        for row in conn.execute(
+            "SELECT DISTINCT p.slug FROM topics c JOIN topics p ON p.id = c.parent_id"
+        )
+    }
 
     candidates = []
     for group in members:
         if len(group) < min_size:
             continue
         covered: dict[str, int] = {}
-        claimed = 0
+        claimed = parked = 0
         for position in group:
             found_topics = labels.get(found[position], [])
             claimed += bool(found_topics)
+            parked += any(topic["slug"] in shelves for topic in found_topics)
             for topic in found_topics:
                 covered[topic["name"]] = covered.get(topic["name"], 0) + 1
         candidates.append(
@@ -229,9 +248,10 @@ def suggest(
                 size=len(group),
                 covered=covered,
                 claimed=claimed,
+                parked=parked,
             )
         )
-    return sorted(candidates, key=lambda c: (c.uncovered, c.size), reverse=True)
+    return sorted(candidates, key=lambda c: (c.unplaced, c.size), reverse=True)
 
 
 def _titles(conn: sqlite3.Connection, story_ids: list[int]) -> dict[int, str]:

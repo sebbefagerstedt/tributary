@@ -646,7 +646,8 @@ def topics_cmd(
             )
             console.print(
                 f"[cyan]Group {number}[/] — {candidate.size} stories, "
-                f"{candidate.uncovered} unclaimed · covered by: {claimed}"
+                f"{candidate.parked} parked on a shelf, {candidate.uncovered} with no topic"
+                f" · homes: {claimed}"
             )
             for title in candidate.titles[:8]:
                 console.print(f"    {truncate(title, 90)}")
@@ -683,6 +684,40 @@ def topics_cmd(
         # Topics are allowed to be short-lived, so "quiet since" is the column
         # that says whether one has finished rather than failed.
         table.add_row(row["name"], str(row["stories"]), (row["newest"] or "never")[:10])
+    console.print(table)
+
+
+@app.command(name="entities")
+def entities_cmd(
+    config: ConfigOpt = None,
+    suggest: Annotated[
+        bool,
+        typer.Option("--suggest", help="Propose names that recur and nobody has seeded yet."),
+    ] = False,
+    days: Annotated[int, typer.Option("--days", help="How far back --suggest looks.")] = 14,
+) -> None:
+    """Who stories are about: labs, model lines, tools."""
+    cfg, conn = _open(config)
+
+    if suggest:
+        # Proposals, not decisions. Accepting one means adding it to
+        # `[[entities]]` in the config, which is what `/suggest-topics` does.
+        found = entities.suggest(conn, cfg.entities, days=days)
+        if not found:
+            console.print(f"[yellow]No new names recurring in the last {days} days.[/]")
+            return
+        console.print(f"[bold]{len(found)} candidates[/] over the last {days} days\n")
+        for candidate in found:
+            console.print(f"[cyan]{candidate.name}[/] — {candidate.stories} stories")
+            for title in candidate.titles:
+                console.print(f"    {truncate(title, 90)}")
+        return
+
+    named = entities.run(conn, cfg.entities)
+    console.print(f"[green]{named.matched} of {named.stories} stories name an entity[/]")
+    table = Table("kind", "entity", "stories", title="Entities")
+    for row in entities.stats(conn):
+        table.add_row(row["kind"], row["name"], str(row["stories"]))
     console.print(table)
 
 

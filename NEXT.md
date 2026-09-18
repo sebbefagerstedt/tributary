@@ -1,7 +1,7 @@
 # Tributary — state and remaining work
 
 Live at **https://sebbefagerstedt.github.io/tributary/**, rebuilt every three
-hours at minute 17. 279 tests passing, lint clean.
+hours at minute 17. 314 tests passing, lint clean.
 **Zero LLM/API usage — everything local and free.**
 
 This file is for what is *not* built and what should not be rediscovered. The
@@ -113,25 +113,47 @@ Open questions, none decided:
 
 ### Ready to start
 
-**Left over from the 2026-09-17 three-axis rebuild**, in the order that matters:
+**Left over from the three-axis rebuild** — finished 2026-09-18 except where
+marked:
 
-- **The page does not render facets or entities yet.** `data.json` carries all
-  three axes per story and a `facets` legend of slug→name, and `index.html`
-  already inherits shelf from `parent`, so the topic tree needs no work. What is
-  missing is a third filter row that ANDs a facet with the current topic, and
-  making an entity name on a card a link that filters to it.
-- **No tests for `facets.py` or `entities.py`.** The topics tests were rewritten
-  for argmax and parking; the two new modules were verified by hand against the
-  real corpus and nothing else. This is the biggest hole.
-- **Entity extraction proposes nothing.** An entity exists only if it is seeded
-  in `config.toml`. The propose-then-accept pass belongs in `/suggest-topics`.
-- **`GitHub Releases` still carries nightly builds.** Filter to tagged,
-  non-prerelease versions — one predicate in `sources/github.py`.
-- **`/suggest-topics` still describes the old model.** It talks about a
-  threshold, a flat spine and `max_per_story`, none of which exist now. It should
-  propose a leaf *and* name its shelf, read parked stories as the signal for a
-  missing leaf, and say that a new leaf now *steals* stories from its neighbours
-  rather than adding a label to them.
+- ~~The page does not render facets or entities.~~ **Done.** A third filter row
+  of facets, counted *within* the current topic so every chip leads somewhere,
+  and entity names on cards and the story sheet as doors into "everything that
+  names this, across every topic". Entity view has its own banner and a way
+  back out. Neither facet nor entity is persisted — a stale refinement on open
+  is the same bug as a stale search. Verified by driving the exported page in
+  jsdom; **headless Chromium does not run on this machine** (missing
+  `libnspr4.so`, needs `sudo apt`), which is worth fixing before the next UI
+  change.
+- ~~No tests for `facets.py` or `entities.py`.~~ **Done** — 27 across the two,
+  plus config validation. Writing them found a real bug: the Llama *model* was
+  matching `llama.cpp`, because `.` is not a word character. A dot followed by
+  more word now counts as part of the word.
+- ~~Entity extraction proposes nothing.~~ **Done** — `trib entities --suggest`.
+  Reads summaries rather than titles (Title Case headlines make every word look
+  like a name), and throws out anything also written in lower case elsewhere,
+  which is the test that separates `Astra` from `Learning`. **About half its
+  output is wrong** — eponyms like `Gaussian` and `Markov` pass every test —
+  which is acceptable for a list a person reads, and is why accepting stays
+  manual. Hub and repo *owners* were tried as a second source and dropped: they
+  are mostly one-off individuals (`ukisai`, `dealignai`), not entities.
+- ~~`GitHub Releases` still carries nightly builds.~~ **Done.** Prereleases are
+  skipped by default, and that turned out to be the whole fix: `llama.cpp` flags
+  its per-commit builds as prereleases, as does Ollama its release candidates.
+  Set `prereleases = true` on a source that wants them.
+- ~~`/suggest-topics` still describes the old model.~~ **Rewritten**, and it
+  needed a code change underneath it: under one home nearly nothing is
+  "unclaimed", so `trib topics --suggest` sorted every group at zero. It now
+  counts **parked** stories per group and sorts by those, since a pile parked
+  on a shelf is what a missing leaf looks like.
+- **Still open: `Flash`, `Sol` and other bare model suffixes.** The proposal
+  pass finds them, but as entities they would be ambiguous (`Flash` claims
+  every flash-attention paper). The skill says to qualify them — `Gemini Flash`
+  — or leave them out; a smarter extractor would propose the qualified form
+  itself by reading the word before.
+- **Still open: patch-release chatter.** `transformers v5.15.1`,
+  `ollama v0.33.3` and LangChain's per-package tags (`langchain-core==1.6.3`)
+  are real releases and pass the prerelease filter, but few are news.
 
 - **`cli.py` is ~900 lines.** By far the largest file; first thing to split.
 - **TLDR and the Anthropic source** still need the two-stage adapter described
