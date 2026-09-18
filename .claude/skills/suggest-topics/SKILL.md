@@ -28,7 +28,7 @@ axes". Read it once if anything below seems arbitrary.
 If the database is missing (a cloud session has the repo but not
 `tributary.db`, which is gitignored and lives in the Actions cache), say so
 rather than guessing. `https://sebbefagerstedt.github.io/tributary/data.json`
-carries the last 80 stories with their topics, facets and entities, but it is
+carries the latest stories with their topics, facets and entities, but it is
 too thin to find gaps in; the user should run this where the database is.
 
 ## 1. Topics: find where a leaf is missing
