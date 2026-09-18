@@ -22,8 +22,8 @@ Nothing here writes to the database. The only file you change is `config.toml`,
 and only after the user has said yes to specific entries.
 
 The reasoning behind all of this — why there is no threshold, why only leaves
-are scored, why facets are regexes — is in `NEXT.md` under "One home, three
-axes". Read it once if anything below seems arbitrary.
+are scored, why facets are regexes — is in `CLAUDE.md` under "Labelling: one
+home, three axes". Read it once if anything below seems arbitrary.
 
 If the database is missing (a cloud session has the repo but not
 `tributary.db`, which is gitignored and lives in the Actions cache), say so
