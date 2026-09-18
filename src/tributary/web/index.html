@@ -475,13 +475,22 @@ function scoped(stories) {
 
 /* Built from the stories actually loaded, so a filter never leads to an empty
    feed and a topic nothing was written about this week simply does not appear. */
-/* Every topic seen in the loaded stories, by slug, so a selected slug can be
-   resolved to the shelf it sits on. */
+/* Every topic the loaded stories can be filtered by, by slug, so a selected
+   slug can be resolved to the shelf it sits on.
+
+   Shelves are in here too, not just the labels stories carry. A story has one
+   home, and that home is usually a leaf, so a shelf is its own label only on
+   the rare story that parked there. The top row offers a shelf regardless --
+   and `render` clears any selection this index cannot resolve, which turned
+   every unparked shelf into a chip that did nothing when you tapped it. */
 function topicIndex(live) {
   const index = new Map();
   for (const story of live) {
     for (const label of story.topics || []) {
       if (!index.has(label.slug)) index.set(label.slug, label);
+    }
+    for (const shelf of shelvesOf(story)) {
+      if (!index.has(shelf.slug)) index.set(shelf.slug, shelf);
     }
   }
   return index;
