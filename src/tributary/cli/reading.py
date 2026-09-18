@@ -136,6 +136,78 @@ def feed_cmd(
 
 
 @app.command(rich_help_panel=PANEL)
+def renewal(
+    config: ConfigOpt = None,
+    limit: Annotated[int, typer.Option("--limit", "-n")] = 20,
+    days: Annotated[
+        int | None, typer.Option("--days", "-d", help="Only stories active in the last N days.")
+    ] = None,
+) -> None:
+    """Show how much of the feed's order comes from late arrivals."""
+    _, conn = open_config(config)
+    rows, summary = feed_mod.renewal(conn, limit=limit, days=days)
+    if not rows:
+        console.print("[yellow]Nothing to show.[/] Run `trib run` first.")
+        return
+
+    table = Table(box=None, pad_edge=False)
+    table.add_column("#", justify="right", style="dim")
+    table.add_column("Shown", style="dim", no_wrap=True)
+    table.add_column("Gap", justify="right", no_wrap=True)
+    table.add_column("Lift", justify="right", style="dim", no_wrap=True)
+    table.add_column("Renewed by", no_wrap=True)
+    table.add_column("Moved", justify="right", no_wrap=True)
+    # One row per story: six columns already, and a wrapped title turns the
+    # table into a paragraph you cannot scan down.
+    table.add_column("Title", no_wrap=True, overflow="ellipsis")
+
+    for row in rows:
+        # A day of gap is where the shown date and the ranking date start to
+        # read as a contradiction: two half-lives is a 1.4x lift.
+        colour = "red" if row.gap_hours >= 48 else "yellow" if row.gap_hours >= 24 else "dim"
+        gap = "—" if row.gap_hours < 1 else f"[{colour}]{row.gap_hours:.0f}h[/]"
+        lift = "—" if row.gap_hours < 1 else f"{row.lift:.2f}x"
+        renewed = "—" if row.gap_hours < 1 else (
+            f"{row.renewed_role} · {truncate(row.renewed_source, 18)}"
+        )
+        if row.carried:
+            moved = "[red]carried[/]"
+        elif row.moved and row.moved > 0:
+            moved = f"[yellow]+{row.moved}[/]"
+        else:
+            moved = "—"
+        table.add_row(
+            str(row.position),
+            (row.shown or "")[:10] or "—",
+            gap,
+            lift,
+            renewed,
+            moved,
+            truncate(row.title, 54),
+        )
+    console.print(table)
+
+    console.print(
+        f"\n[cyan]{summary['renewed']}[/]/{summary['stories']} stories were renewed by a later "
+        f"arrival, median gap [cyan]{summary['median_gap']:.0f}h[/]."
+    )
+    if summary["by_role"]:
+        parts = [f"{count} {role}" for role, count in sorted(
+            summary["by_role"].items(), key=lambda kv: -kv[1])]
+        console.print(f"[dim]Renewed by: {', '.join(parts)}.[/]")
+    if summary["carried"]:
+        console.print(
+            f"[yellow]{summary['carried']}[/] would not be in the feed at all if stories "
+            "were aged from their oldest item."
+        )
+    else:
+        console.print(
+            "[green]None of them would drop out[/] if stories were aged from their oldest "
+            "item — the wake is reordering the feed, not filling it."
+        )
+
+
+@app.command(rich_help_panel=PANEL)
 def story(
     story_id: Annotated[int, typer.Argument(help="Story id, as shown in the feed.")],
     config: ConfigOpt = None,

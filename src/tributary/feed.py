@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import math
 import sqlite3
+import statistics
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
@@ -115,8 +116,16 @@ def build(
     include_seen: bool = True,
     diversify_feed: bool = True,
     now: datetime | None = None,
+    age_from: str = "newest",
 ) -> list[StoryCard]:
-    """Rank stories and return the cards to show."""
+    """Rank stories and return the cards to show.
+
+    `age_from` exists for `renewal` and nothing else. The feed ages a story by
+    its *newest* item, so a late arrival restarts its clock -- which is the wake
+    working, and is also the one thing that can put a week-old story above a
+    fresh one. Ranking the same stories from `"origin"` instead says what the
+    feed would look like if it could not, and the difference is the measurement.
+    """
     now = now or datetime.now(UTC)
 
     where = []
@@ -138,7 +147,8 @@ def build(
                COUNT(DISTINCT i.id) AS item_count,
                COUNT(DISTINCT i.source_id) AS source_count,
                COUNT(DISTINCT si.role)     AS role_count,
-               MAX(COALESCE(i.published_at, i.fetched_at)) AS newest
+               MAX(COALESCE(i.published_at, i.fetched_at)) AS newest,
+               MIN(COALESCE(i.published_at, i.fetched_at)) AS origin
           FROM stories st
           JOIN story_items si ON si.story_id = st.id
           JOIN items i        ON i.id = si.item_id
@@ -153,7 +163,7 @@ def build(
             (
                 score_story(
                     row["relevance"] or 0.0,
-                    _age_hours(row["newest"], now),
+                    _age_hours(row["newest" if age_from == "newest" else "origin"], now),
                     row["source_count"],
                     row["role_count"],
                 ),
@@ -199,6 +209,129 @@ def diversify(
         source_counts[best.source] = source_counts.get(best.source, 0) + 1
         kind_counts[best.kind] = kind_counts.get(best.kind, 0) + 1
     return picked
+
+
+@dataclass(slots=True)
+class Renewal:
+    """One card in the feed, and what a late arrival bought it.
+
+    `shown` is the date on the card -- the lead item's -- while the ranker ages
+    the story from `newest`. When those disagree the feed looks unsorted, which
+    is the complaint this measures.
+    """
+
+    story_id: int
+    title: str
+    shown: str | None
+    origin: str | None
+    newest: str | None
+    gap_hours: float
+    renewed_role: str
+    renewed_kind: str
+    renewed_source: str
+    position: int
+    origin_position: int | None  # None: outside the deeper list ranked from origin
+    carried: bool  # in the feed only because something arrived late
+
+    @property
+    def lift(self) -> float:
+        """What the restarted clock multiplies the story's recency by."""
+        return 2 ** (self.gap_hours / HALF_LIFE_HOURS)
+
+    @property
+    def moved(self) -> int | None:
+        """Positions gained over ranking the same story from its origin."""
+        return None if self.origin_position is None else self.origin_position - self.position
+
+
+def renewal(
+    conn: sqlite3.Connection,
+    limit: int = 30,
+    days: int | None = None,
+    now: datetime | None = None,
+) -> tuple[list[Renewal], dict]:
+    """How much of the feed's order comes from late arrivals restarting clocks.
+
+    A story's clock runs from its newest item, so its wake keeps it alive: an
+    hour-old write-up makes a three-day-old paper an hour old for ranking. That
+    is the intent -- a story is the announcement plus what it set off -- but
+    nothing about a late arrival can push a story *down*. Relevance is a MAX
+    over items, corroboration only rises, and the clock only gets younger, so
+    every joiner is a pure upgrade and a long tail of arrivals could in
+    principle keep a story re-surfacing forever.
+
+    Whether that actually happens is a question about the corpus, not the code.
+    This ranks the feed both ways -- once as shipped, once with every story aged
+    from its oldest item -- and reports the difference, so the answer is measured
+    before any constant is touched.
+    """
+    now = now or datetime.now(UTC)
+    live = build(conn, limit=limit, days=days, now=now)
+    if not live:
+        return [], {"stories": 0, "renewed": 0, "carried": 0, "median_gap": 0.0, "by_role": {}}
+
+    # Ranked deeper than the feed so a story that merely slips down still gets a
+    # position to compare against, rather than falling off the end of the list.
+    deep = build(conn, limit=max(limit * 3, 60), days=days, now=now, age_from="origin")
+    origin_positions = {card.story_id: n for n, card in enumerate(deep, start=1)}
+
+    ends = _story_ends(conn, [card.story_id for card in live])
+
+    rows = []
+    for position, card in enumerate(live, start=1):
+        oldest, newest = ends[card.story_id]
+        gap = max(_age_hours(oldest["stamp"], now) - _age_hours(newest["stamp"], now), 0.0)
+        rows.append(
+            Renewal(
+                story_id=card.story_id,
+                title=card.title,
+                shown=card.published_at,
+                origin=oldest["stamp"],
+                newest=newest["stamp"],
+                gap_hours=gap,
+                renewed_role=newest["role"],
+                renewed_kind=newest["kind"],
+                renewed_source=newest["source_name"],
+                position=position,
+                origin_position=(origin := origin_positions.get(card.story_id)),
+                # "Would not be in the feed" means outside the feed's own limit,
+                # not merely outside the deeper list built to measure against.
+                carried=origin is None or origin > limit,
+            )
+        )
+
+    renewed = [row for row in rows if row.gap_hours >= 1.0]
+    by_role: dict[str, int] = {}
+    for row in renewed:
+        by_role[row.renewed_role] = by_role.get(row.renewed_role, 0) + 1
+    summary = {
+        "stories": len(rows),
+        "renewed": len(renewed),
+        "carried": sum(1 for row in rows if row.carried),
+        "median_gap": statistics.median([row.gap_hours for row in renewed]) if renewed else 0.0,
+        "by_role": by_role,
+    }
+    return rows, summary
+
+
+def _story_ends(conn: sqlite3.Connection, story_ids: list[int]) -> dict[int, tuple]:
+    """The oldest and newest member of each story, by the stamp ranking uses."""
+    placeholders = ",".join("?" * len(story_ids))
+    found: dict[int, list] = {}
+    for row in conn.execute(
+        f"""
+        SELECT si.story_id, si.role, i.kind, s.name AS source_name,
+               COALESCE(i.published_at, i.fetched_at) AS stamp
+          FROM story_items si
+          JOIN items i   ON i.id = si.item_id
+          JOIN sources s ON s.id = i.source_id
+         WHERE si.story_id IN ({placeholders})
+         ORDER BY stamp ASC
+        """,
+        story_ids,
+    ):
+        found.setdefault(row["story_id"], []).append(row)
+    return {story_id: (members[0], members[-1]) for story_id, members in found.items()}
 
 
 def _card(conn: sqlite3.Connection, story: sqlite3.Row, score: float) -> StoryCard:

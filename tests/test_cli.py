@@ -43,7 +43,7 @@ def test_every_command_is_registered():
     assert set(command_names()) >= {
         "init", "migrate", "status", "fetch", "list", "sources", "embed", "triage",
         "explain", "enrich", "cluster", "describe", "topics", "entities",
-        "calibrate", "feed", "story", "export", "prune", "serve", "run",
+        "calibrate", "feed", "renewal", "story", "export", "prune", "serve", "run",
     }
 
 
@@ -75,6 +75,8 @@ def test_init_does_not_overwrite_without_force(config):
         ["list"],
         ["sources"],
         ["feed"],
+        # A cache miss hands the workflow an empty database, and this runs in it.
+        ["renewal"],
         ["enrich"],
         ["cluster"],
         ["calibrate"],

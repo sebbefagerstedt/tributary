@@ -81,6 +81,16 @@ jobs:
       - name: Prune old items
         run: uv run trib prune --days 60 --yes
 
+      # A story's clock runs from its newest item, so a late arrival restarts
+      # it. Whether that is the wake working or a stale story being carried is
+      # a question about the corpus, and the corpus only exists here -- the
+      # database is in the cache, not the repository. So the run measures it
+      # and leaves the answer in the log. Never fails the deploy: it is a
+      # reading, not a check.
+      - name: Measure what late arrivals do to the order
+        continue-on-error: true
+        run: uv run trib renewal --limit 40 --days 30
+
       - name: Build the site
         run: uv run trib export site --days 30 --limit 120
 
