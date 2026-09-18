@@ -1,12 +1,12 @@
 # Tributary — state and remaining work
 
 Live at **https://sebbefagerstedt.github.io/tributary/**, rebuilt every three
-hours at minute 17. 314 tests passing, lint clean.
-**Zero LLM/API usage — everything local and free.**
+hours at minute 17. **Zero LLM/API usage — everything local and free.**
 
-This file is for what is *not* built and what should not be rediscovered. The
-history of what shipped is in git; only the decisions that still constrain
-future work are kept here.
+This file is for what is *not* built and what should not be rediscovered. What
+shipped, and when, is in git; this keeps only open work and the decisions that
+still constrain it. When something here gets built, delete its entry rather than
+striking it through.
 
 ---
 
@@ -41,8 +41,8 @@ the funnel is the clusterer.
 
 **The anti-doomscroll motive is a constraint, not an origin story.** It argues
 against the engagement mechanics that would be the obvious way to make a feed
-moreish. The README already says the ranking is deliberately not an engagement
-metric — keep those two agreeing.
+moreish. The ranking is deliberately not an engagement metric (see "How the
+pipeline decides" below) — keep those two agreeing.
 
 ### What "community" means here: the ripple, not a chat room
 
@@ -56,11 +56,10 @@ a paper's arXiv ID joins that paper's story as `code`; an HN thread linking an
 announcement joins it as `discussion`. The ripple is computed on every run, and
 renders as coloured chips on the card and grouped sections on the story sheet.
 
-**The ripple is not the whole of it, though.** Asked for 2026-09-17: *users need
-to be able to post and comment directly on a topic.* That was previously written
-down here as parked; it is not parked, it is a requirement. See "Posting and
-commenting" below — it is the one item in this file that changes the
-architecture rather than adding to it.
+**The ripple is not the whole of it.** Users need to be able to post and comment
+directly on a topic — a requirement, not a nice-to-have. See "Posting and
+commenting" below; it is the one item here that changes the architecture rather
+than adding to it.
 
 ---
 
@@ -113,97 +112,59 @@ Open questions, none decided:
 
 ### Ready to start
 
-**Left over from the three-axis rebuild** — finished 2026-09-18 except where
-marked:
-
-- ~~The page does not render facets or entities.~~ **Done.** A third filter row
-  of facets, counted *within* the current topic so every chip leads somewhere,
-  and entity names on cards and the story sheet as doors into "everything that
-  names this, across every topic". Entity view has its own banner and a way
-  back out. Neither facet nor entity is persisted — a stale refinement on open
-  is the same bug as a stale search. Verified by driving the exported page in
-  jsdom; **headless Chromium does not run on this machine** (missing
-  `libnspr4.so`, needs `sudo apt`), which is worth fixing before the next UI
-  change.
-- ~~No tests for `facets.py` or `entities.py`.~~ **Done** — 27 across the two,
-  plus config validation. Writing them found a real bug: the Llama *model* was
-  matching `llama.cpp`, because `.` is not a word character. A dot followed by
-  more word now counts as part of the word.
-- ~~Entity extraction proposes nothing.~~ **Done** — `trib entities --suggest`.
-  Reads summaries rather than titles (Title Case headlines make every word look
-  like a name), and throws out anything also written in lower case elsewhere,
-  which is the test that separates `Astra` from `Learning`. **About half its
-  output is wrong** — eponyms like `Gaussian` and `Markov` pass every test —
-  which is acceptable for a list a person reads, and is why accepting stays
-  manual. Hub and repo *owners* were tried as a second source and dropped: they
-  are mostly one-off individuals (`ukisai`, `dealignai`), not entities.
-- ~~`GitHub Releases` still carries nightly builds.~~ **Done.** Prereleases are
-  skipped by default, and that turned out to be the whole fix: `llama.cpp` flags
-  its per-commit builds as prereleases, as does Ollama its release candidates.
-  Set `prereleases = true` on a source that wants them.
-- ~~`/suggest-topics` still describes the old model.~~ **Rewritten**, and it
-  needed a code change underneath it: under one home nearly nothing is
-  "unclaimed", so `trib topics --suggest` sorted every group at zero. It now
-  counts **parked** stories per group and sorts by those, since a pile parked
-  on a shelf is what a missing leaf looks like.
-- **Still open: `Flash`, `Sol` and other bare model suffixes.** The proposal
-  pass finds them, but as entities they would be ambiguous (`Flash` claims
-  every flash-attention paper). The skill says to qualify them — `Gemini Flash`
-  — or leave them out; a smarter extractor would propose the qualified form
-  itself by reading the word before.
-- **Still open: patch-release chatter.** `transformers v5.15.1`,
-  `ollama v0.33.3` and LangChain's per-package tags (`langchain-core==1.6.3`)
-  are real releases and pass the prerelease filter, but few are news.
-
-- **`cli.py` is ~900 lines.** By far the largest file; first thing to split.
-- **TLDR and the Anthropic source** still need the two-stage adapter described
-  below. Note this is *not* the same as reading a page's description, which
-  `describe.py` now does: TLDR needs an issue page split into one item per
-  story, which is real HTML parsing rather than a meta tag. **The one unverified
-  thing in that section is now verified**: `https://tldr.tech/api/rss/ai`
-  returns 200 at roughly 5 items a week. Everything else there still holds.
-- **Podcast links.** Podcast feeds are RSS, so this is an adapter and a config
-  block. Summaries are the wanted half and are Phase 4, not this.
-- **Extract linked URLs as join keys**, so a post clusters with the thing it is
-  about. See "Commentary arrives without the thing it comments on" below. This
-  touches clustering, which is calibrated, so it needs guards and tests rather
-  than a one-line regex.
 - **"More like this" on a story page.** Nearest-neighbour over vectors already on
-  disk, and much easier now that a story has a centroid. This is the "I want to
-  keep reading" path.
-- **`trib status`** (db path, size, counts, last fetch) — suggested, not built.
-- **README cleanup.** It reads as a build journal of design decisions. It should
-  say what the tool is and how to run it; the reasoning moves here or goes.
+  disk, and easy now that a story has a centroid. This is the rest of "I want to
+  keep reading if I find something interesting".
+- **Podcast links.** Podcast feeds are RSS, so this is config plus a check that
+  the `rss` adapter reads enclosures sensibly; the feeds are already found and
+  verified (see "The source scan" below). Latent Space's podcast feed carries
+  full transcripts, which makes it the one podcast that embeds well today.
+  Summaries are the wanted half, and are Phase 4.
+- **YouTube channel feeds.** Plain Atom, so `kind = "rss"` should take them;
+  channel IDs are verified below. Untested from Actions, where YouTube is known
+  to block transcript fetching — check that the *feed* endpoint survives a run
+  before relying on it. Prefer channel feeds to playlist feeds (see the scan).
+- **TLDR AI and Anthropic** need a two-stage adapter — fetch a listing, then one
+  request per page, emitting one item per story. Needs the HTML parser the repo
+  does not have. See "TLDR AI is a digest, not a feed".
+- **Extract linked URLs as join keys**, so a post clusters with the thing it is
+  about. See "Commentary arrives without the thing it comments on". Touches
+  clustering, which is calibrated, so it needs guards and tests rather than a
+  one-line regex.
+- **Qualified entity names.** `trib entities --suggest` proposes bare model
+  suffixes like `Flash` and `Sol`, which would be ambiguous as entities (`Flash`
+  claims every flash-attention paper). Reading the word before would let it
+  propose `Gemini Flash` instead.
+- **Patch-release chatter.** `transformers v5.15.1`, `ollama v0.33.3` and
+  LangChain's per-package tags (`langchain-core==1.6.3`) are real releases, so
+  they pass the prerelease filter, but few are news. A rule like "minor versions
+  and up" would need care: projects version very differently.
+- **Headless Chromium does not run on the dev machine** — it is missing
+  `libnspr4.so` and friends. `sudo .venv/bin/playwright install-deps chromium`
+  fixes it. Until then the page can only be driven through jsdom, which does not
+  lay anything out.
 
-### Needs a decision, not code
+### Needs a decision, or a look
 
-- **The `data.json` fallback in `/suggest-topics` is blocked by the egress
-  proxy**, so the skill cannot run in a cloud session at all. Still a bug worth
-  fixing. (Topic names and the loose threshold are both **done** — see "One
-  home, three axes" below.)
-- **Anthropic is not a source at all**, and should be. **Re-tested 2026-09-17
-  and the premise holds**: no feed on `anthropic.com` or
-  `alignment.anthropic.com`, on any guessed path, and no `application/rss+xml`
-  in either page head. So this is the HTML-scrape adapter's first real customer.
-  Two cheaper half-measures exist: their YouTube channel
-  (`UCrDwWp7EBBv4NwvScIpBDOA`) has a working Atom feed, and third-party scrapers
-  republish their news as RSS — trusting someone else's scraper for a primary
-  source seems worse than having the gap.
+- **Watch the first scheduled runs of the new sources.** Reddit and SemiAnalysis
+  were verified from a home connection, and Actions runs on cloud IPs. If either
+  shows as failing in `trib status` or at the foot of the page, that is why —
+  the same way Substack blocks Import AI.
 - **Import AI**: drop it from `config.toml` or accept the gap. It returns HTTP
   403 on Actions because Substack blocks those IPs, and works fine locally.
-- ~~**MarkTechPost** serves something that is not a feed.~~ **Fixed
-  2026-09-17.** The cause was the fourth of the four: the site's own `/feed/`
-  returns 403 to anything that is not a browser. The FeedBurner mirror
-  `https://feeds.feedburner.com/Marktechpost` carries the same content and
-  serves valid RSS; config now points there.
+- **Anthropic is not a source**, and should be. It has no feed on `anthropic.com`
+  or `alignment.anthropic.com` under any path, and no `application/rss+xml` in
+  either page head — so it is the HTML-scrape adapter's first real customer. Two
+  half-measures exist: its YouTube channel (`UCrDwWp7EBBv4NwvScIpBDOA`) has a
+  working feed, and third-party scrapers republish its news as RSS, though
+  trusting someone else's scraper for a primary source seems worse than the gap.
+- **Stories clustered before the `role_for` fix carry stale roles.** Roles are
+  stored, not recomputed, so a paper's own coverage can still be labelled as a
+  second seed in old stories. `trib cluster --reset` once, on the database that
+  matters, rebuilds them.
 
 ### Designed, deliberately not built
 
-- ~~**The entity layer.**~~ **Half built 2026-09-17** — `entities.py` seeds the
-  labs, model lines and tools from config and attaches them to stories by name
-  and alias. What is *not* built is the propose-then-accept pass: extraction
-  currently proposes nothing, so an entity exists only if it is in `config.toml`.
-  That pass is the next piece, and `/suggest-topics` is where it belongs.
 - **"Verifierad (mer trovärdig)".** Corroboration exists as a *ranking* input —
   `SOURCE_BONUS` lifts a story several sources covered, and the card shows a
   "4 sources" chip — but the app never makes the claim. Saying "three
@@ -218,9 +179,13 @@ marked:
 - **No time axis.** Items cluster inside a 14-day window, but nothing orders a
   story as announcement → what followed. The shape over time is the interesting
   part and is currently invisible.
-- **Nothing discovers reactions.** `sources/github.py` polls ten hardcoded repos
-  for *releases* and cannot find a new project built on a story. Hugging Face's
-  `arxiv:` tags partly cover artefacts; Reddit would cover argument.
+- **Nothing discovers reactions.** `sources/github.py` polls a fixed list of
+  repos for *releases* and cannot find a new project built on a story. Hugging
+  Face's `arxiv:` tags partly cover artefacts, and Reddit now covers some of the
+  argument; nothing finds the new project.
+- **Following.** The `follows` table (`target_kind: topic|entity|source`) has
+  existed since the first commit and nothing uses it. Now that entities exist,
+  "follow OpenAI" is a query away; what is missing is somewhere to say it.
 
 ### Blocked on something external
 
@@ -228,16 +193,6 @@ marked:
   deep-links.** The differentiated feature. **Will not work on GitHub Actions** —
   runners are cloud IPs and YouTube blocks them. Needs a residential connection:
   the WSL machine, or a Pi at home pushing to the same repo.
-- ~~**Reddit** needs a manual API approval ticket.~~ **Wrong, and now
-  shipped.** The per-subreddit `.rss` endpoints are public Atom and work with no
-  credentials at all. Three things make it go, all verified 2026-09-17:
-  a descriptive User-Agent (a default one gets 403 HTML before the rate limiter
-  is reached — `http.py` already sends one); the multireddit form
-  `r/a+b+c/.rss`, which spends a single rate-limit token on all three and
-  interleaves them correctly, where separate sources would 429 each other; and
-  `www.reddit.com`, since `old.reddit.com/.rss` now redirects to a login.
-  Self-text posts carry 900–3600 characters of real prose; link posts are
-  title-and-thumbnail only, so it behaves like Hacker News for half its items.
 - **Phase 5** — notes/takes layer, interaction-learned ranking, "catch me up"
   digest.
 - **Phase 6+** — multi-user.
@@ -246,7 +201,7 @@ marked:
 
 ## Decisions worth not rediscovering
 
-### One home, three axes — the 2026-09-17 rebuild
+### One home, three axes
 
 **The old spine was one mechanism asked to answer three questions.** A GPT-6
 release is *OpenAI* (a provider you follow), *a frontier model release* (a kind
@@ -327,14 +282,12 @@ the same story — not a fix for the embedding space being compressed. If one-ho
 reads badly in practice, the next move is a "related topics" row on the story
 page, **not** a return to multi-label. That was tried and measured; it is worse.
 
-### The source scan of 2026-09-17, so it is not repeated
+### The source scan, so it is not repeated
 
-Verified by fetching, not guessed. **Added to config**: Ars Technica AI, MIT
-Tech Review AI, IEEE Spectrum AI, SemiAnalysis, Mistral, Ai2, Together, NVIDIA,
-vLLM, LangChain, Alignment Forum, LessWrong (curated), METR, CSET, lobste.rs,
-Reddit. Roughly +90 items a week of non-paper material against arXiv's ~235,
-which takes papers from 88% of the feed toward 60% **without cutting arXiv** —
-that was an explicit instruction and still is.
+Done 2026-09-17, verified by fetching rather than guessed; what it found worth
+having is in `config.toml` now. The aim was balance: the feed was 88% arXiv, and
+about 90 items a week of non-paper material against arXiv's ~235 moves that
+toward 60% **without cutting arXiv** — an explicit instruction, and still one.
 
 **Substack is deliberately excluded.** It blocks Actions IPs, which is why
 Import AI 403s on a run and works locally. That rules out Interconnects, Zvi,
@@ -372,13 +325,10 @@ and Slack need a bot joined to each server. Papers with Code now redirects to
 
 ### Hugging Face: `base_model` is the signal, not likes
 
-The "irrelevant models" complaint was aimed at the wrong source. **HF models in
-the feed are already the popular ones** — 39 kept items, minimum 90 likes,
-median 964. The junk was `GitHub Releases`, where 9 of the last 14 items were
-`llama.cpp` nightly builds (`b10999`–`b11007`). `HF New Implementations` was
-removed outright: it fetched 300 repos and kept zero.
-
-For when model filtering is next touched, verified against the live API:
+**"Only the most popular models" is already true of Hugging Face.** Its models in
+the feed had a minimum of 90 likes and a median of 964; the junk that read as
+"irrelevant models" was GitHub release builds, now filtered. For when model
+filtering is next touched, verified against the live API:
 
 - There is **no server-side minimum-likes or minimum-downloads filter**.
   `min_likes=1000` is silently ignored. Filter client-side after the fetch.
@@ -392,25 +342,24 @@ For when model filtering is next touched, verified against the live API:
 - Naming regex (`GGUF|AWQ|GPTQ|bnb-4bit|exl2`) caught only 13 of 50 derivatives
   in a real sample, so it is a secondary check at best.
 
-### Topics are an ontology, and the shipped spine is one level of it
+### Topics are an ontology
 
-**The whole idea is topics, and topics are an ontology.** The flat spine
-conflates three different things:
+Three different things were once squeezed into one flat topic list:
 
-| Level | Example | How it should be made |
+| Level | Example | How it is made |
 |---|---|---|
-| **Category** | "ai models", "frontier models", "new model releases" | Few, stable, hand-made. Hardcoding is correct here |
-| **Entity** | "OpenAI", "Astra", "Opus", "Hugging Face" | Extracted, then accepted by a human. **The missing layer** |
-| **Event** | "the huggingface incident", "Astra 6.1 released" | Already exists — it is a story |
+| **Category** | "Frontier model releases", "Speed, memory & cost" | Few, stable, hand-made — the topic spine |
+| **Entity** | "OpenAI", "Astra", "Hugging Face" | Extracted, then accepted by a human — `[[entities]]` |
+| **Event** | "the huggingface incident", "Astra 6.1 released" | Automatic — it is a story |
 
-What is built is level 1, flattened. That is why it read as "hardcoded from
-specific sources": it was the one level where hardcoding is fine, doing the job
-of the two levels where it is not.
+Hardcoding is right for the first level and wrong for the other two, which is
+why the flat list read as "hardcoded from specific sources". "One home, three
+axes" above is this table built.
 
-**A tree will not hold.** The huggingface incident belongs under Astra *and*
-under OpenAI. This is a graph: `story_topics` is already many-to-many,
-`topics.parent_id` gives the browsing skeleton, and an event can hang off
-several entities at once.
+**A tree will not hold, and does not have to.** The huggingface incident belongs
+under Astra *and* under OpenAI. Topics are a tree because browsing wants one;
+entities are what make the whole thing a graph, since a story can name any
+number of them.
 
 **Reddit cannot be copied.** Subreddits are user-created, the namespace is flat,
 and there is no hierarchy in the data model — r/MachineLearning and r/LocalLLaMA
@@ -421,43 +370,19 @@ time**; no algorithm assigns posts to subreddits. Tributary has no submitters,
 so classification has to be automatic — the same problem wearing different
 clothes.
 
-**The way through is propose, then accept.** Extraction proposes entity
-candidates; a human accepts, renames or rejects them; accepted entities become
-followable and slot under a category. That recovers Reddit's human-decides
-property without needing a crowd, and it is how a topic ends up called whatever
-people actually call it. Sebastian is that human for now, and the mechanism
-generalises to users later.
+**The way through is propose, then accept.** Extraction proposes; a human
+accepts, renames or rejects; accepted names go in the config. That recovers
+Reddit's human-decides property without needing a crowd, and it is how a topic
+ends up called whatever people actually call it. Sebastian is that human for
+now, and the mechanism generalises to users later.
 
-**Update 2026-09-17: the schema is no longer unused.** `entities.py` seeds
-entities from config and attaches them to stories by name and alias, and
-`story_entities` is populated — 942 of 2239 stories name at least one. `follows`
-is still untouched. What follows was written when none of it was wired up, and
-the reasoning still holds for the half that is not:
+Still open:
 
-```sql
-entities      (kind: model|org|person|tool|paper|dataset, name, aliases)
-item_entities / story_entities
-follows       (target_kind: topic|entity|source, weight)
-```
-
-`identity.py` is already a partial entity extractor — HF orgs and model slugs,
-GitHub repos, arXiv ids — but it writes to `identifiers`, which exists to *join*
-items into stories. The same extraction pointed at `entities` is for
-*following*. Same signal, different destination.
-
-Open questions, if this is picked up:
-
-- **Ranking candidates for review.** Frequency across stories is the obvious
-  first cut, and it is reliable but late: a brand-new name is interesting on day
-  one and only frequent by day three. Being first is most of the value.
-- **Aliases.** "Astra", "Astra 6", "Astra 6.1", `astra-6.1-flash` are one thing.
-  The `aliases` column exists; unclear whether a human fills it at accept time
-  or whether near-matches are proposed automatically.
-- **Retroactivity.** Accepting an entity should presumably re-label the back
-  catalogue, the way changing the triage or topic profile already does.
-- **Categories**: hand-written, or proposed like entities?
-- **Where review happens** — a CLI queue (`trib entities --review`) is cheapest,
-  but accepting topics from the phone is where it would actually get done.
+- **Being first.** Frequency across stories is how candidates are ranked, and it
+  is reliable but late: a brand-new name is interesting on day one and only
+  frequent by day three.
+- **Where review happens.** The `/suggest-topics` skill at a terminal works;
+  accepting from the phone is where it would actually get done.
 
 ### Gossip is content, and it argues for entities rather than looser clustering
 
@@ -523,17 +448,18 @@ never touch the database.
 why they came first. `_build_model` lifts the first such tag into
 `metadata["arxiv_id"]`, which `identity` already treats as a strong identifier —
 so a model lands in its paper's story through tier-1 clustering with no text
-matching. The `cites_paper` option keeps only repos that cite a paper, which is
-what turns newest-first over the hub (mostly daily requants and fine-tunes) into
-"someone implemented this". The hub has no server-side filter for "has any arxiv
-tag", so it runs client-side and `limit` is spent *before* it — hence 300.
+matching. That still works for every hub source.
+
+A dedicated source built on it did not. `cites_paper` keeps only repos citing a
+paper, meant to turn newest-first over the hub into "someone implemented this".
+Asked for 300 repos, it kept **zero** — the hub has no server-side filter for it,
+so the limit is spent before the filter runs, and newest-first is almost
+entirely requants. The option remains; the source was removed.
 
 ### TLDR AI is a digest, not a feed
 
-Researched, not implemented. The official feed follows
-`https://tldr.tech/api/rss/<newsletter>` (`/tech` confirmed; `/ai` inferred from
-that pattern and **not verified** — tldr.tech is blocked by the sandbox's egress
-proxy).
+Researched, not implemented. The official feed is
+`https://tldr.tech/api/rss/ai` — verified, about five issues a week.
 
 **It publishes one entry per daily issue, not one per story** — a digest of ~10
 unrelated links pointing at the whole issue page. Adding it as `kind = "rss"` is
@@ -564,8 +490,8 @@ blurbs and the editorial judgement, not the coverage.
 
 ### Commentary arrives without the thing it comments on
 
-Found 2026-09-17 from a case in the live feed: Simon Willison's write-up of an
-Anthropic announcement was there, and the announcement was not. Two independent
+Found from a case in the live feed: Simon Willison's write-up of an Anthropic
+announcement was there, and the announcement was not. Two independent
 causes, and it takes both to produce that.
 
 **The announcement was never fetched**, because Anthropic is not a source. See
@@ -676,6 +602,50 @@ question is whether one instance carries several subjects at once — topics bec
 the spine and filters become the primary navigation — or whether each subject is
 its own deployment.
 
+### How the pipeline decides, in brief
+
+Moved here from the README, which now only says how to run things.
+
+- **Fetching is idempotent and polite.** Items are keyed on
+  `(source, external_id)`. Conditional GET turns unchanged feeds into 304s, and
+  for feeds without ETags a content hash means a re-parse writes nothing. A
+  repeat fetch with no upstream change performs zero writes.
+- **One source failing never stops a run.** The failure is recorded against the
+  source, so a dead feed is a visible health row rather than a silently missing
+  morning. `trib run` still exits non-zero, so a scheduler notices.
+- **Adapters never touch the database.** They take fetch state in and return
+  items plus new state, which keeps them testable without one — and is why
+  anything that needs to read stories is a pipeline stage, not a `Source`.
+- **Embeddings are local.** Triage scores every ingested item, and paying per
+  token to decide what to throw away would invert the economics. fastembed runs
+  bge-small under ONNX: ~200MB, against the ~2GB a torch install costs.
+- **An HN item is the discussion, not the article.** Its URL is the thread; the
+  submitted link becomes a join key connecting the thread to the article.
+- **Clustering runs cheapest and most precise first.** Tier 1 is a shared strong
+  identifier (arXiv id, DOI, canonical URL, hub model, release tag) — exact and
+  free, and it earns its place: two HN posts with the *same* headline scored only
+  0.888 on embeddings but joined instantly on their shared outbound URL. A repo
+  is graded weak because hundreds of unrelated items reference one, and anything
+  shared by more than 8 items is a category, not an event. Tier 2 is embedding
+  similarity inside a 14-day window, for coverage that never cites its source.
+  Tier 3, LLM adjudication of the ambiguous band, is designed for and not wired
+  up; those items simply start their own story.
+- **Ranking is recency-decayed relevance**, with a 48-hour half-life and a
+  capped bonus for stories several independent sources covered. It must resist
+  volume: arXiv publishes ~150 papers a day where a blog publishes one, and pure
+  recency-times-relevance handed it 47 of the first 50 cards. The feed damps each
+  *repeat* from a source or kind as it is built, which restores a mix with no
+  hard quota — a day where arXiv genuinely is the news still leads with arXiv.
+- **The page has no build step.** A bundler would be the heaviest thing in the
+  repo for what is a card list. The JSON bundle is the contract, so replacing
+  the frontend later touches nothing else.
+- **A dense list, not full-screen snap cards.** One headline per screen is the
+  opposite of scannable. This is the deliberate departure from "TikTok for
+  news", and it is in tension with the TikTok-speed item above — that item is
+  about pace and format, not about copying the snap.
+- **The feed is never cached by the service worker**; only the app shell is. A
+  stale feed is worse than an honest error.
+
 ### Calibrated values — measured, don't guess these again
 
 ```
@@ -684,6 +654,8 @@ cluster.AMBIGUOUS_LOW    = 0.86
 cluster.WINDOW_DAYS      = 14
 triage threshold         = 0.66
 store.MAX_ITEM_AGE_DAYS  = 60     # must match `trib prune --days`
+topics floor             = 0.55   # 1 story in 2239 falls below it; not a tuning knob
+topics park_margin       = 0.02   # parks 13% of stories on a shelf
 ```
 
 bge puts *unrelated* text near 0.5, so the usable similarity range is ~0.5–1.0.
@@ -720,133 +692,43 @@ would cover post-reboot.
 Scheduled workflows are disabled after 60 days of repo inactivity (email first;
 any push resets it).
 
-### The pipeline was churning, not accumulating — fixed 2026-09-17
+### Reading a run's log for churn
 
-Kept because it explains `MAX_ITEM_AGE_DAYS` and because the diagnosis is the
-reusable part. Found by reading a scheduled run's log rather than the site:
+`trib run` prints new, updated, unchanged and too-old counts. **All-new with
+nothing unchanged is the shape of churn, not of news.** On a restored database,
+items fetched three hours earlier should come back as updates; zero updated means
+last run's items were gone.
 
-```
-Cache restored from key: tributary-db-7     <- the cache was fine
-fetch    1298 new, 0 updated across 20 sources
-Deleted  1295 items and 823 empty stories
-```
-
-**Zero updated** was the tell. On a restored database the arXiv papers fetched
-three hours earlier should come back as updates; zero means last run's items were
-gone. Feeds that serve their whole archive have no cursor and no useful
-validators, so they re-delivered years-old entries every run: inserted as new,
-embedded (45 seconds of it), triaged, clustered, deleted by the next prune, and
-fetched again three hours later, forever.
-
-The fix drops an item older than the retention window at ingest rather than
-storing it, so nothing is embedded that the next prune would immediately delete.
-An item already stored is exempt — it ages out through prune rather than
-vanishing mid-window. Undated items count as current, since plenty of sources
-give no date and refusing them would empty the feed.
-
-`trib run` now prints unchanged and too-old counts too. **All-new with nothing
-unchanged is the shape of churn rather than of news**, and the old one-line
-summary could not show it.
-
-**The schedule was never broken.** A long detour concluded it was, on the
-strength of checks that stopped before the run that proved otherwise: the 09:00
-window fired at 09:18, an 18-minute delay, which is ordinary. The schedule moved
-to minute 17 anyway, which is still worth having, but the reasoning recorded in
-that commit message was wrong.
+That shape once meant feeds serving their whole archive were re-delivering
+years-old entries every run — inserted, embedded, triaged, clustered, deleted by
+the next prune, and fetched again. Hence `MAX_ITEM_AGE_DAYS`: an item older than
+the retention window is dropped at ingest rather than stored, so nothing is
+embedded that the next prune would delete. An item already stored is exempt and
+ages out through prune instead, and undated items count as current, since
+refusing them would empty the feed.
 
 ---
 
-## Shipped
+## Sebastian's open asks
 
-| Phase | Status |
-|---|---|
-| 0 — schema, config, fetch pipeline, RSS, CLI | complete |
-| 1 — HN/arXiv/HF/GitHub adapters, local embeddings, triage gate | complete |
-| 2 — identifier extraction, 3-tier clustering, calibration, feed ranking | complete |
-| 3 — FastAPI, web app, PWA, `trib serve` | complete, verified live |
-| 3.5 — static export, prune, GitHub Pages + Actions | complete, deployed |
+Verbatim, because they are the sharpest statement of what is left. Delete each
+one when it is built.
 
-Since then, all 2026-09-17:
+> I want to continue reading if I find something interesting.
 
-- **The wake made visible** — role chips on the card, vote and comment counts
-  reaching the page for the first time (`export._engagement` normalises HN
-  `points`/`num_comments` and HF `upvotes` onto one shape), card art and detail
-  hero from the `media_url` that was already stored, item blurbs on the story
-  sheet.
-- **`arxiv:` tags become a join**, the `cites_paper` option, and the
-  `HF New Implementations` source.
-- **`role_for` asks whether an item opens a story**, not whether the story holds
-  a `seed`. Those are different questions: a paper-led story holds the role
-  `paper` and no seed at all, so everything joining one was labelled a second
-  seed — and since seed is the one role meaning "the announcement", **a paper's
-  own coverage was invisible in its wake**. Roles are stored, not recomputed, so
-  stories already in the database keep the old labels until
-  `trib cluster --reset` rebuilds them; worth running once.
-- **Topics** — `topics.py`, a nested spine in `config.toml`, a two-level filter
-  row, `trib topics` with `--stats`, `--suggest` and `--reset`, and the
-  `suggest-topics` skill for the naming step.
-- **Topics as somewhere you go**, not a filter you lose on click — a topic
-  banner on the story sheet, chips that navigate, and history/popstate so the
-  phone's back button returns to the feed instead of leaving the site.
-- **Search**, and a bigger back target.
-- **`describe.py`** — fetches the Hugging Face model card for items that arrive
-  as a bare title, and fixes the circular import that made `tributary.http`
-  impossible to import on its own.
-- **The churn fix** above.
-
-Two corrections from that work, both worth keeping:
-
-- **The story sheet always grouped items by role.** An earlier revision of this
-  file claimed otherwise, on the strength of a truncated grep. What was missing
-  was on the *feed*, not the sheet.
-- **`_lead_rank` sorts by kind first**, so a late model release was never able to
-  outrank the paper for the lead card. The guard already existed.
-
----
-
-## Sebastian's notes
-
-Kept verbatim from when they were written, with status added — most of this has
-since been built, and what has not is the sharpest statement of what is left.
-
-> The README includes a lot of different design choices and stuff that is not
-> relevant anymore since it is published on pages. It needs to be cleaned up.
-
-**Still open** — see README cleanup above.
-
-> I am missing the different topics I was wanting in the beginning. So when I go
-> to one link, there should be lots of related info on the same topic. Or
-> comments on that event, like releases of nee models. The reddit /r topics is
-> what I am missing. Now it just a long feed. I want to continue reading if I
-> find something interesting.
-
-**Built** — topics, the topic banner on a story, and topic pages you enter
-rather than filters you lose. The remaining piece of "I want to continue
-reading" is **"more like this"**, which is still open.
-
-> I am also missing some sort of filter, this might be related to the /r topics I
-> am wanting. But I would like more general filters as well.
-
-**Built** — two-level filter rows plus search.
-
-> an idea is that the filter is dynamic as well and can be based on latest
-> happenings by clustering events and news but that would need AI I presume which
-> i do not want yet since I do not have an api key
-
-**Built, and the assumption was wrong** — `trib topics --suggest` clusters story
-centroids and proposes groups with no API key at all. Only the *naming* needs a
-human, which is what the `suggest-topics` skill is for.
+Topics, entities and the story page cover most of this. The missing piece is
+**"more like this"** — see "Ready to start".
 
 > I also want links to podcast, and it would be reallt nice with podcast
 > summaries
 
-**Open.** Links are an RSS adapter away; summaries are Phase 4 and the one place
-an API key would genuinely buy something.
+Links are config plus a check (see "Ready to start"); summaries are Phase 4, and
+the one place an API key would genuinely buy something.
 
 > I only want the most popular news, not everything. Otherwise it is not really
 > news.
 
-**Open**, and constrained by a second instruction given at the same time: **do
-not cut arXiv** — a new paper is real news whether or not anyone has reacted to
-it yet. So this cannot be one global popularity gate, since that is exactly what
-would drop arXiv. Per-kind thresholds are the likely shape.
+Constrained by a second instruction given at the same time: **do not cut
+arXiv** — a new paper is real news whether or not anyone has reacted to it yet.
+So this cannot be one global popularity gate, since that is exactly what would
+drop arXiv. Per-kind thresholds are the likely shape.
