@@ -172,6 +172,19 @@ leaf it most resembles, and following is what gets polluted if it fails.
 entirely of items triage would have dropped; a topic filling up with those is
 the signal to re-measure the floor on the new population.
 
+**Profiles are a namespace, not a login.** Asked for 2026-09-19: *"a Login that
+is just a selection of choosing a profile or creating a new profile which only
+is a name. No password."* So a profile prefixes every `localStorage` key this
+device already wrote — `p:<name>:seen`, `p:<name>:follows` and so on — and the
+chooser stands in for a login screen because writing one person's marks into
+another's bucket is worse than making them tap a name. It protects nothing and
+syncs nothing: the same name on a laptop is a different profile, since a static
+host has nowhere to put a server. Turning it on adopts whatever the device
+already stored into the first profile created, so nobody's follows vanish on
+upgrade. The one seam is `trib serve`: `interactions` has no column for a
+person, so on a local server every profile's marks land in one bucket. On Pages
+there is no server and the profiles are cleanly separate.
+
 **Following is the filter, not the source list.** The owner's rule: *"I want to
 be able to choose what news/topics to follow, that is exactly what I was
 missing."* So model cards and release notes stay in the pipeline and are

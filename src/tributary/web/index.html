@@ -174,6 +174,27 @@ body.digest-view .search { display: none; }
 .note {
   color: var(--faint); font-size: 12.5px; margin: 0 2px 12px; line-height: 1.45;
 }
+
+/* Whose feed this is. A quiet initial rather than a name: the header is small,
+   and the only question it has to answer at a glance is "am I me". */
+.who {
+  flex: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 650; line-height: 1;
+  background: var(--surface-2); color: var(--muted); border: 1px solid var(--line);
+}
+.who:empty { display: none; }
+.profile-row {
+  display: flex; align-items: center; gap: 8px;
+  border-top: 1px solid var(--line); padding: 4px 0;
+}
+.profile-pick {
+  flex: 1; font: inherit; font-size: 16px; font-weight: 600; text-align: left;
+  color: var(--text); background: none; border: 0; padding: 12px 2px; cursor: pointer;
+}
+.profile-row.on .profile-pick { color: var(--accent); }
+.profile-here { color: var(--faint); font-size: 11.5px; padding-right: 6px; }
+.profile-new { display: flex; gap: 8px; align-items: center; margin-top: 16px; }
+.profile-new .search { margin: 0; flex: 1; }
 .linkish {
   font: inherit; color: var(--accent); background: none; border: 0;
   cursor: pointer; text-decoration: underline; padding: 0; margin-top: 8px;
@@ -330,6 +351,7 @@ body.digest-view .search { display: none; }
 <header>
   <div class="bar">
     <div class="brand">Tributary<span id="count"></span></div>
+    <button class="who" id="who" aria-label="Switch profile"></button>
     <div class="tabs" role="tablist">
       <button class="tab" role="tab" data-view="feed" aria-selected="true">Feed</button>
       <button class="tab" role="tab" data-view="trending" aria-selected="false"
@@ -347,6 +369,13 @@ body.digest-view .search { display: none; }
 </header>
 
 <main id="main"><div class="spinner"></div></main>
+
+<div class="sheet" id="profiles" role="dialog" aria-modal="true" aria-label="Profiles">
+  <div class="sheet-bar">
+    <button class="icon" id="close-profiles" aria-label="Back">&larr;</button>
+  </div>
+  <div class="sheet-body" id="profile-body"></div>
+</div>
 
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Story detail">
   <div class="sheet-bar">
@@ -386,8 +415,24 @@ const sheet = document.getElementById('sheet');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-let view = localStorage.getItem('view') || 'feed';
-let topic = localStorage.getItem('topic') || '';
+/* --- Profiles --------------------------------------------------------------
+   Not a login, and the page never pretends otherwise: there is no password,
+   nothing is private, and a profile is a namespace over the keys this device
+   already stores. Two people sharing a phone get their own follows, their own
+   unread counts and their own saved list; the same name on a laptop is a
+   different profile, because there is no server to sync to and a static host
+   has nowhere to put one. */
+const readList = (name) => {
+  try { return JSON.parse(localStorage.getItem(name) || '[]'); } catch { return []; }
+};
+let profiles = readList('profiles');
+let profile = localStorage.getItem('profile') || '';
+
+// Namespaced per profile, so switching swaps every mark at once.
+const key = (name) => (profile ? `p:${profile}:${name}` : name);
+
+let view = 'feed';
+let topic = '';
 /* Trending is the old ranking, kept off the default feed. Its scope is not
    persisted: which half of it you were last in is not worth remembering. */
 let trendScope = 'all';
@@ -401,25 +446,120 @@ let bundle = null;
 let current = null;
 let hasServer = true;   // set false on the first failed POST
 
-const readSet = (key) => {
-  try { return new Set(JSON.parse(localStorage.getItem(key) || '[]')); }
+const readSet = (name) => {
+  try { return new Set(JSON.parse(localStorage.getItem(key(name)) || '[]')); }
   catch { return new Set(); }
 };
-const writeSet = (key, set) => {
-  try { localStorage.setItem(key, JSON.stringify([...set])); } catch { /* private mode */ }
+const store = (name, value) => {
+  try { localStorage.setItem(name, value); } catch { /* private mode */ }
 };
-const marks = { seen: readSet('seen'), saved: readSet('saved'), dismissed: readSet('dismissed') };
+const writeSet = (name, set) => {
+  try { localStorage.setItem(key(name), JSON.stringify([...set])); }
+  catch { /* private mode */ }
+};
 
 /* What you follow, as `topic:<slug>` and `entity:<name>`. A preference, so it
    lives beside seen and saved rather than in the bundle -- and following
    nothing means the whole feed, because an empty feed on a new device is a bug
    rather than a statement of taste. */
-let follows = readSet('follows');
-const followed = (key) => follows.has(key);
+const marks = { seen: new Set(), saved: new Set(), dismissed: new Set() };
+let follows = new Set();
+const followed = (name) => follows.has(name);
 
-function toggleFollow(key) {
-  if (follows.has(key)) follows.delete(key); else follows.add(key);
+/* Everything the active profile owns, re-read in place. Switching profiles
+   must not reload the bundle: it is the same news, read by someone else. */
+function loadProfileState() {
+  marks.seen = readSet('seen');
+  marks.saved = readSet('saved');
+  marks.dismissed = readSet('dismissed');
+  follows = readSet('follows');
+  view = localStorage.getItem(key('view')) || 'feed';
+  topic = localStorage.getItem(key('topic')) || '';
+  trendScope = 'all';
+  facet = '';
+  entity = '';
+  document.querySelectorAll('.tab').forEach((t) =>
+    t.setAttribute('aria-selected', String(t.dataset.view === view)));
+}
+
+function toggleFollow(name) {
+  if (follows.has(name)) follows.delete(name); else follows.add(name);
   writeSet('follows', follows);
+}
+
+/* The first profile inherits whatever this device already stored, so turning
+   profiles on does not silently wipe the follows someone has been building.
+   Runs once: after it, `profiles` is non-empty and the branch is dead. */
+function adoptLegacyState(name) {
+  for (const old of ['seen', 'saved', 'dismissed', 'follows', 'view', 'topic']) {
+    const value = localStorage.getItem(old);
+    if (value === null) continue;
+    try {
+      localStorage.setItem(`p:${name}:${old}`, value);
+      localStorage.removeItem(old);
+    } catch { /* private mode */ }
+  }
+}
+
+function addProfile(name) {
+  name = name.trim().slice(0, 24);
+  if (!name || profiles.includes(name)) return name || '';
+  const first = !profiles.length;
+  profiles = [...profiles, name];
+  store('profiles', JSON.stringify(profiles));
+  if (first) adoptLegacyState(name);
+  return name;
+}
+
+function useProfile(name) {
+  profile = name;
+  store('profile', name);
+  loadProfileState();
+  closeProfiles();
+  render();
+  window.scrollTo({ top: 0 });
+}
+
+function removeProfile(name) {
+  profiles = profiles.filter((p) => p !== name);
+  store('profiles', JSON.stringify(profiles));
+  for (const owned of ['seen', 'saved', 'dismissed', 'follows', 'view', 'topic']) {
+    try { localStorage.removeItem(`p:${name}:${owned}`); } catch { /* private mode */ }
+  }
+  renderProfiles();
+}
+
+function renderProfiles() {
+  const list = profiles.map((name) => `
+    <div class="profile-row${name === profile ? ' on' : ''}">
+      <button class="profile-pick" data-use="${esc(name)}">${esc(name)}</button>
+      ${name === profile ? '<span class="profile-here">here</span>'
+        : `<button class="icon" data-drop="${esc(name)}" aria-label="Remove ${esc(name)}"
+            >&times;</button>`}
+    </div>`).join('');
+
+  document.getElementById('profile-body').innerHTML = `
+    <h1>Who is reading?</h1>
+    <p class="note">A name, nothing else &mdash; no password, and nothing here is
+      private. Profiles keep their own follows, unread counts and saved stories
+      on this device only.</p>
+    ${list || '<p class="note">No profiles yet.</p>'}
+    <form id="new-profile" class="profile-new" autocomplete="off">
+      <input id="profile-name" class="search" type="text" maxlength="24"
+        placeholder="New profile name" aria-label="New profile name">
+      <button class="follow on" type="submit">Add</button>
+    </form>`;
+}
+
+function openProfiles() {
+  renderProfiles();
+  document.getElementById('profiles').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeProfiles() {
+  document.getElementById('profiles').classList.remove('open');
+  document.body.style.overflow = '';
 }
 
 /* Following a shelf follows everything on it, the same way filtering does. */
@@ -435,6 +575,11 @@ function mark(kind, id, on) {
   if (on) marks[kind].add(id); else marks[kind].delete(id);
   writeSet(kind, marks[kind]);
   if (on && hasServer) {
+    /* Not per profile. The POST exists so the CLI's notion of "seen" stays in
+       step for whoever runs `trib serve` locally, and `interactions` has no
+       column for a person. So on a local server every profile's marks land in
+       one bucket; on GitHub Pages, where there is no server, this never fires
+       and the profiles are cleanly separate. */
     const action = kind === 'seen' ? 'seen' : kind;
     fetch(`/api/story/${id}/${action}`, { method: 'POST' }).catch(() => { hasServer = false; });
   }
@@ -827,6 +972,7 @@ function render() {
   if (view === 'topics') {
     document.getElementById('count').textContent =
       `${bundle.status.stories} stories · updated ${ago(bundle.generated_at)} ago`;
+    renderWho();
     main.innerHTML = digestHTML(live);
     return;
   }
@@ -840,6 +986,7 @@ function render() {
   const age = ago(bundle.generated_at);
   document.getElementById('count').textContent =
     `${status.stories} stories · updated ${age} ago`;
+  renderWho();
 
   let html = entity ? entityHead(entity, stories.length)
     : topic ? topicHead(index.get(topic), stories.length) : '';
@@ -868,6 +1015,21 @@ function render() {
   main.innerHTML = html;
 }
 
+/* The chooser stands in for a login screen: no profile selected means the app
+   waits, rather than quietly writing someone else's marks into a shared bucket.
+   A device that has never seen profiles gets the picker with its existing state
+   ready to be claimed by the first name entered. */
+function requireProfile() {
+  if (profile && profiles.includes(profile)) return true;
+  if (profiles.length === 1) { useProfile(profiles[0]); return true; }
+  openProfiles();
+  return false;
+}
+
+function renderWho() {
+  document.getElementById('who').textContent = profile ? profile.slice(0, 1).toUpperCase() : '';
+}
+
 async function load() {
   main.innerHTML = '<div class="spinner"></div>';
   try {
@@ -875,7 +1037,8 @@ async function load() {
     const res = await fetch('data.json', { cache: 'no-cache' });
     if (!res.ok) throw new Error(`${res.status}`);
     bundle = await res.json();
-    render();
+    loadProfileState();
+    if (requireProfile()) render();
   } catch (err) {
     main.innerHTML = `<div class="empty">Could not load the feed.<br>
       <code>${esc(err.message)}</code></div>`;
@@ -953,7 +1116,7 @@ function toggleSave(id) {
 
 function selectView(next) {
   view = next;
-  localStorage.setItem('view', view);
+  store(key('view'), view);
   document.querySelectorAll('.tab').forEach((t) =>
     t.setAttribute('aria-selected', String(t.dataset.view === view)));
   render();
@@ -961,6 +1124,24 @@ function selectView(next) {
 }
 
 document.addEventListener('click', (event) => {
+  if (event.target.closest('#who')) { openProfiles(); return; }
+  if (event.target.closest('#close-profiles')) {
+    // Only closable once somebody is chosen; otherwise there is no feed behind it.
+    if (profile) closeProfiles();
+    return;
+  }
+  const use = event.target.closest('[data-use]');
+  if (use) { useProfile(use.dataset.use); return; }
+
+  const drop = event.target.closest('[data-drop]');
+  if (drop) {
+    const name = drop.dataset.drop;
+    if (confirm(`Remove ${name}? Their follows and saved stories on this device go too.`)) {
+      removeProfile(name);
+    }
+    return;
+  }
+
   const tab = event.target.closest('.tab');
   if (tab) {
     selectView(tab.dataset.view);
@@ -1037,7 +1218,7 @@ document.addEventListener('click', (event) => {
   if (goto) {
     entity = '';
     topic = goto.dataset.goto;
-    localStorage.setItem('topic', topic);
+    store(key('topic'), topic);
     dismissSheet();
     // From the digest, opening a subject means going to read it.
     if (view === 'topics') { selectView('feed'); return; }
@@ -1050,7 +1231,7 @@ document.addEventListener('click', (event) => {
   if (filter) {
     entity = '';
     topic = filter.dataset.topic;
-    localStorage.setItem('topic', topic);
+    store(key('topic'), topic);
     render();
     return;
   }
@@ -1082,6 +1263,15 @@ document.addEventListener('click', (event) => {
 document.addEventListener('error', (event) => {
   if (event.target instanceof HTMLImageElement) event.target.remove();
 }, true);
+
+/* Delegated, because the form is rebuilt every time the chooser opens. */
+document.addEventListener('submit', (event) => {
+  if (event.target.id !== 'new-profile') return;
+  event.preventDefault();
+  const input = document.getElementById('profile-name');
+  const name = addProfile(input.value);
+  if (name) useProfile(name);
+});
 
 document.getElementById('search').addEventListener('input', (event) => {
   query = event.target.value.trim().toLowerCase();
