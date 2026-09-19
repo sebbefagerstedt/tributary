@@ -243,9 +243,16 @@ repos = [
 per_page = 5
 
 # --- Triage ------------------------------------------------------------------
-# Relevance gate. Every item is scored by its highest cosine similarity to the
-# interest sentences below; anything closer to an exclude sentence is dropped
-# regardless. Keyword lists override both.
+# A relevance *score*, not a gate. Every item is scored by its highest cosine
+# similarity to the interest sentences below, and everything fetched becomes a
+# story either way: following is what filters the feed now, because a reader's
+# own subjects beat one profile of prose written for everybody.
+#
+# What the score still does: it is `relevance` in the ranking, so what this
+# profile dislikes sinks in Trending. `threshold`, `exclude` and the keyword
+# lists decide the kept/rejected verdict, which no longer hides anything and is
+# now only read by `trib triage --show` and the `below triage` column in
+# `trib topics --stats`.
 #
 # These are embeddings, not keywords: write sentences describing the kind of
 # thing you want, not search terms. Tune with `trib triage --show` and
@@ -254,6 +261,7 @@ per_page = 5
 # bge puts unrelated text near 0.5, so the usable range is roughly 0.5-1.0.
 
 [triage]
+# No longer a cut: it only labels an item kept or rejected for the diagnostics.
 threshold = 0.66
 
 interests = [

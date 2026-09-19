@@ -14,12 +14,16 @@ from tributary.db import transaction
 
 
 def pending(conn: sqlite3.Connection, limit: int | None = None) -> list[sqlite3.Row]:
-    """Kept items whose identifiers have not been extracted yet."""
+    """Items whose identifiers have not been extracted yet.
+
+    Everything, not just what triage liked: an identifier is how tier-1
+    clustering joins an item to the story it belongs to, and an item with no
+    identifiers can only ever start a story of its own.
+    """
     sql = """
         SELECT i.id, i.title, i.summary, i.body, i.url, i.canonical_url, i.metadata
           FROM items i
-         WHERE i.triage_state = 'kept'
-           AND NOT EXISTS (SELECT 1 FROM identifiers d WHERE d.item_id = i.id)
+         WHERE NOT EXISTS (SELECT 1 FROM identifiers d WHERE d.item_id = i.id)
            AND i.id NOT IN (SELECT item_id FROM enriched)
          ORDER BY COALESCE(i.published_at, i.fetched_at) DESC
     """

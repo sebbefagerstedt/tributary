@@ -391,12 +391,26 @@ def stats(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     `newest` is what says whether a topic has gone quiet: topics are allowed to
     be short-lived, so one with no recent stories has probably finished rather
     than failed, and is a candidate for retiring.
+
+    `below_triage` is the number of a topic's stories made entirely of items
+    triage would once have dropped, and it is the number that matters now that
+    triage no longer gates the corpus. Topics have no relevance threshold --
+    a story goes to its single best leaf, and `floor` was measured at 1 story
+    in 2239 *on already-triaged material*. On everything, that floor is the
+    only thing standing between a crypto post and whichever AI leaf it most
+    resembles. A topic filling up with `below_triage` stories is following
+    being polluted, and is the signal to re-measure the floor.
     """
     return list(
         conn.execute(
             """
             SELECT t.slug, t.name,
                    COUNT(stp.story_id) AS stories,
+                   SUM(CASE WHEN stp.story_id IS NOT NULL AND NOT EXISTS (
+                         SELECT 1 FROM story_items si
+                           JOIN items i ON i.id = si.item_id
+                          WHERE si.story_id = stp.story_id AND i.triage_state = 'kept'
+                       ) THEN 1 ELSE 0 END) AS below_triage,
                    MAX(st.last_activity) AS newest
               FROM topics t
               LEFT JOIN story_topics stp ON stp.topic_id = t.id

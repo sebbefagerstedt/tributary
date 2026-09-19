@@ -81,7 +81,7 @@ exported `data.json`.
 | fetch | `pipeline.py`, `sources/*`, `store.py` | adapters return items; the store upserts them |
 | describe | `describe.py` | finds prose for items that arrived as a bare title |
 | embed | `embeddings.py` | fastembed bge-small-en-v1.5, 384-dim, local ONNX |
-| triage | `triage.py` | keep or drop by similarity to prose interests |
+| triage | `triage.py` | *scores* by similarity to prose interests; drops nothing |
 | enrich | `enrich.py`, `identity.py` | extracts join keys: arXiv ids, DOIs, URLs, repos |
 | cluster | `cluster.py` | groups items into stories, and gives each item a role |
 | label | `topics.py`, `facets.py`, `entities.py` | topic, facets and entities per story |
@@ -151,9 +151,26 @@ order and the scope; all four read the same bundle.
 | Surface | Order | Scope |
 |---|---|---|
 | Feed | newest first, by the date on the card | what you follow, or everything |
-| Trending | the ranking below | everything, or what you follow |
+| Trending *(beta)* | the ranking below | everything, or what you follow |
 | Topics | most unread first | every subject in the bundle |
 | Saved | newest first | what you starred |
+
+**Triage scores; it does not gate.** Changed 2026-09-19, on the owner's call:
+*"I have solved filtering with following instead. It is a much more basic and
+better solution since everyone has their own preferences."* So `enrich.pending`
+and `cluster.unclustered` no longer filter on `triage_state`, and everything
+fetched becomes a story. Triage still runs, and its score is still `relevance`
+in the ranking — so what the profile dislikes sinks in Trending rather than
+never existing. Trending is marked **beta** in the UI while that is judged.
+
+**The consequence to watch is the topic floor.** Topics have no relevance
+threshold by design — a story goes to its single best leaf — and `floor = 0.55`
+was measured at *1 story in 2239* **on already-triaged material**. On
+everything, that floor is the only thing between a crypto post and whichever AI
+leaf it most resembles, and following is what gets polluted if it fails.
+`trib topics --stats` has a **below triage** column counting stories made
+entirely of items triage would have dropped; a topic filling up with those is
+the signal to re-measure the floor on the new population.
 
 **Following is the filter, not the source list.** The owner's rule: *"I want to
 be able to choose what news/topics to follow, that is exactly what I was
@@ -369,9 +386,9 @@ simply find nothing elsewhere. "A Tributary for X" is mostly a second config.
 cluster.MERGE_THRESHOLD  = 0.92   # 85/87 positives, 1 false merge in 18,235 hard pairs
 cluster.AMBIGUOUS_LOW    = 0.86
 cluster.WINDOW_DAYS      = 14
-triage threshold         = 0.66
+triage threshold         = 0.66   # no longer a gate; only labels kept/rejected
 store.MAX_ITEM_AGE_DAYS  = 60     # must match `trib prune --days` in the workflow
-topics floor             = 0.55   # 1 story in 2239 falls below it
+topics floor             = 0.55   # 1 in 2239 -- but measured on TRIAGED material
 topics park_margin       = 0.02   # parks about 13% of stories on a shelf
 ```
 
