@@ -202,6 +202,22 @@ state pointing at Topics, which is where you choose. Saved and search are
 deliberately outside this — both are ways back to something you already have —
 and Trending is still everything, since it is a place you go to look around.
 
+**Follows gate the feed; they do not gate a place you walked into.** A topic or
+an entity reached deliberately — from a story's chip — shows what is in it
+whether or not you follow it. Requiring both emptied every subject you had not
+already chosen, which is precisely the subject you went to look at, and the
+banner saying "0 stories" sat above a digest row that had just counted them.
+So `visible()` applies `isFollowed` only when nothing is scoped.
+
+**Leaving the digest does not leave a filter behind.** A subject's name there is
+`data-to-feed`: it returns to the feed and clears any scope. It used to set the
+topic on the way out, so tapping a subject to read it left the feed filtered —
+persisted, so you met it again days later with no memory of setting it, and
+(once follows gated the feed) showing nothing at all. Walking *into* a topic is
+`data-goto`, which only the story chip carries now. The two were one attribute
+and keying them apart on `view` is wrong: a story opened *from* the digest is
+still a story.
+
 **The feed orders by when the news broke, not by the story's clock.** A story's
 clock restarts when its wake grows (see `trib renewal`), and a chronological
 feed where a three-day-old paper jumps the queue because someone commented is

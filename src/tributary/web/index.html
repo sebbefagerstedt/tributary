@@ -783,7 +783,11 @@ function visible() {
     const pool = trendScope === 'mine' && follows.size ? all.filter(isFollowed) : all;
     return [...pool].sort((a, b) => b.score - a.score);
   }
-  return byDate(all.filter(isFollowed));
+  /* Follows decide what the *unscoped* feed holds. A topic or an entity you
+     walked into is a place, and a place shows what is in it -- requiring a
+     follow as well emptied every subject you had not already chosen, which is
+     exactly the subject you went to look at. */
+  return byDate(topic || entity ? all : all.filter(isFollowed));
 }
 
 const hasEntity = (s, name) => (s.entities || []).some((e) => e.name === name);
@@ -944,7 +948,7 @@ function digestHTML(live) {
     return `
     <section class="digest${on ? ' on' : ''}">
       <div class="digest-head">
-        <button class="digest-name" data-goto="${esc(row.slug)}">${esc(row.name)}</button>
+        <button class="digest-name" data-to-feed>${esc(row.name)}</button>
         ${followButton(`topic:${row.slug}`, on)}
       </div>
       <div class="digest-count">${
@@ -970,7 +974,7 @@ function digestHTML(live) {
   return `
     <p class="digest-intro">${follows.size
       ? `Your feed is the ${plural(follows.size, 'subject')} you follow. Tap to change that.`
-      : 'Your feed is everything. Follow a subject and it becomes just that.'}</p>
+      : 'Your feed is empty until you follow something. Tap a subject to start it.'}</p>
     ${shelves}
     ${names ? `<section class="digest">
       <div class="digest-head"><span class="digest-name as-text">Names in play</span></div>
@@ -1466,13 +1470,25 @@ document.addEventListener('click', (event) => {
     return;
   }
 
+  /* The digest's subject name is a way back to the feed, and nothing more. The
+     digest is where you choose what to follow; a filter picked up on the way
+     out of it is one you never asked for, and you would meet it later with no
+     memory of setting it. Walking *into* a topic is the story chip below. */
+  if (event.target.closest('[data-to-feed]')) {
+    entity = '';
+    topic = '';
+    store(key('topic'), '');
+    selectView('feed');
+    return;
+  }
+
   const goto = event.target.closest('[data-goto]');
   if (goto) {
     entity = '';
     topic = goto.dataset.goto;
     store(key('topic'), topic);
     dismissSheet();
-    // From the digest, opening a subject means going to read it.
+    // Opened from the digest, the topic is somewhere to read, so go and read it.
     if (view === 'topics') { selectView('feed'); return; }
     render();
     window.scrollTo({ top: 0 });
