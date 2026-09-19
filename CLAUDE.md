@@ -212,8 +212,14 @@ back to the whole shelf row, which is then the only way to get around. Trending
 is everything, where the same rows are forty-odd chips over four lines before a
 headline, so it collapses to one bar reading its own state (`Everything · AI
 agents · Code`) that opens a filter sheet — the same gesture the story detail
-and the profile chooser use. In the sheet, scope keeps it open because it
-changes what is worth offering; a subject or a kind applies and closes.
+and the profile chooser use. **The sheet lists shelves, not leaves.** Showing
+all forty-odd subjects at once only moved the wall of chips behind a tap, so a
+shelf opens on tap and one is open at a time, with `Everything` inside it
+standing for the shelf itself; a shelf with nothing under it picks instead of
+expanding. The sheet opens with the shelf holding the current selection already
+open, and a collapsed shelf lights up for a leaf chosen inside it. So scope and
+opening a shelf keep the sheet open, because neither finishes the choice; a
+subject or a kind applies and closes.
 
 **The digest counts unseen, not "since a timestamp".** Seen marks are already
 per story and per device, and a count you clear by reading beats one that

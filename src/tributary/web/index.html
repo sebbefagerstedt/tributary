@@ -216,14 +216,24 @@ body.digest-view .search { display: none; }
 .scopebar.clear-all { color: var(--faint); }
 
 .sheet-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
-/* A shelf and its rows on one line each, so ten shelves read as ten lines
-   instead of forty loose chips. */
+/* One shelf per line, and its rows only once it is opened: ten names you read
+   at a glance instead of forty chips you scan past. */
 .sheet-shelf {
   display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
   padding: 9px 0; border-top: 1px solid var(--line);
 }
-.leaf.shelf { font-weight: 650; background: var(--surface-2); }
-.sheet-shelf .leaf { font-size: 12px; }
+.leaf.shelf { font-weight: 650; font-size: 13px; background: var(--surface-2); }
+.leaf.shelf .caret {
+  display: inline-block; margin-left: 6px; font-size: 9px; opacity: .55;
+  transition: transform .15s ease;
+}
+.sheet-shelf.open .leaf.shelf .caret { transform: rotate(180deg); }
+/* Set back under the shelf that owns them, on their own line, so the two
+   levels read as levels rather than as one long row. */
+.sheet-leaves {
+  flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 2px 0 2px 12px;
+}
 .linkish {
   font: inherit; color: var(--accent); background: none; border: 0;
   cursor: pointer; text-decoration: underline; padding: 0; margin-top: 8px;
@@ -490,6 +500,10 @@ let query = '';   // deliberately not persisted: a stale search on open is a bug
    reached from a story -- landing back in it days later would be disorienting. */
 let facet = '';
 let entity = '';
+/* Which shelf is open in Trending's filter sheet. One at a time, and set from
+   the current selection every time the sheet opens, so it is a view of where
+   you are rather than a preference of its own. */
+let openShelf = '';
 let bundle = null;
 let current = null;
 let hasServer = true;   // set false on the first failed POST
@@ -1058,8 +1072,8 @@ function renderScope() {
 }
 
 /* Everything Trending can be narrowed by, on one screen: scope, then subjects
-   grouped by the shelf they sit on, then kind. Counted in the pool each choice
-   would actually apply to, so no chip here leads to an empty list. */
+   a shelf at a time, then kind. Counted in the pool each choice would actually
+   apply to, so no chip here leads to an empty list. */
 function filterSheetHTML() {
   const live = bundle.stories.filter((s) => !marks.dismissed.has(s.story_id));
   const pool = trendScope === 'mine' && follows.size ? live.filter(isFollowed) : live;
@@ -1088,14 +1102,38 @@ function filterSheetHTML() {
       shelf.leaves.set(label.slug, leaf);
     }
   }
-  const subjects = [...shelves.values()].sort((a, b) => b.n - a.n).map((shelf) => `
-    <div class="sheet-shelf">
-      <button class="leaf shelf${topic === shelf.slug ? ' on' : ''}"
-        data-pick="${esc(shelf.slug)}">${esc(shelf.name)}<span class="n">${shelf.n}</span></button>
-      ${[...shelf.leaves.values()].sort((a, b) => b.n - a.n).map((leaf) =>
-        `<button class="leaf${topic === leaf.slug ? ' on' : ''}" data-pick="${esc(leaf.slug)}"
-          >${esc(leaf.name)}<span class="n">${leaf.n}</span></button>`).join('')}
-    </div>`).join('');
+  /* Shelves only, until you ask for one. Ten lines you can read in a glance
+     beats forty chips you have to scan, and the first tap is a question --
+     which shelf -- that the shelf names answer on their own. Opening a shelf
+     is the one choice here that is not the last one, so it keeps the sheet
+     open, the way scope does. */
+  const subjects = [...shelves.values()].sort((a, b) => b.n - a.n).map((shelf) => {
+    const leaves = [...shelf.leaves.values()].sort((a, b) => b.n - a.n);
+    // A shelf with nothing under it has nothing to expand into, so it picks.
+    if (!leaves.length) {
+      return `<div class="sheet-shelf">
+        <button class="leaf shelf${topic === shelf.slug ? ' on' : ''}"
+          data-pick="${esc(shelf.slug)}"
+          >${esc(shelf.name)}<span class="n">${shelf.n}</span></button>
+      </div>`;
+    }
+    const open = openShelf === shelf.slug;
+    // The shelf lights up for anything chosen inside it, so a collapsed sheet
+    // still says where the selection is.
+    const holds = topic === shelf.slug || shelf.leaves.has(topic);
+    return `<div class="sheet-shelf${open ? ' open' : ''}">
+      <button class="leaf shelf${holds ? ' on' : ''}" data-shelf="${esc(shelf.slug)}"
+        aria-expanded="${open}">${esc(shelf.name)}<span class="n">${shelf.n}</span
+        ><span class="caret">&#9662;</span></button>
+      ${open ? `<div class="sheet-leaves">
+        <button class="leaf${topic === shelf.slug ? ' on' : ''}" data-pick="${esc(shelf.slug)}"
+          >Everything<span class="n">${shelf.n}</span></button>
+        ${leaves.map((leaf) =>
+          `<button class="leaf${topic === leaf.slug ? ' on' : ''}" data-pick="${esc(leaf.slug)}"
+            >${esc(leaf.name)}<span class="n">${leaf.n}</span></button>`).join('')}
+      </div>` : ''}
+    </div>`;
+  }).join('');
 
   const counts = new Map();
   for (const story of pool) {
@@ -1122,10 +1160,24 @@ function filterSheetHTML() {
       </div>` : ''}`;
 }
 
+/* The shelf a slug sits on, or '' if it sits on none. A selected leaf opens
+   its own shelf, so the sheet opens showing where you already are. */
+function shelfOf(slug) {
+  if (!slug) return '';
+  const label = topicIndex(bundle.stories).get(slug);
+  return label ? label.parent || label.slug : '';
+}
+
 function openFilters() {
-  document.getElementById('filter-body').innerHTML = filterSheetHTML();
+  openShelf = shelfOf(topic);
+  drawFilters();
   document.getElementById('filter-sheet').classList.add('open');
   document.body.style.overflow = 'hidden';
+}
+
+/* Redraws the sheet in place, for the choices that do not finish it. */
+function drawFilters() {
+  document.getElementById('filter-body').innerHTML = filterSheetHTML();
 }
 
 function closeFilters() {
@@ -1396,14 +1448,23 @@ document.addEventListener('click', (event) => {
     return;
   }
 
-  /* Scope keeps the sheet open: it changes which subjects are worth offering,
-     so you have not finished choosing. A subject or a kind is what you came
-     for, so those apply and get out of the way. */
+  /* Scope and opening a shelf keep the sheet open: neither is a choice you
+     came here to make, only one that changes what is worth offering next. A
+     subject or a kind is the answer, so those apply and get out of the way. */
   const scope = event.target.closest('[data-scope]');
   if (scope) {
     trendScope = scope.dataset.scope;
     render();
-    openFilters();
+    drawFilters();
+    return;
+  }
+
+  // Opening a shelf is not a filter: nothing is chosen yet, so nothing moves.
+  const shelfToggle = event.target.closest('[data-shelf]');
+  if (shelfToggle) {
+    const slug = shelfToggle.dataset.shelf;
+    openShelf = openShelf === slug ? '' : slug;
+    drawFilters();
     return;
   }
 
