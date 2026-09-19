@@ -150,6 +150,7 @@ body.digest-view .search { display: none; }
 }
 .digest-leaves { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .digest-intro { color: var(--muted); font-size: 13.5px; margin: 2px 2px 4px; }
+.digest-note { color: var(--faint); font-size: 12.5px; margin: 4px 0 0; line-height: 1.45; }
 
 .follow {
   font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
@@ -346,6 +347,9 @@ body.digest-view .search { display: none; }
 }
 .topic-name { font-size: 17px; font-weight: 650; letter-spacing: -.015em; }
 .topic-meta { color: var(--faint); font-size: 12.5px; margin-top: 2px; }
+/* The follow control sits under the name rather than beside it: the name wraps
+   on a phone, and a button sharing that line would be squeezed to nothing. */
+.head-follow { margin-top: 10px; }
 
 .sheet-topics { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 16px; }
 /* Who a story is about. Neutral, because an entity is a door into a different
@@ -453,20 +457,19 @@ body.digest-view .search { display: none; }
    CLI's notion of "seen" stays in step. */
 const KINDS = {
   paper: 'var(--paper)', model: 'var(--model)', repo: 'var(--repo)',
-  discussion: 'var(--discussion)', article: 'var(--article)', video: 'var(--video)',
+  video: 'var(--video)', discussion: 'var(--discussion)',
+  article: 'var(--article)', post: 'var(--article)',
 };
-const LABEL = { discussion: 'talk', article: 'news', repo: 'code' };
-/* What else is attached to a story, counted by what each item *is* rather than
-   by the role it plays in the narrative. Role said "repo" for a model, because
-   both are things built on a story; kind is the word a reader expects. */
-const KIND_CHIP = {
-  paper: ['paper', 'var(--paper)'],
-  model: ['model', 'var(--model)'],
-  repo: ['repo', 'var(--repo)'],
-  video: ['video', 'var(--video)'],
-  discussion: ['discussion', 'var(--discussion)'],
-  article: ['article', 'var(--article)'],
-  post: ['post', 'var(--article)'],
+/* One word per kind, for the badge on a card and for the chips counting what
+   else is attached to it -- which is what each item *is*, not the role it
+   plays in the narrative (role says "repo" for a model, since both are things
+   built on a story). These were two tables and they drifted: the same kind was
+   badged `news` and counted as `1 article` on one card, and `code` against
+   `1 repo` on the next. A reader has no way to know those are the same thing.
+   The order here is the order the chips appear in. */
+const KIND_WORD = {
+  paper: 'paper', model: 'model', repo: 'repo', video: 'video',
+  discussion: 'discussion', article: 'article', post: 'post',
 };
 const main = document.getElementById('main');
 const sheet = document.getElementById('sheet');
@@ -675,10 +678,11 @@ function chipsHTML(s) {
   // The headline is already the card; the chips are what else came with it.
   if (counts[s.kind]) counts[s.kind] -= 1;
 
-  const chips = Object.entries(KIND_CHIP)
+  const chips = Object.entries(KIND_WORD)
     .filter(([kind]) => counts[kind])
-    .map(([kind, [label, colour]]) =>
-      `<span class="chip" style="--c:${colour}">${plural(counts[kind], label)}</span>`);
+    .map(([kind, word]) =>
+      `<span class="chip" style="--c:${KINDS[kind]}">${
+        plural(counts[kind], word)}</span>`);
 
   if ((s.sources || []).length > 1) {
     chips.push(`<span class="chip">${plural(s.sources.length, 'source')}</span>`);
@@ -699,7 +703,7 @@ function stillMoving(s) {
 
 function cardHTML(s) {
   const colour = KINDS[s.kind] || 'var(--muted)';
-  const label = LABEL[s.kind] || s.kind;
+  const label = KIND_WORD[s.kind] || s.kind;
   const isSaved = marks.saved.has(s.story_id);
   const isSeen = marks.seen.has(s.story_id);
   return `
@@ -938,6 +942,29 @@ const followButton = (key, on) =>
   `<button class="follow${on ? ' on' : ''}" data-follow="${esc(key)}"
     aria-pressed="${on}">${on ? 'Following' : 'Follow'}</button>`;
 
+/* What to call a topic slug. The stories carry their own labels, so anything on
+   screen can name itself; the spine is here for the ones that cannot -- a
+   followed subject with nothing in this bundle. Falling back to the slug beats
+   inventing a name from it, and only happens for a follow whose topic has since
+   left the config. */
+function topicName(slug) {
+  const fromSpine = (bundle.spine || []).find((t) => t.slug === slug);
+  if (fromSpine) return fromSpine.name;
+  const fromStory = topicIndex(bundle.stories).get(slug);
+  return fromStory ? fromStory.name : slug;
+}
+
+/* Everything you follow that this bundle has nothing to show for. Topics die by
+   dormancy -- a quiet one simply stops appearing -- which is right for a filter
+   row and wrong for a follow: the follow is still counted, still gates the
+   feed, and had no row left to turn it off with. */
+function quietFollows(shown) {
+  return [...follows].filter((f) => !shown.has(f)).map((f) => ({
+    key: f,
+    name: f.startsWith('topic:') ? topicName(f.slice(6)) : f.slice(7),
+  })).sort((a, b) => a.name.localeCompare(b.name));
+}
+
 function digestHTML(live) {
   const rows = digestRows(live);
   if (!rows.length) return '<div class="empty">Nothing labelled yet.</div>';
@@ -965,11 +992,23 @@ function digestHTML(live) {
     </section>`;
   }).join('');
 
-  const names = namesInPlay(live).map((entity) => {
+  const inPlay = namesInPlay(live);
+  const names = inPlay.map((entity) => {
     const on = followed(`entity:${entity.name}`);
     return `<button class="leaf${on ? ' on' : ''}" data-follow="entity:${esc(entity.name)}"
       >${esc(entity.name)}<span class="n">${entity.n}</span></button>`;
   }).join('');
+
+  // Everything this page has already given you a control for.
+  const shown = new Set();
+  for (const row of rows) {
+    shown.add(`topic:${row.slug}`);
+    for (const leaf of row.leaves.keys()) shown.add(`topic:${leaf}`);
+  }
+  for (const entity of inPlay) shown.add(`entity:${entity.name}`);
+
+  const quiet = quietFollows(shown).map(({ key, name }) =>
+    `<button class="leaf on" data-follow="${esc(key)}">${esc(name)}</button>`).join('');
 
   return `
     <p class="digest-intro">${follows.size
@@ -979,6 +1018,12 @@ function digestHTML(live) {
     ${names ? `<section class="digest">
       <div class="digest-head"><span class="digest-name as-text">Names in play</span></div>
       <div class="digest-leaves">${names}</div>
+    </section>` : ''}
+    ${quiet ? `<section class="digest">
+      <div class="digest-head"><span class="digest-name as-text">Followed, but quiet</span></div>
+      <p class="digest-note">Nothing in the feed right now. They still count as
+        subjects you follow &mdash; tap to stop following.</p>
+      <div class="digest-leaves">${quiet}</div>
     </section>` : ''}`;
 }
 
@@ -990,18 +1035,27 @@ function entityHead(name, count) {
     .find((e) => e.name === name) || {}).kind;
   return `<div class="topic-head"><div class="head-row"><div>
     <div class="topic-name">${esc(name)}</div>
-    <div class="topic-meta">${kind ? esc(kind) + ' · ' : ''}${count} ${
-      count === 1 ? 'story' : 'stories'} naming it, across every topic</div>
-    </div><button class="clear" data-clear-entity>Back to feed</button></div></div>`;
+    <div class="topic-meta">${kind ? esc(kind) + ' · ' : ''}${
+      plural(count, 'story')} naming it, across every topic</div>
+    </div><button class="clear" data-clear-entity>Back to feed</button></div>
+    <div class="head-follow">${followButton(`entity:${name}`, followed(`entity:${name}`))}</div>
+    </div>`;
 }
 
-/* The banner that makes a topic a place rather than a filter setting. */
+/* The banner that makes a topic a place rather than a filter setting -- and,
+   since you are standing in it, the obvious place to decide whether it belongs
+   in your feed. Following used to be reachable only from the digest, so the
+   subject you were reading was the one subject you could not act on. */
 function topicHead(label, count) {
   if (!label) return '';
   const where = label.parent_name ? `${esc(label.parent_name)} › ` : '';
+  const key = `topic:${label.slug}`;
   return `<div class="topic-head">
-    <div class="topic-name">${where}${esc(label.name)}</div>
-    <div class="topic-meta">${count} ${count === 1 ? 'story' : 'stories'}</div>
+    <div class="head-row"><div>
+      <div class="topic-name">${where}${esc(label.name)}</div>
+      <div class="topic-meta">${plural(count, 'story')}</div>
+    </div></div>
+    <div class="head-follow">${followButton(key, followed(key))}</div>
   </div>`;
 }
 

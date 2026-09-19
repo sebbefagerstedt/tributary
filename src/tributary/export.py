@@ -58,6 +58,7 @@ def build_bundle(
     limit: int = DEFAULT_LIMIT,
     days: int | None = DEFAULT_DAYS,
     facet_names: list | None = None,
+    spine: list | None = None,
 ) -> dict:
     """Everything the page needs, in one object.
 
@@ -149,8 +150,33 @@ def build_bundle(
         # Passing them through beats deriving a label from the slug, which would
         # quietly rename a facet whenever someone edited the config.
         "facets": [{"slug": f.slug, "name": f.name} for f in facet_names or []],
+        # The whole spine, for the same reason -- but the reason is sharper for
+        # topics. A story carries the name of its own topic, so the page can
+        # name anything it is showing; a *follow* is a stored slug, and a
+        # followed subject with nothing in this bundle has no story to carry its
+        # name. Without this it cannot be listed, so it cannot be unfollowed:
+        # an invisible follow that still decides what the feed holds.
+        "spine": _spine(spine),
         "stories": stories,
     }
+
+
+def _spine(spine: list | None) -> list[dict]:
+    """Every topic by slug and name, each shelf-dweller carrying its shelf.
+
+    Shaped exactly like the labels on a story, so the page has one way to read a
+    topic wherever it came from.
+    """
+    names = {t.slug: t.name for t in spine or []}
+    return [
+        {
+            "slug": t.slug,
+            "name": t.name,
+            "parent": t.parent,
+            "parent_name": names.get(t.parent) if t.parent else None,
+        }
+        for t in spine or []
+    ]
 
 
 def write_site(
@@ -159,6 +185,7 @@ def write_site(
     limit: int = DEFAULT_LIMIT,
     days: int | None = DEFAULT_DAYS,
     facet_names: list | None = None,
+    spine: list | None = None,
 ) -> dict:
     """Write a self-contained static site into ``out_dir``."""
     out_dir = Path(out_dir)
@@ -167,7 +194,9 @@ def write_site(
     for name in ("index.html", "manifest.json", "sw.js", "icon.svg"):
         shutil.copy2(WEB_DIR / name, out_dir / name)
 
-    bundle = build_bundle(conn, limit=limit, days=days, facet_names=facet_names)
+    bundle = build_bundle(
+        conn, limit=limit, days=days, facet_names=facet_names, spine=spine
+    )
     data_file = out_dir / "data.json"
     data_file.write_text(json.dumps(bundle, ensure_ascii=False, separators=(",", ":")))
 

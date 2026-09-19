@@ -24,7 +24,9 @@ def export_cmd(
 ) -> None:
     """Write a static site that needs no server. For GitHub Pages and friends."""
     cfg, conn = open_config(config)
-    result = export_mod.write_site(conn, out, limit=limit, days=days, facet_names=cfg.facets)
+    result = export_mod.write_site(
+        conn, out, limit=limit, days=days, facet_names=cfg.facets, spine=cfg.topics.spine
+    )
     size = result["bytes"] / 1024
     console.print(
         f"[green]Wrote {result['stories']} stories[/] to {result['path']} "

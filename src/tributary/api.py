@@ -134,7 +134,11 @@ def create_app(config_path: Path | None = None) -> FastAPI:
         """
         return JSONResponse(
             export_mod.build_bundle(
-                conn(), limit=limit, days=days, facet_names=state["config"].facets
+                conn(),
+                limit=limit,
+                days=days,
+                facet_names=state["config"].facets,
+                spine=state["config"].topics.spine,
             )
         )
 

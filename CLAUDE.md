@@ -202,6 +202,22 @@ state pointing at Topics, which is where you choose. Saved and search are
 deliberately outside this — both are ways back to something you already have —
 and Trending is still everything, since it is a place you go to look around.
 
+**A follow is a preference, not a view of the corpus.** Topics die by dormancy
+— the filter rows are built from the stories loaded, so a quiet one vanishes —
+and that is right for a filter and wrong for a follow. A followed subject with
+nothing in the bundle had no row anywhere, so it could not be seen or turned
+off, while still counting in `follows` and still deciding what the feed held:
+an invisible follow, and (once follows gated the feed) an empty feed with no
+reachable cause. The digest now ends with **Followed, but quiet** — every
+follow the page has not already given you a control for. Naming those needs the
+spine, since no story carries the name: `export.build_bundle` passes the whole
+spine as `bundle.spine`, for the reason it already passed `facets` by name.
+An old bundle without the key falls back to the slug.
+
+**Following is reachable from the place you are in.** `topicHead` and
+`entityHead` carry a follow button. It used to live only in the digest, so the
+subject you were actually reading was the one subject you could not act on.
+
 **Follows gate the feed; they do not gate a place you walked into.** A topic or
 an entity reached deliberately — from a story's chip — shows what is in it
 whether or not you follow it. Requiring both emptied every subject you had not
@@ -257,6 +273,14 @@ leading the Feed's row, beside Trending's bar, and in the sheet's header —
 appears only when something is on and drops subject, kind and entity together.
 The one surviving `Everything` is inside an opened shelf in the sheet, where it
 means "this whole shelf", which is a selection rather than the lack of one.
+
+**One word per kind.** The badge on a card and the chips counting what else is
+attached to it were two tables, and they drifted: the same kind was badged
+`news` while the chip beside it said `1 article`, and `code` against `1 repo`.
+Nothing told a reader those were the same thing. `KIND_WORD` is now the only
+vocabulary — paper, model, repo, video, discussion, article, post — used by
+both. A *story* is still a different unit from any of them: it is the cluster,
+which is why counts say "6 stories" while a card in it is badged `article`.
 
 **The digest counts unseen, not "since a timestamp".** Seen marks are already
 per story and per device, and a count you clear by reading beats one that
