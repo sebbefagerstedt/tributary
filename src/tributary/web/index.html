@@ -116,6 +116,58 @@ header {
 
 main { max-width: 720px; margin: 0 auto; padding: 14px 14px 80px; }
 
+/* The digest is a page of subjects, not of news: the feed's filter rows and
+   its search would both be answering a question nobody asked here. */
+body.digest-view .filters,
+body.digest-view .search { display: none; }
+
+/* A subject, what is unread in it, and the one control that matters. Framed
+   rather than carded: these are shelves, and a shelf that looks like a story
+   invites you to read it instead of choosing it. */
+.digest {
+  border-top: 1px solid var(--line); padding: 14px 2px 16px;
+}
+.digest.on { border-left: 2px solid var(--accent); padding-left: 12px; }
+.digest-head { display: flex; align-items: baseline; gap: 10px; }
+.digest-name {
+  font: inherit; font-size: 17px; font-weight: 650; letter-spacing: -.015em;
+  color: var(--text); background: none; border: 0; padding: 0; text-align: left;
+  cursor: pointer; flex: 1;
+}
+.digest-name.as-text { cursor: default; color: var(--muted); font-size: 14px; }
+.digest-count { color: var(--faint); font-size: 12.5px; margin-top: 3px; }
+.digest-count strong { color: var(--accent); font-weight: 650; }
+.digest-lead {
+  display: block; margin-top: 8px; font: inherit; font-size: 14px; line-height: 1.4;
+  color: var(--muted); background: none; border: 0; padding: 0; text-align: left;
+  cursor: pointer;
+}
+.digest-leaves { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.digest-intro { color: var(--muted); font-size: 13.5px; margin: 2px 2px 4px; }
+
+.follow {
+  font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  padding: 5px 11px; border-radius: 999px; white-space: nowrap;
+  background: var(--surface-2); color: var(--muted); border: 1px solid transparent;
+}
+.follow.on { background: var(--accent); color: #fff; }
+
+/* Leaves double as the follow control for a row on a shelf, so they carry the
+   same on-state as the shelf button rather than inventing a second language. */
+.leaf {
+  font: inherit; font-size: 12px; cursor: pointer; padding: 5px 10px;
+  border-radius: 999px; background: var(--surface-2); color: var(--text);
+  border: 1px solid transparent;
+}
+.leaf.on { background: var(--accent); color: #fff; }
+.leaf .n { opacity: .6; margin-left: 5px; font-variant-numeric: tabular-nums; }
+
+.active { color: var(--accent); font-size: 11.5px; }
+.linkish {
+  font: inherit; color: var(--accent); background: none; border: 0;
+  cursor: pointer; text-decoration: underline; padding: 0; margin-top: 8px;
+}
+
 .card {
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
   padding: 14px 15px; margin-bottom: 10px; box-shadow: var(--shadow);
@@ -269,13 +321,15 @@ main { max-width: 720px; margin: 0 auto; padding: 14px 14px 80px; }
     <div class="brand">Tributary<span id="count"></span></div>
     <div class="tabs" role="tablist">
       <button class="tab" role="tab" data-view="feed" aria-selected="true">Feed</button>
-      <button class="tab" role="tab" data-view="unseen" aria-selected="false">New</button>
+      <button class="tab" role="tab" data-view="trending" aria-selected="false">Trending</button>
+      <button class="tab" role="tab" data-view="topics" aria-selected="false">Topics</button>
       <button class="tab" role="tab" data-view="saved" aria-selected="false">Saved</button>
     </div>
   </div>
   <div class="filters" id="filters"></div>
   <div class="filters sub" id="subfilters"></div>
   <div class="filters kinds" id="facetfilters"></div>
+  <div class="filters" id="scopes"></div>
   <input id="search" class="search" type="search" autocomplete="off"
     placeholder="Search titles and summaries" aria-label="Search stories">
 </header>
@@ -322,6 +376,9 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
 
 let view = localStorage.getItem('view') || 'feed';
 let topic = localStorage.getItem('topic') || '';
+/* Trending is the old ranking, kept off the default feed. Its scope is not
+   persisted: which half of it you were last in is not worth remembering. */
+let trendScope = 'all';
 let query = '';   // deliberately not persisted: a stale search on open is a bug
 /* Neither of these is persisted either. A facet is a refinement, and one left
    on silently is the same bug as a stale search. An entity is a place, but one
@@ -340,6 +397,27 @@ const writeSet = (key, set) => {
   try { localStorage.setItem(key, JSON.stringify([...set])); } catch { /* private mode */ }
 };
 const marks = { seen: readSet('seen'), saved: readSet('saved'), dismissed: readSet('dismissed') };
+
+/* What you follow, as `topic:<slug>` and `entity:<name>`. A preference, so it
+   lives beside seen and saved rather than in the bundle -- and following
+   nothing means the whole feed, because an empty feed on a new device is a bug
+   rather than a statement of taste. */
+let follows = readSet('follows');
+const followed = (key) => follows.has(key);
+
+function toggleFollow(key) {
+  if (follows.has(key)) follows.delete(key); else follows.add(key);
+  writeSet('follows', follows);
+}
+
+/* Following a shelf follows everything on it, the same way filtering does. */
+function isFollowed(s) {
+  for (const t of s.topics || []) {
+    if (follows.has(`topic:${t.slug}`)) return true;
+    if (t.parent && follows.has(`topic:${t.parent}`)) return true;
+  }
+  return (s.entities || []).some((e) => follows.has(`entity:${e.name}`));
+}
 
 function mark(kind, id, on) {
   if (on) marks[kind].add(id); else marks[kind].delete(id);
@@ -360,7 +438,8 @@ function ago(iso) {
     : new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-const plural = (n, word) => `${n} ${word}${n > 1 ? 's' : ''}`;
+const plural = (n, word) =>
+  `${n} ${n === 1 ? word : word.endsWith('y') ? word.slice(0, -1) + 'ies' : word + 's'}`;
 
 /* Votes and replies: the measure of how much argument a story actually drew. */
 function engagement(counts) {
@@ -390,6 +469,15 @@ function chipsHTML(s) {
   return chips.join('');
 }
 
+/* The feed orders by when the news broke, so a story that has grown since says
+   so on its own card rather than by jumping the queue. Six hours, because an
+   arXiv paper and its own announcement land minutes apart and that is one
+   event, not a story with a wake. */
+function stillMoving(s) {
+  if (!s.last_activity || !s.published_at) return false;
+  return new Date(s.last_activity) - new Date(s.published_at) > 6 * 36e5;
+}
+
 function cardHTML(s) {
   const colour = KINDS[s.kind] || 'var(--muted)';
   const label = LABEL[s.kind] || s.kind;
@@ -401,6 +489,8 @@ function cardHTML(s) {
       <span class="badge" style="background:${colour}">${esc(label)}</span>
       <span class="src">${esc(s.source)}</span>
       <span class="when">${esc(ago(s.published_at))}</span>
+      ${stillMoving(s) ? `<span class="active">active ${
+        esc(ago(s.last_activity))}</span>` : ''}
     </div>
     <div class="row">
       <div class="text">
@@ -451,16 +541,30 @@ function matches(s, needle) {
   return hay.some((text) => text && text.toLowerCase().includes(needle));
 }
 
+/* Newest first, by the date on the card. Deliberately not the date the ranking
+   uses: a story's clock restarts when its wake grows, and a chronological feed
+   where a three-day-old paper jumps the queue because someone commented is the
+   feed that looked unsorted in the first place. The wake still shows, as
+   "active 2h" on the card -- it just does not reorder anything. */
+const byDate = (list) =>
+  [...list].sort((a, b) => (b.published_at || '').localeCompare(a.published_at || ''));
+
 function visible() {
   let all = bundle.stories.filter((s) => !marks.dismissed.has(s.story_id));
   all = scoped(all);
   if (facet) all = all.filter((s) => (s.facets || []).includes(facet));
   // Search cuts across the tabs: looking for something you saved weeks ago
   // should not depend on which tab you left selected.
-  if (query) return all.filter((s) => matches(s, query));
-  if (view === 'saved') return all.filter((s) => marks.saved.has(s.story_id));
-  if (view === 'unseen') return all.filter((s) => !marks.seen.has(s.story_id));
-  return all;
+  if (query) return byDate(all.filter((s) => matches(s, query)));
+  if (view === 'saved') return byDate(all.filter((s) => marks.saved.has(s.story_id)));
+
+  // Trending is the ranking this feed used to be: relevance, decayed by age,
+  // nudged by how many sources bothered. It is a place you go, not the default.
+  if (view === 'trending') {
+    const pool = trendScope === 'mine' && follows.size ? all.filter(isFollowed) : all;
+    return [...pool].sort((a, b) => b.score - a.score);
+  }
+  return byDate(follows.size ? all.filter(isFollowed) : all);
 }
 
 const hasEntity = (s, name) => (s.entities || []).some((e) => e.name === name);
@@ -564,6 +668,107 @@ function renderFacets(inPlace) {
     : '';
 }
 
+/* --- The digest ------------------------------------------------------------
+   Every subject in the bundle, what is new in it, and the one control that
+   matters: whether you follow it. This is the page that answers "what happened"
+   without scrolling a feed -- something you finish rather than something you
+   fall into, which is the whole point of the project.
+
+   "New" means unseen, not "since a timestamp": the seen marks are already per
+   story and already per device, and a count you can clear by reading is more
+   honest than one that resets itself at midnight. Counts are over the stories
+   in the bundle, so they always match what tapping through actually shows. */
+function digestRows(live) {
+  const shelves = new Map();
+  for (const story of live) {
+    for (const label of story.topics || []) {
+      const shelf = label.parent
+        ? { slug: label.parent, name: label.parent_name }
+        : { slug: label.slug, name: label.name };
+      if (!shelves.has(shelf.slug)) {
+        shelves.set(shelf.slug, { ...shelf, n: 0, unseen: 0, lead: null, leaves: new Map() });
+      }
+      const row = shelves.get(shelf.slug);
+      row.n += 1;
+      if (!marks.seen.has(story.story_id)) row.unseen += 1;
+      if (!row.lead || (story.published_at || '') > (row.lead.published_at || '')) {
+        row.lead = story;
+      }
+      if (!label.parent) continue;
+      if (!row.leaves.has(label.slug)) {
+        row.leaves.set(label.slug, { slug: label.slug, name: label.name, n: 0, unseen: 0 });
+      }
+      const leaf = row.leaves.get(label.slug);
+      leaf.n += 1;
+      if (!marks.seen.has(story.story_id)) leaf.unseen += 1;
+    }
+  }
+  // Most unread first: the page exists to say where to look next, and a shelf
+  // you have already read through has nothing to say however big it is.
+  return [...shelves.values()].sort((a, b) => b.unseen - a.unseen || b.n - a.n);
+}
+
+function namesInPlay(live) {
+  const counts = new Map();
+  for (const story of live) {
+    for (const entity of story.entities || []) {
+      const seen = counts.get(entity.name) || { name: entity.name, kind: entity.kind, n: 0 };
+      seen.n += 1;
+      counts.set(entity.name, seen);
+    }
+  }
+  return [...counts.values()].sort((a, b) => b.n - a.n).slice(0, 24);
+}
+
+const followButton = (key, on) =>
+  `<button class="follow${on ? ' on' : ''}" data-follow="${esc(key)}"
+    aria-pressed="${on}">${on ? 'Following' : 'Follow'}</button>`;
+
+function digestHTML(live) {
+  const rows = digestRows(live);
+  if (!rows.length) return '<div class="empty">Nothing labelled yet.</div>';
+
+  const shelves = rows.map((row) => {
+    const on = followed(`topic:${row.slug}`);
+    const leaves = [...row.leaves.values()].sort((a, b) => b.unseen - a.unseen || b.n - a.n);
+    return `
+    <section class="digest${on ? ' on' : ''}">
+      <div class="digest-head">
+        <button class="digest-name" data-goto="${esc(row.slug)}">${esc(row.name)}</button>
+        ${followButton(`topic:${row.slug}`, on)}
+      </div>
+      <div class="digest-count">${
+        row.unseen === row.n ? `<strong>${plural(row.n, 'story')}</strong>, all new`
+        : row.unseen ? `<strong>${row.unseen} new</strong> · ${plural(row.n, 'story')}`
+        : `${plural(row.n, 'story')} · all read`}</div>
+      ${row.lead ? `<button class="digest-lead" data-open="${row.lead.story_id}"
+        >${esc(row.lead.title)}</button>` : ''}
+      ${leaves.length ? `<div class="digest-leaves">${leaves.map((leaf) => `
+        <button class="leaf${followed(`topic:${leaf.slug}`) ? ' on' : ''}"
+          data-follow="topic:${esc(leaf.slug)}"
+          >${esc(leaf.name)}<span class="n">${leaf.unseen || leaf.n}</span></button>`).join('')
+      }</div>` : ''}
+    </section>`;
+  }).join('');
+
+  const names = namesInPlay(live).map((entity) => {
+    const on = followed(`entity:${entity.name}`);
+    return `<button class="leaf${on ? ' on' : ''}" data-follow="entity:${esc(entity.name)}"
+      >${esc(entity.name)}<span class="n">${entity.n}</span></button>`;
+  }).join('');
+
+  return `
+    <p class="digest-intro">${follows.size
+      ? `Your feed is the ${plural(follows.size, 'subject')} you follow. Tap to change that.`
+      : 'Your feed is everything. Follow a subject and it becomes just that.'}</p>
+    ${shelves}
+    ${names ? `<section class="digest">
+      <div class="digest-head"><span class="digest-name as-text">Names in play</span></div>
+      <div class="digest-leaves">${names}</div>
+    </section>` : ''}`;
+}
+
+
 /* The banner that makes an entity a place: everything that names it, across
    every topic, with a way back out. */
 function entityHead(name, count) {
@@ -586,6 +791,17 @@ function topicHead(label, count) {
   </div>`;
 }
 
+/* Trending has two halves, and the row only appears once you follow something:
+   "everything" and "everything" are not a choice worth showing. */
+function renderScope() {
+  const row = document.getElementById('scopes');
+  row.innerHTML = view === 'trending' && follows.size
+    ? [['all', 'Everything'], ['mine', 'What I follow']].map(([key, label]) =>
+        `<button class="filter" data-scope="${key}" aria-pressed="${trendScope === key}"
+          >${label}</button>`).join('')
+    : '';
+}
+
 function render() {
   const live = bundle.stories.filter((s) => !marks.dismissed.has(s.story_id));
   const index = topicIndex(live);
@@ -593,10 +809,20 @@ function render() {
   if (topic && !index.has(topic)) topic = '';
 
   if (entity && !live.some((s) => hasEntity(s, entity))) entity = '';
+  // The digest is its own page: filter rows belong to the feed, and search
+  // there would be searching a list of subjects rather than the news.
+  document.body.classList.toggle('digest-view', view === 'topics');
+  if (view === 'topics') {
+    document.getElementById('count').textContent =
+      `${bundle.status.stories} stories · updated ${ago(bundle.generated_at)} ago`;
+    main.innerHTML = digestHTML(live);
+    return;
+  }
   renderFilters(live, index);
   const inPlace = scoped(live);
   if (facet && !inPlace.some((s) => (s.facets || []).includes(facet))) facet = '';
   renderFacets(inPlace);
+  renderScope();
   const stories = visible();
   const status = bundle.status;
   const age = ago(bundle.generated_at);
@@ -609,7 +835,8 @@ function render() {
     html += `<div class="empty">${
       query ? `Nothing matches <code>${esc(query)}</code>.`
       : view === 'saved' ? 'Nothing saved yet.'
-      : view === 'unseen' ? 'All caught up.'
+      : follows.size ? `Nothing new in what you follow. <br>
+          <button class="linkish" data-view-jump="topics">Follow more subjects</button>`
       : 'Nothing here. Run <code>trib run</code> to fetch.'}</div>`;
   } else {
     html += stories.map(cardHTML).join('');
@@ -708,14 +935,19 @@ function toggleSave(id) {
   return on;
 }
 
+function selectView(next) {
+  view = next;
+  localStorage.setItem('view', view);
+  document.querySelectorAll('.tab').forEach((t) =>
+    t.setAttribute('aria-selected', String(t.dataset.view === view)));
+  render();
+  window.scrollTo({ top: 0 });
+}
+
 document.addEventListener('click', (event) => {
   const tab = event.target.closest('.tab');
   if (tab) {
-    view = tab.dataset.view;
-    localStorage.setItem('view', view);
-    document.querySelectorAll('.tab').forEach((t) =>
-      t.setAttribute('aria-selected', String(t === tab)));
-    render();
+    selectView(tab.dataset.view);
     return;
   }
 
@@ -747,12 +979,52 @@ document.addEventListener('click', (event) => {
     return;
   }
 
+  /* Following is checked before the cards and chips it sits among. The digest
+     re-renders in place: you are choosing several subjects in a row, and a
+     page that jumps to the top after each one is unusable. */
+  const follow = event.target.closest('[data-follow]');
+  if (follow) {
+    event.stopPropagation();
+    toggleFollow(follow.dataset.follow);
+    if (view === 'topics') {
+      const top = window.scrollY;
+      render();
+      window.scrollTo({ top });
+    } else {
+      render();
+    }
+    return;
+  }
+
+  const scope = event.target.closest('[data-scope]');
+  if (scope) {
+    trendScope = scope.dataset.scope;
+    render();
+    return;
+  }
+
+  const jump = event.target.closest('[data-view-jump]');
+  if (jump) {
+    selectView(jump.dataset.viewJump);
+    return;
+  }
+
+  // A headline on the digest opens its story, without leaving the digest.
+  const open = event.target.closest('[data-open]');
+  if (open) {
+    event.stopPropagation();
+    openStory(Number(open.dataset.open));
+    return;
+  }
+
   const goto = event.target.closest('[data-goto]');
   if (goto) {
     entity = '';
     topic = goto.dataset.goto;
     localStorage.setItem('topic', topic);
     dismissSheet();
+    // From the digest, opening a subject means going to read it.
+    if (view === 'topics') { selectView('feed'); return; }
     render();
     window.scrollTo({ top: 0 });
     return;

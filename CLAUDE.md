@@ -143,6 +143,43 @@ Every item gets a role — `seed`, `paper`, `code`, `video`, `coverage`,
 `discussion` — which is what renders as the story's "wake". Roles are stored,
 not recomputed, so changing `role_for` needs `trib cluster --reset`.
 
+### Four surfaces, and what orders each
+
+The page is **Feed, Trending, Topics, Saved**. What separates them is only the
+order and the scope; all four read the same bundle.
+
+| Surface | Order | Scope |
+|---|---|---|
+| Feed | newest first, by the date on the card | what you follow, or everything |
+| Trending | the ranking below | everything, or what you follow |
+| Topics | most unread first | every subject in the bundle |
+| Saved | newest first | what you starred |
+
+**Following is the filter, not the source list.** The owner's rule: *"I want to
+be able to choose what news/topics to follow, that is exactly what I was
+missing."* So model cards and release notes stay in the pipeline and are
+filtered by what you follow, rather than dropped from config. Follows are
+`topic:<slug>` and `entity:<name>` in `localStorage` beside seen and saved, and
+an empty follow set means the whole feed — an empty feed on a new device is a
+bug, not a preference.
+
+**The feed orders by when the news broke, not by the story's clock.** A story's
+clock restarts when its wake grows (see `trib renewal`), and a chronological
+feed where a three-day-old paper jumps the queue because someone commented is
+exactly what looked unsorted. The wake shows as "active 2h" on the card
+instead — over a 6-hour threshold, since a paper and its own announcement land
+minutes apart and that is one event, not a wake.
+
+**The bundle is selected by date** (`feed.recent`), not by rank. Taking the
+top-ranked N and sorting those by date would silently drop a recent story the
+ranking did not rate, and the reader would never learn it existed. Every card
+still carries `score`, which is all Trending needs.
+
+**The digest counts unseen, not "since a timestamp".** Seen marks are already
+per story and per device, and a count you clear by reading beats one that
+resets itself at midnight. Counts are over the stories in the bundle, so they
+always match what tapping through shows.
+
 ### Ranking
 
 Recency-decayed relevance with a 48-hour half-life, plus a capped bonus for
@@ -150,8 +187,9 @@ stories several sources covered (`SOURCE_BONUS`, `MAX_CORROBORATION`). It must
 resist volume: arXiv publishes ~150 papers a day where a blog publishes one, and
 recency-times-relevance alone handed it 47 of the first 50 cards. The feed damps
 each *repeat* of a source or kind as it is built (`SOURCE_DECAY`, `KIND_DECAY`),
-which restores a mix with no hard quota. The page is a dense card list, not
-full-screen snap cards: one headline per screen is the opposite of scannable.
+which restores a mix with no hard quota. This is what **Trending** now is; the
+default feed is chronological. The page is a dense card list, not full-screen
+snap cards: one headline per screen is the opposite of scannable.
 
 ### Tests
 
@@ -247,9 +285,11 @@ Findings that should not be researched again:
   limiter), the multireddit form `r/a+b+c/.rss` (one rate-limit token for all of
   them — separate sources would 429 each other), and `www.reddit.com`
   (`old.reddit.com/.rss` now redirects to a login).
-- **GitHub prereleases are skipped by default** — that alone removes llama.cpp's
-  per-commit builds and Ollama's release candidates. Set `prereleases = true` on
-  a source that wants them.
+- **GitHub's `prerelease` flag cannot be trusted alone.** llama.cpp's per-commit
+  builds (`b11020`) and LangChain's per-package alphas
+  (`langchain-typesafe==0.0.1a1`) both arrive with it set to false, and both led
+  the feed on 2026-09-19. `github._is_prerelease` reads the tag string as well.
+  Set `prereleases = true` on a source that wants them.
 - **Hugging Face models are already the popular ones** (minimum 90 likes, median
   964). For future filtering: there is no server-side min-likes filter
   (`min_likes` is silently ignored); `sort=trending` errors, and `likes7d` equals

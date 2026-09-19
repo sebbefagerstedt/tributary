@@ -178,3 +178,39 @@ def test_renewal_is_empty_rather_than_failing_on_an_empty_database(conn):
     rows, summary = feed.renewal(conn, now=NOW)
     assert rows == []
     assert summary["stories"] == 0
+
+
+# --- chronological selection -------------------------------------------------
+
+def test_recent_is_ordered_by_date_not_by_rank(conn, source_id):
+    """The default feed is chronological, so selection must be too."""
+    old_and_strong = make_story(conn, source_id, [(50, "seed", "article")])
+    fresh = make_story(conn, source_id, [(1, "seed", "article")])
+    middle = make_story(conn, source_id, [(20, "seed", "article")])
+
+    cards = feed.recent(conn, now=NOW)
+    assert [c.story_id for c in cards] == [fresh, middle, old_and_strong]
+
+
+def test_recent_keeps_a_story_the_ranking_would_have_dropped(conn, source_id):
+    """Picking the top-ranked N and sorting those by date hides recent news."""
+    for _ in range(5):
+        make_story(conn, source_id, [(2, "seed", "article")])
+    quiet = make_story(conn, source_id, [(3, "seed", "article")])
+    conn.execute("UPDATE items SET triage_score = 0.61 WHERE id = "
+                 "(SELECT item_id FROM story_items WHERE story_id = ?)", (quiet,))
+
+    assert quiet in [c.story_id for c in feed.recent(conn, limit=6, now=NOW)]
+
+
+def test_recent_carries_the_score_trending_sorts_by(conn, source_id):
+    make_story(conn, source_id, [(1, "seed", "article")])
+    assert feed.recent(conn, now=NOW)[0].score > 0
+
+
+def test_a_card_knows_both_when_it_broke_and_when_it_last_grew(conn, source_id):
+    make_story(conn, source_id, [(73, "paper", "paper"), (1, "discussion", "discussion")])
+    card = feed.recent(conn, now=NOW)[0]
+
+    assert card.published_at.startswith("2026-09-13")   # the paper, 73h before NOW
+    assert card.last_activity.startswith("2026-09-16")  # the thread, an hour before

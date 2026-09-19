@@ -189,3 +189,22 @@ def test_items_carry_their_own_blurb_and_counts(conn, source_id):
     items = export.build_bundle(conn)["stories"][0]["items"]
     assert all(len(item["summary"]) <= export.ITEM_SUMMARY_LIMIT + 1 for item in items)
     assert [i["engagement"] for i in items if i["kind"] == "discussion"] == [{"points": 5}]
+
+
+def test_bundle_is_newest_first_and_carries_both_dates(conn, source_id):
+    """The page's feed is chronological; Trending re-sorts the same list."""
+    seed(conn, source_id)
+    stories = export.build_bundle(conn)["stories"]
+
+    dates = [s["published_at"] or "" for s in stories]
+    assert dates == sorted(dates, reverse=True)
+    for story in stories:
+        assert "last_activity" in story   # "active 2h ago" on the card
+        assert "score" in story           # what Trending orders by
+
+
+def test_bundle_carries_what_the_digest_counts(conn, source_id):
+    """Every story needs a topic label, or a subject silently loses stories."""
+    seed(conn, source_id)
+    bundle = export.build_bundle(conn)
+    assert all("topics" in s and "entities" in s for s in bundle["stories"])

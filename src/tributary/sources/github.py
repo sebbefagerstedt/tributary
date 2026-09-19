@@ -9,6 +9,7 @@ Setting a token (GITHUB_TOKEN by default) raises that to 5000.
 from __future__ import annotations
 
 import os
+import re
 from datetime import UTC, datetime
 
 from tributary.http import get_json
@@ -19,6 +20,27 @@ from tributary.text import truncate
 API = "https://api.github.com"
 BODY_LIMIT = 4000
 DEFAULT_PER_PAGE = 10
+
+# GitHub's `prerelease` flag is not trustworthy: llama.cpp publishes a build per
+# merged commit (`b11020`) and LangChain ships per-package alphas
+# (`langchain-typesafe==0.0.1a1`), and both arrive with the flag set to false.
+# Those two were the top of the feed the morning this was written. The version
+# string is the honest signal, so it is read as well as the flag.
+_PRERELEASE_TAG = re.compile(
+    r"""
+      (?:^|[^a-z])(?:alpha|beta|rc|dev|preview|snapshot|nightly)(?:[^a-z]|$)
+    | \d(?:a|b|rc)\d+$   # PEP 440 pre-releases: 0.0.1a1, 1.2b3, 2.0rc1
+    | ^b\d+$             # llama.cpp's per-commit build tags: b11020
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+def _is_prerelease(release: dict) -> bool:
+    """Whether a release is a build or a pre-release, flag or no flag."""
+    if release.get("prerelease"):
+        return True
+    return bool(_PRERELEASE_TAG.search(release.get("tag_name") or ""))
 
 
 def _parse_time(value: str | None) -> datetime | None:
@@ -85,7 +107,7 @@ class GitHubSource(Source):
         # ...) and how Ollama ships release candidates, and together they were
         # most of this source -- nine of its last fourteen items, none of them
         # news. Set `prereleases = true` on a source that means them.
-        if release.get("prerelease") and not keep_pre:
+        if _is_prerelease(release) and not keep_pre:
             return None
         tag = release.get("tag_name")
         url = release.get("html_url")
