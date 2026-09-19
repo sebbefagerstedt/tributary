@@ -166,16 +166,54 @@ Whatever replaces this has to make "follow" a control rather than a chip state.
 detail, the profile chooser and the filter sheet already use. It would answer
 both halves at once: what this subject is, what sits under it, how much is
 unread, and a follow control *per level* so the shelf and its leaves are visibly
-separate choices. Open, and worth deciding before building:
+separate choices.
 
-- Does the sheet replace walking into the topic, or precede it (a "peek" with an
-  "Open" button)? A sheet that only ever previews adds a tap to every visit.
+**There is a reference design.** Ticketmaster's artist page, offered 2026-09-19
+as *"Jag gillar denna design"*: a hero with the subject's name over its image,
+a **back arrow top-left**, a **heart top-right**, tabs across the subject
+(`KONSERTER / OM / SETLISTS / …`), then a count with a view toggle, a filter
+control, and the list. What it lends this problem:
+
+- **The heart in the hero is the answer to "clear what is followed".** The
+  follow state belongs where the subject's name is, not in a row somewhere else.
+- **It is a page, not a sheet.** Worth noticing, because the earlier note asked
+  for a "popup". A hero, tabs and a filter row do not fit in a sheet, and the
+  back arrow only makes sense on a page. Decide which before building either.
+- **Tabs are how one subject holds several kinds of content.** Tributary's
+  equivalents would be its stories, what sits under it, and who keeps appearing
+  in it — which is the three-axis model arriving in the UI.
+
+**Back should climb, and today nothing is on the stack to climb.**
+*"när man klickar tillbaka ska man komma upp en nivå liksom"* — story → leaf →
+shelf → feed. `openStory` already does exactly this for one level, on purpose:
+it pushes a history entry so the phone's own back gesture closes the story
+rather than leaving the site. Nothing else pushes anything, so back from inside
+a topic leaves Tributary entirely. The mechanism is right and the coverage is
+one level deep; extending it is the shape of the work, not inventing it.
+
+**The undecided one is how you go down.** In the owner's words: *"Om alla dels
+ska synas i huvudtopic och kunna filtreras eller om man måste klicka in på
+subämne för att 'filtrera'"* — either a shelf shows everything beneath it and
+its leaves are a filter row inside that page, or a leaf is a page you have to
+enter. Nothing is decided, but the first is cheaper than it looks and the second
+is worse than it looks:
+
+- `hasTopic` already matches a shelf through `parent`, so a shelf page showing
+  all of its leaves' stories needs no new query.
+- Under **one home** a story sits on exactly one leaf, so a shelf's stories
+  *are* its leaves' stories — there is no separate "shelf-level" content for a
+  leaf page to be hiding.
+- The leaves are thin. The largest leaf is 10% of the corpus and most are far
+  smaller, so a leaf-as-page is often a handful of cards behind an extra tap.
+
+Still open:
+
 - A shelf and its leaves are independent follows today. Does following a shelf
   show its leaves as followed, or stay separate? `isFollowed` already treats a
   shelf follow as covering its leaves for the *feed*, so the UI currently says
   less than the behaviour does.
 - Where entities fit. They are followable and have no level at all, so they
-  either share the sheet or stay a flat row.
+  either share the design or stay a flat row.
 
 ## Ready to start
 
