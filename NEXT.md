@@ -48,6 +48,53 @@ Open questions, none decided:
 - Who can post, at what point does that need real accounts, and what happens the
   first time someone abusive arrives.
 
+## Product launches — a different subject, and a different shape
+
+**Asked 2026-09-19**, alongside a screenshot of a fitness-tracker review page:
+
+> For later, this product would be really interesting for me. I want to be able
+> to find things like this earlier, perhaps not always get it in feed but if I
+> search for a product. I want to be abe to see new releases close to their
+> launch
+
+That is three wants, and only the first resembles anything that exists:
+
+1. **New consumer hardware, near its launch.** Sources and config.
+2. **Not necessarily in the feed** — a place you go, the way Trending is.
+3. **Findable by searching for a product heard about elsewhere.** The hard one,
+   and not a feature the current architecture can grow into.
+
+**Triage currently excludes exactly this.** `config.toml` lists *"consumer
+gadget reviews, phones, smartwatches and TVs"* under `exclude`, so this material
+is dropped before it can become a story. That line is right for an AI feed, and
+has to move before any of the rest matters.
+
+**Search cannot do what is being asked.** The page searches the loaded bundle —
+the most recent stories and nothing else. Looking up a product you heard about
+elsewhere finds nothing, because the corpus is what the cron fetched, not what
+you asked for. Doing it properly means fetching *in response to a query*, which
+is a different shape from a scheduled pipeline whose adapters never touch the
+database. It is the first thing this repo would want that is not a stage.
+
+**The supply in this category is mostly affiliate content, and that is the
+engineering problem.** The page that prompted this is the standard form: a sum
+spent on testing, a newcomer that wins every category, no subscription, and a
+domain nobody has heard of. Whatever any single one is worth, the format
+dominates the category, and embeddings will not separate it from a real review —
+both are prose about a gadget in the same register. This is the facets lesson
+again: some distinctions are structural, not semantic. The signals that would
+work are lexical and structural — who published it (a manufacturer's own
+newsroom, a publication with a masthead, or a domain registered this year),
+whether every outbound link carries a tracking parameter, and how close the
+piece sits to an actual launch date.
+
+**Try the cheap answer first.** `CLAUDE.md` already argues that "a Tributary for
+X is mostly a second config": consumer hardware has its own sources — Product
+Hunt, manufacturer newsrooms, r/gadgets, publications with real review desks —
+and its own triage profile. That answers wants 1 and 2 for about the cost of a
+config file. It does not answer want 3, and it costs a second feed to check,
+which is close to the thing being asked to avoid.
+
 ## Ready to start
 
 - **"More like this" on a story page.** Nearest-neighbour over vectors already on
@@ -117,9 +164,6 @@ Open questions, none decided:
   repos for *releases* and cannot find a new project built on a story. Hugging
   Face's `arxiv:` tags partly cover artefacts, and Reddit now covers some of the
   argument; nothing finds the new project.
-- **Following.** The `follows` table (`target_kind: topic|entity|source`) has
-  existed since the first commit and nothing uses it. Now that entities exist,
-  "follow OpenAI" is a query away; what is missing is somewhere to say it.
 
 ## Blocked on something external
 
