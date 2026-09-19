@@ -84,14 +84,6 @@ header {
 }
 .filters::-webkit-scrollbar { display: none; }
 .filters:empty { display: none; }
-/* The shelf's contents, set back and lighter so the two rows read as levels
-   rather than as one long list of equals. */
-.filters.sub { margin-top: 6px; padding-left: 14px; }
-.filters.sub .filter { font-size: 12px; background: var(--surface-2); border-color: transparent; }
-.filters.sub .filter[aria-pressed="true"] {
-  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent); color: var(--accent);
-}
 .filter {
   flex: none; font: inherit; font-size: 12.5px; font-weight: 550; cursor: pointer;
   padding: 5px 11px; border-radius: 999px; white-space: nowrap;
@@ -101,6 +93,13 @@ header {
   background: var(--accent); border-color: var(--accent); color: #fff;
 }
 .filter .n { opacity: .6; margin-left: 5px; font-variant-numeric: tabular-nums; }
+/* Shown only when something is on, in the slot the old "All" chip held. A
+   chip that means "nothing is filtered" is just a statement of the row's own
+   state; one that undoes a choice is a control. */
+.filter.clear-all {
+  color: var(--faint); border-style: dashed;
+}
+.filter.clear-all::before { content: '\00d7'; margin-right: 5px; font-size: 13px; }
 /* What a story is, rather than where it lives. Outlined rather than filled so
    it reads as a refinement of the rows above, not a third level of them. */
 .filters.kinds { margin-top: 6px; }
@@ -316,6 +315,8 @@ body.digest-view .search { display: none; }
 }
 .sheet-body { max-width: 720px; margin: 0 auto; padding: 18px 16px; }
 .sheet h1 { font-size: 22px; line-height: 1.25; letter-spacing: -.02em; margin: 0 0 12px; }
+.sheet-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.sheet-clear { flex: none; margin-top: 0; font-size: 13px; }
 .hero {
   display: block; width: 100%; height: 190px; object-fit: cover;
   border-radius: 12px; background: var(--surface-2); margin-bottom: 16px;
@@ -412,7 +413,6 @@ body.digest-view .search { display: none; }
     <button class="who" id="who" aria-label="Switch profile"></button>
   </div>
   <div class="filters" id="filters"></div>
-  <div class="filters sub" id="subfilters"></div>
   <div class="filters kinds" id="facetfilters"></div>
   <div class="filters scope" id="scopes"></div>
   <input id="search" class="search" type="search" autocomplete="off"
@@ -783,7 +783,7 @@ function visible() {
     const pool = trendScope === 'mine' && follows.size ? all.filter(isFollowed) : all;
     return [...pool].sort((a, b) => b.score - a.score);
   }
-  return byDate(follows.size ? all.filter(isFollowed) : all);
+  return byDate(all.filter(isFollowed));
 }
 
 const hasEntity = (s, name) => (s.entities || []).some((e) => e.name === name);
@@ -819,29 +819,18 @@ function topicIndex(live) {
   return index;
 }
 
-function tally(live, labelsOf) {
-  const counts = new Map();
-  for (const story of live) {
-    for (const { slug, name } of labelsOf(story)) {
-      const seen = counts.get(slug) || { name, n: 0 };
-      seen.n += 1;
-      counts.set(slug, seen);
-    }
-  }
-  return [...counts.entries()].sort((a, b) => b[1].n - a[1].n);
-}
+/* Subjects only. The row used to open with an "All" chip, which said nothing
+   the row was not already saying -- with no chip lit, the feed is everything.
+   Clearing is a control, not a filter, so it is `clearChip` below, shown only
+   when there is something to clear, and tapping a lit chip turns it off. */
+const chipRow = (ranked, selected) => ranked.map(([slug, { name, n }]) =>
+  `<button class="filter" data-topic="${esc(slug)}" aria-pressed="${selected === slug}"
+    >${esc(name)}<span class="n">${n}</span></button>`).join('');
 
-const chipRow = (ranked, selected, clearLabel, clearTo = '') => [
-  `<button class="filter" data-topic="${esc(clearTo)}" aria-pressed="${!selected}"
-    >${clearLabel}</button>`,
-  ...ranked.map(([slug, { name, n }]) =>
-    `<button class="filter" data-topic="${esc(slug)}" aria-pressed="${selected === slug}"
-      >${esc(name)}<span class="n">${n}</span></button>`),
-].join('');
+const narrowed = () => Boolean(topic || facet || entity);
+const clearChip = () => (narrowed()
+  ? '<button class="filter clear-all" data-clear-filters>Clear</button>' : '');
 
-/* Two rows: shelves, then what is on the selected shelf. Both are built from
-   the stories actually loaded, so a filter never leads to an empty feed and a
-   subject nothing was written about this week simply does not appear. */
 /* The subjects you follow, counted in the feed, in the order the digest ranks
    them. Flat, with no shelf-then-leaf step: you picked these individually, so
    nesting them again would be filing your own choices for you. */
@@ -861,41 +850,15 @@ function followedRow(live) {
   return [...counts.entries()].sort((a, b) => b[1].n - a[1].n);
 }
 
-function renderFilters(live, index) {
+/* One row: the subjects you follow, because that is all the feed holds. There
+   used to be a second row -- the whole spine, shelf then leaf -- for the case
+   where you followed nothing and the feed was therefore everything. The feed
+   is now empty until you follow something, so that case cannot happen and the
+   row it needed has gone with it. */
+function renderFilters(live) {
   const row = document.getElementById('filters');
-  const sub = document.getElementById('subfilters');
-
-  /* Following something makes the row *your* subjects rather than the whole
-     spine: the feed already holds only these, so offering the other forty is
-     offering forty empty filters. Following nothing means the feed is
-     everything, and then the shelves are the only way to get around. */
-  if (follows.size) {
-    const mine = followedRow(live);
-    row.innerHTML = mine.length ? chipRow(mine, topic, 'All') : '';
-    sub.innerHTML = '';
-    return;
-  }
-
-  const shelves = tally(live, shelvesOf);
-  if (!shelves.length) {
-    row.innerHTML = '';
-    sub.innerHTML = '';
-    return;
-  }
-
-  // `topic` holds either a shelf or something on one. Both light up the shelf.
-  const selected = index.get(topic);
-  const shelf = selected ? selected.parent || selected.slug : '';
-  row.innerHTML = chipRow(shelves, shelf, 'All');
-
-  // The second row is what is on the open shelf; "Everything" clears back to
-  // the shelf itself rather than to the whole feed.
-  const children = shelf
-    ? tally(live, (s) => (s.topics || []).filter((t) => t.parent === shelf))
-    : [];
-  sub.innerHTML = children.length
-    ? chipRow(children, topic === shelf ? '' : topic, 'Everything', shelf)
-    : '';
+  const mine = follows.size ? followedRow(live) : [];
+  row.innerHTML = mine.length ? clearChip() + chipRow(mine, topic) : '';
 }
 
 /* Facets, counted within the place you are in rather than across the feed, so
@@ -910,12 +873,9 @@ function renderFacets(inPlace) {
   const ranked = [...counts.entries()]
     .filter(([slug]) => names.has(slug))
     .sort((a, b) => b[1] - a[1]);
-  row.innerHTML = ranked.length
-    ? [`<button class="filter" data-facet="" aria-pressed="${!facet}">Any kind</button>`,
-      ...ranked.map(([slug, n]) =>
-        `<button class="filter" data-facet="${esc(slug)}" aria-pressed="${facet === slug}"
-          >${esc(names.get(slug))}<span class="n">${n}</span></button>`)].join('')
-    : '';
+  row.innerHTML = ranked.map(([slug, n]) =>
+    `<button class="filter" data-facet="${esc(slug)}" aria-pressed="${facet === slug}"
+      >${esc(names.get(slug))}<span class="n">${n}</span></button>`).join('');
 }
 
 /* --- The digest ------------------------------------------------------------
@@ -1065,10 +1025,10 @@ function trendingSummary() {
 function renderScope() {
   const row = document.getElementById('scopes');
   if (view !== 'trending') { row.innerHTML = ''; return; }
-  const narrowed = topic || facet || (trendScope === 'mine' && follows.size);
-  row.innerHTML = `<button class="scopebar${narrowed ? ' on' : ''}" id="open-filters"
+  const on = narrowed() || (trendScope === 'mine' && follows.size);
+  row.innerHTML = `<button class="scopebar${on ? ' on' : ''}" id="open-filters"
     >${esc(trendingSummary())}<span class="caret">&#9662;</span></button>${
-    narrowed ? '<button class="scopebar clear-all" data-clear-filters>Clear</button>' : ''}`;
+    on ? '<button class="scopebar clear-all" data-clear-filters>Clear</button>' : ''}`;
 }
 
 /* Everything Trending can be narrowed by, on one screen: scope, then subjects
@@ -1148,16 +1108,15 @@ function filterSheetHTML() {
     .join('');
 
   return `
-    <h1>Narrow it down</h1>
+    <div class="sheet-head">
+      <h1>Narrow it down</h1>
+      ${narrowed() || trendScope === 'mine'
+        ? '<button class="linkish sheet-clear" data-clear-filters>Clear all</button>' : ''}
+    </div>
     ${scope}
-    ${subjects ? `<div class="group-label">Subject</div>
-      <div class="sheet-chips">
-        <button class="leaf${topic ? '' : ' on'}" data-pick="">Anything</button>
-      </div>${subjects}` : ''}
+    ${subjects ? `<div class="group-label">Subject</div>${subjects}` : ''}
     ${kinds ? `<div class="group-label">Kind</div>
-      <div class="sheet-chips">
-        <button class="leaf${facet ? '' : ' on'}" data-kind="">Any kind</button>${kinds}
-      </div>` : ''}`;
+      <div class="sheet-chips">${kinds}</div>` : ''}`;
 }
 
 /* The shelf a slug sits on, or '' if it sits on none. A selected leaf opens
@@ -1206,10 +1165,9 @@ function render() {
   // Trending's rows live in its sheet, so the header keeps only the summary.
   if (view === 'trending') {
     document.getElementById('filters').innerHTML = '';
-    document.getElementById('subfilters').innerHTML = '';
     document.getElementById('facetfilters').innerHTML = '';
   } else {
-    renderFilters(live, index);
+    renderFilters(live);
     renderFacets(inPlace);
   }
   renderScope();
@@ -1229,9 +1187,12 @@ function render() {
     html += `<div class="empty">${
       query ? `Nothing matches <code>${esc(query)}</code>.`
       : view === 'saved' ? 'Nothing saved yet.'
-      : follows.size ? `Nothing new in what you follow. <br>
-          <button class="linkish" data-view-jump="topics">Follow more subjects</button>`
-      : 'Nothing here. Run <code>trib run</code> to fetch.'}</div>`;
+      : !live.length ? 'Nothing here. Run <code>trib run</code> to fetch.'
+      : !follows.size ? `Your feed is what you follow, and you are not
+          following anything yet. <br>
+          <button class="linkish" data-view-jump="topics">Pick some subjects</button>`
+      : `Nothing new in what you follow. <br>
+          <button class="linkish" data-view-jump="topics">Follow more subjects</button>`}</div>`;
   } else {
     html += stories.map(cardHTML).join('');
   }
@@ -1415,7 +1376,7 @@ document.addEventListener('click', (event) => {
 
   const kind = event.target.closest('[data-facet]');
   if (kind) {
-    facet = kind.dataset.facet;
+    facet = facet === kind.dataset.facet ? '' : kind.dataset.facet;
     render();
     return;
   }
@@ -1442,9 +1403,12 @@ document.addEventListener('click', (event) => {
   if (event.target.closest('[data-clear-filters]')) {
     topic = '';
     facet = '';
+    entity = '';
     trendScope = 'all';
     store(key('topic'), '');
     render();
+    // Tapped inside the sheet, the sheet is what has to show it worked.
+    if (document.getElementById('filter-sheet').classList.contains('open')) drawFilters();
     return;
   }
 
@@ -1471,7 +1435,7 @@ document.addEventListener('click', (event) => {
   const pick = event.target.closest('[data-pick]');
   if (pick) {
     entity = '';
-    topic = pick.dataset.pick;
+    topic = topic === pick.dataset.pick ? '' : pick.dataset.pick;
     store(key('topic'), topic);
     closeFilters();
     render();
@@ -1481,7 +1445,7 @@ document.addEventListener('click', (event) => {
 
   const kindPick = event.target.closest('[data-kind]');
   if (kindPick) {
-    facet = kindPick.dataset.kind;
+    facet = facet === kindPick.dataset.kind ? '' : kindPick.dataset.kind;
     closeFilters();
     render();
     window.scrollTo({ top: 0 });
@@ -1518,7 +1482,7 @@ document.addEventListener('click', (event) => {
   const filter = event.target.closest('.filter');
   if (filter) {
     entity = '';
-    topic = filter.dataset.topic;
+    topic = topic === filter.dataset.topic ? '' : filter.dataset.topic;
     store(key('topic'), topic);
     render();
     return;
