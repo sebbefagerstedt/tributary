@@ -111,13 +111,15 @@ Pages with no server behind it.
 get through at TikTok speed". That entry is the *why*; this is the permission.
 They should be read together rather than answered twice.
 
-**The measured complaint is chrome.** At 390×844, the header is 182px — 22% of
-the screen — and only three cards are fully visible before scrolling. Six rows
-stack above the first headline: brand and profile, tabs, topics, subtopics,
-facets, and search, with the Trending scope row making a seventh. Most of that
-was added one row at a time, and following now does the job several of those
-rows were built for, so the question is which of them still earn their place
-rather than how to make them shorter.
+**The measured complaint is chrome.** At 390×844 the header was 182px — 22% of
+the screen — with only three cards fully visible before scrolling, and six rows
+above the first headline: brand and profile, tabs, topics, subtopics, facets,
+and search, with the Trending scope row making a seventh. The subtopics row has
+since been deleted and the Feed's remaining rows no longer carry an "All" chip,
+so **re-measure before designing against that number**. The point stands: most
+of it was added one row at a time, and following now does the job several of
+those rows were built for, so the question is which of them still earn their
+place rather than how to make them shorter.
 
 **The original complaint was "boring"**, said of a feed that was mostly release
 churn — some of which was the prerelease leak, now fixed, and some of which was
@@ -172,6 +174,44 @@ the digest or the feed is the front door.
   half-measures exist: its YouTube channel (`UCrDwWp7EBBv4NwvScIpBDOA`) has a
   working feed, and third-party scrapers republish its news as RSS, though
   trusting someone else's scraper for a primary source seems worse than the gap.
+- **A cyber-misuse story landed under Companies & money.** Seen 2026-09-19:
+  *"Gemini Hacked Three Companies in First Known Breakout by Google's AI"* took
+  `Industry & policy › Companies & money`. The owner's read: *"I am not sure if
+  it is wrong but I would not know that this is where a news like this would
+  land."* The leaf that describes it exists — `misuse`, *"models used for harm:
+  bio, cyber and influence operations, and what guards against it"* — and under
+  one home a story cannot have both. Nothing here is measured yet; the database
+  it happened on is the deployed one. What is worth checking, in order:
+    - **There is no way to ask why a story landed where it did.** `trib topics`
+      has `--stats`, `--suggest` and `--reset`, and none of them print a story's
+      scores against the spine. Every question below needs that first, and it is
+      a few lines over `topics.centroids` — build it before theorising.
+    - **The likely cause is that the prose is about companies.** The summary
+      names Google, OpenAI, Anthropic, Meta, Irregular and the WSJ, and reads as
+      a disclosure story; `companies` is *"AI companies, funding, acquisitions
+      and competitive moves between labs"*. If that is it, the story is scoring
+      honestly against what it is written like, not what it is about, and no
+      rewording of `misuse` fixes the general case.
+    - **Then it is the known runner-up problem, not a bug.** `CLAUDE.md` already
+      records that 41% of stories have a runner-up on a *different* shelf within
+      0.02 and those pick a side, with a "related topics" row as the answer
+      rather than multi-label. Check the margin before treating this as a
+      spine defect: a 0.01 margin and a 0.15 margin are different faults.
+    - **The lexical axis misses it too, and that part looks like a real gap.**
+      Facets exist precisely for subjects that cut across the spine, but the
+      `safety` pattern is `\bsafety\b|jailbreak|prompt injection|\balignment\b|misalign`
+      and the story's words are *hacked*, *guessed passwords*, *credentials*,
+      *intrusion*. A security pattern covering breach, exploit and credential
+      would mark this story whatever leaf it lives on — which is the cheap half
+      of the fix, and the half that does not touch anything calibrated.
+- **Search is narrowed by the active topic, silently.** From the same session:
+  with `Safety & security` selected, searching "Google" returned *"Nothing
+  matches google"* while the Gemini story sat one shelf away. `visible()` scopes
+  before it searches, which is deliberate — the comment there means search cuts
+  across *tabs*, not across a filter — but the empty state names only the query.
+  It is what made the misfiling above look like an absence. Either search should
+  ignore the topic filter, or the empty state should say the filter is on.
+
 - **Stories clustered before the `role_for` fix carry stale roles.** Roles are
   stored, not recomputed, so a paper's own coverage can still be labelled as a
   second seed in old stories. `trib cluster --reset` once, on the database that
