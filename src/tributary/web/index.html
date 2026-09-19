@@ -84,14 +84,6 @@ header {
 }
 .filters::-webkit-scrollbar { display: none; }
 .filters:empty { display: none; }
-/* The shelf's contents, set back and lighter so the two rows read as levels
-   rather than as one long list of equals. */
-.filters.sub { margin-top: 6px; padding-left: 14px; }
-.filters.sub .filter { font-size: 12px; background: var(--surface-2); border-color: transparent; }
-.filters.sub .filter[aria-pressed="true"] {
-  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent); color: var(--accent);
-}
 .filter {
   flex: none; font: inherit; font-size: 12.5px; font-weight: 550; cursor: pointer;
   padding: 5px 11px; border-radius: 999px; white-space: nowrap;
@@ -101,6 +93,13 @@ header {
   background: var(--accent); border-color: var(--accent); color: #fff;
 }
 .filter .n { opacity: .6; margin-left: 5px; font-variant-numeric: tabular-nums; }
+/* Shown only when something is on, in the slot the old "All" chip held. A
+   chip that means "nothing is filtered" is just a statement of the row's own
+   state; one that undoes a choice is a control. */
+.filter.clear-all {
+  color: var(--faint); border-style: dashed;
+}
+.filter.clear-all::before { content: '\00d7'; margin-right: 5px; font-size: 13px; }
 /* What a story is, rather than where it lives. Outlined rather than filled so
    it reads as a refinement of the rows above, not a third level of them. */
 .filters.kinds { margin-top: 6px; }
@@ -216,14 +215,24 @@ body.digest-view .search { display: none; }
 .scopebar.clear-all { color: var(--faint); }
 
 .sheet-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
-/* A shelf and its rows on one line each, so ten shelves read as ten lines
-   instead of forty loose chips. */
+/* One shelf per line, and its rows only once it is opened: ten names you read
+   at a glance instead of forty chips you scan past. */
 .sheet-shelf {
   display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
   padding: 9px 0; border-top: 1px solid var(--line);
 }
-.leaf.shelf { font-weight: 650; background: var(--surface-2); }
-.sheet-shelf .leaf { font-size: 12px; }
+.leaf.shelf { font-weight: 650; font-size: 13px; background: var(--surface-2); }
+.leaf.shelf .caret {
+  display: inline-block; margin-left: 6px; font-size: 9px; opacity: .55;
+  transition: transform .15s ease;
+}
+.sheet-shelf.open .leaf.shelf .caret { transform: rotate(180deg); }
+/* Set back under the shelf that owns them, on their own line, so the two
+   levels read as levels rather than as one long row. */
+.sheet-leaves {
+  flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 2px 0 2px 12px;
+}
 .linkish {
   font: inherit; color: var(--accent); background: none; border: 0;
   cursor: pointer; text-decoration: underline; padding: 0; margin-top: 8px;
@@ -306,6 +315,8 @@ body.digest-view .search { display: none; }
 }
 .sheet-body { max-width: 720px; margin: 0 auto; padding: 18px 16px; }
 .sheet h1 { font-size: 22px; line-height: 1.25; letter-spacing: -.02em; margin: 0 0 12px; }
+.sheet-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.sheet-clear { flex: none; margin-top: 0; font-size: 13px; }
 .hero {
   display: block; width: 100%; height: 190px; object-fit: cover;
   border-radius: 12px; background: var(--surface-2); margin-bottom: 16px;
@@ -402,7 +413,6 @@ body.digest-view .search { display: none; }
     <button class="who" id="who" aria-label="Switch profile"></button>
   </div>
   <div class="filters" id="filters"></div>
-  <div class="filters sub" id="subfilters"></div>
   <div class="filters kinds" id="facetfilters"></div>
   <div class="filters scope" id="scopes"></div>
   <input id="search" class="search" type="search" autocomplete="off"
@@ -490,6 +500,10 @@ let query = '';   // deliberately not persisted: a stale search on open is a bug
    reached from a story -- landing back in it days later would be disorienting. */
 let facet = '';
 let entity = '';
+/* Which shelf is open in Trending's filter sheet. One at a time, and set from
+   the current selection every time the sheet opens, so it is a view of where
+   you are rather than a preference of its own. */
+let openShelf = '';
 let bundle = null;
 let current = null;
 let hasServer = true;   // set false on the first failed POST
@@ -769,7 +783,11 @@ function visible() {
     const pool = trendScope === 'mine' && follows.size ? all.filter(isFollowed) : all;
     return [...pool].sort((a, b) => b.score - a.score);
   }
-  return byDate(follows.size ? all.filter(isFollowed) : all);
+  /* Follows decide what the *unscoped* feed holds. A topic or an entity you
+     walked into is a place, and a place shows what is in it -- requiring a
+     follow as well emptied every subject you had not already chosen, which is
+     exactly the subject you went to look at. */
+  return byDate(topic || entity ? all : all.filter(isFollowed));
 }
 
 const hasEntity = (s, name) => (s.entities || []).some((e) => e.name === name);
@@ -805,29 +823,18 @@ function topicIndex(live) {
   return index;
 }
 
-function tally(live, labelsOf) {
-  const counts = new Map();
-  for (const story of live) {
-    for (const { slug, name } of labelsOf(story)) {
-      const seen = counts.get(slug) || { name, n: 0 };
-      seen.n += 1;
-      counts.set(slug, seen);
-    }
-  }
-  return [...counts.entries()].sort((a, b) => b[1].n - a[1].n);
-}
+/* Subjects only. The row used to open with an "All" chip, which said nothing
+   the row was not already saying -- with no chip lit, the feed is everything.
+   Clearing is a control, not a filter, so it is `clearChip` below, shown only
+   when there is something to clear, and tapping a lit chip turns it off. */
+const chipRow = (ranked, selected) => ranked.map(([slug, { name, n }]) =>
+  `<button class="filter" data-topic="${esc(slug)}" aria-pressed="${selected === slug}"
+    >${esc(name)}<span class="n">${n}</span></button>`).join('');
 
-const chipRow = (ranked, selected, clearLabel, clearTo = '') => [
-  `<button class="filter" data-topic="${esc(clearTo)}" aria-pressed="${!selected}"
-    >${clearLabel}</button>`,
-  ...ranked.map(([slug, { name, n }]) =>
-    `<button class="filter" data-topic="${esc(slug)}" aria-pressed="${selected === slug}"
-      >${esc(name)}<span class="n">${n}</span></button>`),
-].join('');
+const narrowed = () => Boolean(topic || facet || entity);
+const clearChip = () => (narrowed()
+  ? '<button class="filter clear-all" data-clear-filters>Clear</button>' : '');
 
-/* Two rows: shelves, then what is on the selected shelf. Both are built from
-   the stories actually loaded, so a filter never leads to an empty feed and a
-   subject nothing was written about this week simply does not appear. */
 /* The subjects you follow, counted in the feed, in the order the digest ranks
    them. Flat, with no shelf-then-leaf step: you picked these individually, so
    nesting them again would be filing your own choices for you. */
@@ -847,41 +854,15 @@ function followedRow(live) {
   return [...counts.entries()].sort((a, b) => b[1].n - a[1].n);
 }
 
-function renderFilters(live, index) {
+/* One row: the subjects you follow, because that is all the feed holds. There
+   used to be a second row -- the whole spine, shelf then leaf -- for the case
+   where you followed nothing and the feed was therefore everything. The feed
+   is now empty until you follow something, so that case cannot happen and the
+   row it needed has gone with it. */
+function renderFilters(live) {
   const row = document.getElementById('filters');
-  const sub = document.getElementById('subfilters');
-
-  /* Following something makes the row *your* subjects rather than the whole
-     spine: the feed already holds only these, so offering the other forty is
-     offering forty empty filters. Following nothing means the feed is
-     everything, and then the shelves are the only way to get around. */
-  if (follows.size) {
-    const mine = followedRow(live);
-    row.innerHTML = mine.length ? chipRow(mine, topic, 'All') : '';
-    sub.innerHTML = '';
-    return;
-  }
-
-  const shelves = tally(live, shelvesOf);
-  if (!shelves.length) {
-    row.innerHTML = '';
-    sub.innerHTML = '';
-    return;
-  }
-
-  // `topic` holds either a shelf or something on one. Both light up the shelf.
-  const selected = index.get(topic);
-  const shelf = selected ? selected.parent || selected.slug : '';
-  row.innerHTML = chipRow(shelves, shelf, 'All');
-
-  // The second row is what is on the open shelf; "Everything" clears back to
-  // the shelf itself rather than to the whole feed.
-  const children = shelf
-    ? tally(live, (s) => (s.topics || []).filter((t) => t.parent === shelf))
-    : [];
-  sub.innerHTML = children.length
-    ? chipRow(children, topic === shelf ? '' : topic, 'Everything', shelf)
-    : '';
+  const mine = follows.size ? followedRow(live) : [];
+  row.innerHTML = mine.length ? clearChip() + chipRow(mine, topic) : '';
 }
 
 /* Facets, counted within the place you are in rather than across the feed, so
@@ -896,12 +877,9 @@ function renderFacets(inPlace) {
   const ranked = [...counts.entries()]
     .filter(([slug]) => names.has(slug))
     .sort((a, b) => b[1] - a[1]);
-  row.innerHTML = ranked.length
-    ? [`<button class="filter" data-facet="" aria-pressed="${!facet}">Any kind</button>`,
-      ...ranked.map(([slug, n]) =>
-        `<button class="filter" data-facet="${esc(slug)}" aria-pressed="${facet === slug}"
-          >${esc(names.get(slug))}<span class="n">${n}</span></button>`)].join('')
-    : '';
+  row.innerHTML = ranked.map(([slug, n]) =>
+    `<button class="filter" data-facet="${esc(slug)}" aria-pressed="${facet === slug}"
+      >${esc(names.get(slug))}<span class="n">${n}</span></button>`).join('');
 }
 
 /* --- The digest ------------------------------------------------------------
@@ -970,7 +948,7 @@ function digestHTML(live) {
     return `
     <section class="digest${on ? ' on' : ''}">
       <div class="digest-head">
-        <button class="digest-name" data-goto="${esc(row.slug)}">${esc(row.name)}</button>
+        <button class="digest-name" data-to-feed>${esc(row.name)}</button>
         ${followButton(`topic:${row.slug}`, on)}
       </div>
       <div class="digest-count">${
@@ -996,7 +974,7 @@ function digestHTML(live) {
   return `
     <p class="digest-intro">${follows.size
       ? `Your feed is the ${plural(follows.size, 'subject')} you follow. Tap to change that.`
-      : 'Your feed is everything. Follow a subject and it becomes just that.'}</p>
+      : 'Your feed is empty until you follow something. Tap a subject to start it.'}</p>
     ${shelves}
     ${names ? `<section class="digest">
       <div class="digest-head"><span class="digest-name as-text">Names in play</span></div>
@@ -1051,15 +1029,15 @@ function trendingSummary() {
 function renderScope() {
   const row = document.getElementById('scopes');
   if (view !== 'trending') { row.innerHTML = ''; return; }
-  const narrowed = topic || facet || (trendScope === 'mine' && follows.size);
-  row.innerHTML = `<button class="scopebar${narrowed ? ' on' : ''}" id="open-filters"
+  const on = narrowed() || (trendScope === 'mine' && follows.size);
+  row.innerHTML = `<button class="scopebar${on ? ' on' : ''}" id="open-filters"
     >${esc(trendingSummary())}<span class="caret">&#9662;</span></button>${
-    narrowed ? '<button class="scopebar clear-all" data-clear-filters>Clear</button>' : ''}`;
+    on ? '<button class="scopebar clear-all" data-clear-filters>Clear</button>' : ''}`;
 }
 
 /* Everything Trending can be narrowed by, on one screen: scope, then subjects
-   grouped by the shelf they sit on, then kind. Counted in the pool each choice
-   would actually apply to, so no chip here leads to an empty list. */
+   a shelf at a time, then kind. Counted in the pool each choice would actually
+   apply to, so no chip here leads to an empty list. */
 function filterSheetHTML() {
   const live = bundle.stories.filter((s) => !marks.dismissed.has(s.story_id));
   const pool = trendScope === 'mine' && follows.size ? live.filter(isFollowed) : live;
@@ -1088,14 +1066,38 @@ function filterSheetHTML() {
       shelf.leaves.set(label.slug, leaf);
     }
   }
-  const subjects = [...shelves.values()].sort((a, b) => b.n - a.n).map((shelf) => `
-    <div class="sheet-shelf">
-      <button class="leaf shelf${topic === shelf.slug ? ' on' : ''}"
-        data-pick="${esc(shelf.slug)}">${esc(shelf.name)}<span class="n">${shelf.n}</span></button>
-      ${[...shelf.leaves.values()].sort((a, b) => b.n - a.n).map((leaf) =>
-        `<button class="leaf${topic === leaf.slug ? ' on' : ''}" data-pick="${esc(leaf.slug)}"
-          >${esc(leaf.name)}<span class="n">${leaf.n}</span></button>`).join('')}
-    </div>`).join('');
+  /* Shelves only, until you ask for one. Ten lines you can read in a glance
+     beats forty chips you have to scan, and the first tap is a question --
+     which shelf -- that the shelf names answer on their own. Opening a shelf
+     is the one choice here that is not the last one, so it keeps the sheet
+     open, the way scope does. */
+  const subjects = [...shelves.values()].sort((a, b) => b.n - a.n).map((shelf) => {
+    const leaves = [...shelf.leaves.values()].sort((a, b) => b.n - a.n);
+    // A shelf with nothing under it has nothing to expand into, so it picks.
+    if (!leaves.length) {
+      return `<div class="sheet-shelf">
+        <button class="leaf shelf${topic === shelf.slug ? ' on' : ''}"
+          data-pick="${esc(shelf.slug)}"
+          >${esc(shelf.name)}<span class="n">${shelf.n}</span></button>
+      </div>`;
+    }
+    const open = openShelf === shelf.slug;
+    // The shelf lights up for anything chosen inside it, so a collapsed sheet
+    // still says where the selection is.
+    const holds = topic === shelf.slug || shelf.leaves.has(topic);
+    return `<div class="sheet-shelf${open ? ' open' : ''}">
+      <button class="leaf shelf${holds ? ' on' : ''}" data-shelf="${esc(shelf.slug)}"
+        aria-expanded="${open}">${esc(shelf.name)}<span class="n">${shelf.n}</span
+        ><span class="caret">&#9662;</span></button>
+      ${open ? `<div class="sheet-leaves">
+        <button class="leaf${topic === shelf.slug ? ' on' : ''}" data-pick="${esc(shelf.slug)}"
+          >Everything<span class="n">${shelf.n}</span></button>
+        ${leaves.map((leaf) =>
+          `<button class="leaf${topic === leaf.slug ? ' on' : ''}" data-pick="${esc(leaf.slug)}"
+            >${esc(leaf.name)}<span class="n">${leaf.n}</span></button>`).join('')}
+      </div>` : ''}
+    </div>`;
+  }).join('');
 
   const counts = new Map();
   for (const story of pool) {
@@ -1110,22 +1112,35 @@ function filterSheetHTML() {
     .join('');
 
   return `
-    <h1>Narrow it down</h1>
+    <div class="sheet-head">
+      <h1>Narrow it down</h1>
+      ${narrowed() || trendScope === 'mine'
+        ? '<button class="linkish sheet-clear" data-clear-filters>Clear all</button>' : ''}
+    </div>
     ${scope}
-    ${subjects ? `<div class="group-label">Subject</div>
-      <div class="sheet-chips">
-        <button class="leaf${topic ? '' : ' on'}" data-pick="">Anything</button>
-      </div>${subjects}` : ''}
+    ${subjects ? `<div class="group-label">Subject</div>${subjects}` : ''}
     ${kinds ? `<div class="group-label">Kind</div>
-      <div class="sheet-chips">
-        <button class="leaf${facet ? '' : ' on'}" data-kind="">Any kind</button>${kinds}
-      </div>` : ''}`;
+      <div class="sheet-chips">${kinds}</div>` : ''}`;
+}
+
+/* The shelf a slug sits on, or '' if it sits on none. A selected leaf opens
+   its own shelf, so the sheet opens showing where you already are. */
+function shelfOf(slug) {
+  if (!slug) return '';
+  const label = topicIndex(bundle.stories).get(slug);
+  return label ? label.parent || label.slug : '';
 }
 
 function openFilters() {
-  document.getElementById('filter-body').innerHTML = filterSheetHTML();
+  openShelf = shelfOf(topic);
+  drawFilters();
   document.getElementById('filter-sheet').classList.add('open');
   document.body.style.overflow = 'hidden';
+}
+
+/* Redraws the sheet in place, for the choices that do not finish it. */
+function drawFilters() {
+  document.getElementById('filter-body').innerHTML = filterSheetHTML();
 }
 
 function closeFilters() {
@@ -1154,10 +1169,9 @@ function render() {
   // Trending's rows live in its sheet, so the header keeps only the summary.
   if (view === 'trending') {
     document.getElementById('filters').innerHTML = '';
-    document.getElementById('subfilters').innerHTML = '';
     document.getElementById('facetfilters').innerHTML = '';
   } else {
-    renderFilters(live, index);
+    renderFilters(live);
     renderFacets(inPlace);
   }
   renderScope();
@@ -1177,9 +1191,12 @@ function render() {
     html += `<div class="empty">${
       query ? `Nothing matches <code>${esc(query)}</code>.`
       : view === 'saved' ? 'Nothing saved yet.'
-      : follows.size ? `Nothing new in what you follow. <br>
-          <button class="linkish" data-view-jump="topics">Follow more subjects</button>`
-      : 'Nothing here. Run <code>trib run</code> to fetch.'}</div>`;
+      : !live.length ? 'Nothing here. Run <code>trib run</code> to fetch.'
+      : !follows.size ? `Your feed is what you follow, and you are not
+          following anything yet. <br>
+          <button class="linkish" data-view-jump="topics">Pick some subjects</button>`
+      : `Nothing new in what you follow. <br>
+          <button class="linkish" data-view-jump="topics">Follow more subjects</button>`}</div>`;
   } else {
     html += stories.map(cardHTML).join('');
   }
@@ -1363,7 +1380,7 @@ document.addEventListener('click', (event) => {
 
   const kind = event.target.closest('[data-facet]');
   if (kind) {
-    facet = kind.dataset.facet;
+    facet = facet === kind.dataset.facet ? '' : kind.dataset.facet;
     render();
     return;
   }
@@ -1390,27 +1407,39 @@ document.addEventListener('click', (event) => {
   if (event.target.closest('[data-clear-filters]')) {
     topic = '';
     facet = '';
+    entity = '';
     trendScope = 'all';
     store(key('topic'), '');
     render();
+    // Tapped inside the sheet, the sheet is what has to show it worked.
+    if (document.getElementById('filter-sheet').classList.contains('open')) drawFilters();
     return;
   }
 
-  /* Scope keeps the sheet open: it changes which subjects are worth offering,
-     so you have not finished choosing. A subject or a kind is what you came
-     for, so those apply and get out of the way. */
+  /* Scope and opening a shelf keep the sheet open: neither is a choice you
+     came here to make, only one that changes what is worth offering next. A
+     subject or a kind is the answer, so those apply and get out of the way. */
   const scope = event.target.closest('[data-scope]');
   if (scope) {
     trendScope = scope.dataset.scope;
     render();
-    openFilters();
+    drawFilters();
+    return;
+  }
+
+  // Opening a shelf is not a filter: nothing is chosen yet, so nothing moves.
+  const shelfToggle = event.target.closest('[data-shelf]');
+  if (shelfToggle) {
+    const slug = shelfToggle.dataset.shelf;
+    openShelf = openShelf === slug ? '' : slug;
+    drawFilters();
     return;
   }
 
   const pick = event.target.closest('[data-pick]');
   if (pick) {
     entity = '';
-    topic = pick.dataset.pick;
+    topic = topic === pick.dataset.pick ? '' : pick.dataset.pick;
     store(key('topic'), topic);
     closeFilters();
     render();
@@ -1420,7 +1449,7 @@ document.addEventListener('click', (event) => {
 
   const kindPick = event.target.closest('[data-kind]');
   if (kindPick) {
-    facet = kindPick.dataset.kind;
+    facet = facet === kindPick.dataset.kind ? '' : kindPick.dataset.kind;
     closeFilters();
     render();
     window.scrollTo({ top: 0 });
@@ -1441,13 +1470,25 @@ document.addEventListener('click', (event) => {
     return;
   }
 
+  /* The digest's subject name is a way back to the feed, and nothing more. The
+     digest is where you choose what to follow; a filter picked up on the way
+     out of it is one you never asked for, and you would meet it later with no
+     memory of setting it. Walking *into* a topic is the story chip below. */
+  if (event.target.closest('[data-to-feed]')) {
+    entity = '';
+    topic = '';
+    store(key('topic'), '');
+    selectView('feed');
+    return;
+  }
+
   const goto = event.target.closest('[data-goto]');
   if (goto) {
     entity = '';
     topic = goto.dataset.goto;
     store(key('topic'), topic);
     dismissSheet();
-    // From the digest, opening a subject means going to read it.
+    // Opened from the digest, the topic is somewhere to read, so go and read it.
     if (view === 'topics') { selectView('feed'); return; }
     render();
     window.scrollTo({ top: 0 });
@@ -1457,7 +1498,7 @@ document.addEventListener('click', (event) => {
   const filter = event.target.closest('.filter');
   if (filter) {
     entity = '';
-    topic = filter.dataset.topic;
+    topic = topic === filter.dataset.topic ? '' : filter.dataset.topic;
     store(key('topic'), topic);
     render();
     return;

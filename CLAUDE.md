@@ -150,7 +150,7 @@ order and the scope; all four read the same bundle.
 
 | Surface | Order | Scope |
 |---|---|---|
-| Feed | newest first, by the date on the card | what you follow, or everything |
+| Feed | newest first, by the date on the card | what you follow, and nothing else |
 | Trending *(beta)* | the ranking below | everything, or what you follow |
 | Topics | most unread first | every subject in the bundle |
 | Saved | newest first | what you starred |
@@ -189,9 +189,34 @@ there is no server and the profiles are cleanly separate.
 be able to choose what news/topics to follow, that is exactly what I was
 missing."* So model cards and release notes stay in the pipeline and are
 filtered by what you follow, rather than dropped from config. Follows are
-`topic:<slug>` and `entity:<name>` in `localStorage` beside seen and saved, and
-an empty follow set means the whole feed — an empty feed on a new device is a
-bug, not a preference.
+`topic:<slug>` and `entity:<name>` in `localStorage` beside seen and saved.
+
+**An empty follow set means an empty feed.** Reversed 2026-09-19, on the
+owner's call: *"feed should be empty if you do not follow anything. That is the
+whole point."* It had been the opposite — following nothing showed everything,
+on the reasoning that an empty feed on a new device looked like a fault. But a
+feed that is full before you have chosen anything is the habit the project is
+replacing, and it hides the one action that makes the app yours. So the Feed
+filters on `isFollowed` unconditionally, and following nothing gets an empty
+state pointing at Topics, which is where you choose. Saved and search are
+deliberately outside this — both are ways back to something you already have —
+and Trending is still everything, since it is a place you go to look around.
+
+**Follows gate the feed; they do not gate a place you walked into.** A topic or
+an entity reached deliberately — from a story's chip — shows what is in it
+whether or not you follow it. Requiring both emptied every subject you had not
+already chosen, which is precisely the subject you went to look at, and the
+banner saying "0 stories" sat above a digest row that had just counted them.
+So `visible()` applies `isFollowed` only when nothing is scoped.
+
+**Leaving the digest does not leave a filter behind.** A subject's name there is
+`data-to-feed`: it returns to the feed and clears any scope. It used to set the
+topic on the way out, so tapping a subject to read it left the feed filtered —
+persisted, so you met it again days later with no memory of setting it, and
+(once follows gated the feed) showing nothing at all. Walking *into* a topic is
+`data-goto`, which only the story chip carries now. The two were one attribute
+and keying them apart on `view` is wrong: a story opened *from* the digest is
+still a story.
 
 **The feed orders by when the news broke, not by the story's clock.** A story's
 clock restarts when its wake grows (see `trib renewal`), and a chronological
@@ -207,13 +232,31 @@ still carries `score`, which is all Trending needs.
 
 **Each surface filters the way its own size allows.** The Feed's chip rows show
 only the subjects you follow — the feed already holds nothing else, so offering
-the other forty topics is offering forty empty filters; following nothing falls
-back to the whole shelf row, which is then the only way to get around. Trending
-is everything, where the same rows are forty-odd chips over four lines before a
-headline, so it collapses to one bar reading its own state (`Everything · AI
-agents · Code`) that opens a filter sheet — the same gesture the story detail
-and the profile chooser use. In the sheet, scope keeps it open because it
-changes what is worth offering; a subject or a kind applies and closes.
+the other forty topics is offering forty empty filters. There used to be a
+second row — the whole spine, shelf then leaf — for the case where you followed
+nothing and the feed was therefore everything; that case no longer exists, so
+neither does the row. Trending is everything, where the same rows are forty-odd
+chips over four lines before a headline, so it collapses to one bar reading its
+own state (`Everything · AI agents · Code`) that opens a filter sheet — the
+same gesture the story detail and the profile chooser use. **The sheet lists shelves, not leaves.** Showing
+all forty-odd subjects at once only moved the wall of chips behind a tap, so a
+shelf opens on tap and one is open at a time, with `Everything` inside it
+standing for the shelf itself; a shelf with nothing under it picks instead of
+expanding. The sheet opens with the shelf holding the current selection already
+open, and a collapsed shelf lights up for a leaf chosen inside it. So scope and
+opening a shelf keep the sheet open, because neither finishes the choice; a
+subject or a kind applies and closes.
+
+**No chip means "no filter".** `All`, `Everything`, `Anything` and `Any kind`
+were each the first chip of a row, lit whenever nothing else was — which is
+only ever a restatement of the row's own state. The owner's call, 2026-09-19:
+*"All and Everything is unecessary since it is true if no filter is active. But
+a way to 'clear' all selected filters is better UX."* So the rows hold subjects
+and kinds only; tapping a lit chip turns it off, and one `Clear` control —
+leading the Feed's row, beside Trending's bar, and in the sheet's header —
+appears only when something is on and drops subject, kind and entity together.
+The one surviving `Everything` is inside an opened shelf in the sheet, where it
+means "this whole shelf", which is a selection rather than the lack of one.
 
 **The digest counts unseen, not "since a timestamp".** Seen marks are already
 per story and per device, and a count you clear by reading beats one that
