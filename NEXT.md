@@ -95,6 +95,39 @@ and its own triage profile. That answers wants 1 and 2 for about the cost of a
 config file. It does not answer want 3, and it costs a second feed to check,
 which is close to the thing being asked to avoid.
 
+## Redesign the frontend
+
+**Asked 2026-09-19**, in those words and no more, so the brief is open. What is
+known, so it is not rediscovered:
+
+**It is a self-contained job.** The page is one file with no build step and the
+JSON bundle is the contract, so a rewrite touches nothing else in the repo —
+that was the point of the split. What a replacement must keep is small: the
+four surfaces and what orders each, follows and marks namespaced per profile in
+`localStorage`, and the fact that it has to work as a static file on GitHub
+Pages with no server behind it.
+
+**There is already a design brief for this, one section down** — "A feed you can
+get through at TikTok speed". That entry is the *why*; this is the permission.
+They should be read together rather than answered twice.
+
+**The measured complaint is chrome.** At 390×844, the header is 182px — 22% of
+the screen — and only three cards are fully visible before scrolling. Six rows
+stack above the first headline: brand and profile, tabs, topics, subtopics,
+facets, and search, with the Trending scope row making a seventh. Most of that
+was added one row at a time, and following now does the job several of those
+rows were built for, so the question is which of them still earn their place
+rather than how to make them shorter.
+
+**The original complaint was "boring"**, said of a feed that was mostly release
+churn — some of which was the prerelease leak, now fixed, and some of which was
+the ranking, now moved to Trending. Worth looking at the live feed again before
+designing against a screenshot that no longer represents it.
+
+Open, and nobody has decided: whether the card list survives at all, whether
+topics and facets stay as filter rows now that following exists, and whether
+the digest or the feed is the front door.
+
 ## Ready to start
 
 - **"More like this" on a story page.** Nearest-neighbour over vectors already on
