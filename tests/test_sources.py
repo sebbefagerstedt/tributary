@@ -296,6 +296,28 @@ def test_github_skips_prereleases_by_default(httpx_mock):
     assert [i.external_id for i in items] == ["o/r@v1.0"]
 
 
+def test_github_skips_a_build_that_forgot_to_set_the_flag(httpx_mock):
+    """Measured: both of these led the feed with `prerelease` set to false."""
+    httpx_mock.add_response(
+        json=[
+            release("v1.0"),
+            release("b11020"),                      # llama.cpp, a build per commit
+            release("langchain-typesafe==0.0.1a1"),  # a per-package alpha
+            release("v2.0.0-beta.1"),
+        ]
+    )
+    items, _ = GitHubSource(cfg("github", repos=["o/r"])).fetch({})
+    assert [i.external_id for i in items] == ["o/r@v1.0"]
+
+
+def test_github_keeps_an_ordinary_version_that_merely_contains_letters(httpx_mock):
+    """The string test must not eat real releases."""
+    tags = ["v4.57.0", "v0.11.0", "sdk-v2.1.3", "release-2026.09", "v1.0.0+cuda12"]
+    httpx_mock.add_response(json=[release(tag) for tag in tags])
+    items, _ = GitHubSource(cfg("github", repos=["o/r"])).fetch({})
+    assert [i.external_id for i in items] == [f"o/r@{tag}" for tag in tags]
+
+
 def test_github_keeps_prereleases_when_asked(httpx_mock):
     httpx_mock.add_response(json=[release("v1.0"), release("v1.1-rc0", prerelease=True)])
     items, _ = GitHubSource(cfg("github", repos=["o/r"], prereleases=True)).fetch({})
