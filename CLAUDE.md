@@ -205,6 +205,16 @@ top-ranked N and sorting those by date would silently drop a recent story the
 ranking did not rate, and the reader would never learn it existed. Every card
 still carries `score`, which is all Trending needs.
 
+**Each surface filters the way its own size allows.** The Feed's chip rows show
+only the subjects you follow — the feed already holds nothing else, so offering
+the other forty topics is offering forty empty filters; following nothing falls
+back to the whole shelf row, which is then the only way to get around. Trending
+is everything, where the same rows are forty-odd chips over four lines before a
+headline, so it collapses to one bar reading its own state (`Everything · AI
+agents · Code`) that opens a filter sheet — the same gesture the story detail
+and the profile chooser use. In the sheet, scope keeps it open because it
+changes what is worth offering; a subject or a kind applies and closes.
+
 **The digest counts unseen, not "since a timestamp".** Seen marks are already
 per story and per device, and a count you clear by reading beats one that
 resets itself at midnight. Counts are over the stories in the bundle, so they
