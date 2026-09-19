@@ -208,3 +208,33 @@ def test_bundle_carries_what_the_digest_counts(conn, source_id):
     seed(conn, source_id)
     bundle = export.build_bundle(conn)
     assert all("topics" in s and "entities" in s for s in bundle["stories"])
+
+
+def test_the_bundle_names_every_topic_in_the_spine(conn, source_id):
+    """A followed subject with nothing in the bundle still has to be nameable.
+
+    Stories carry their own labels, so the page can name whatever it shows. A
+    follow is a stored slug, and one whose subject has gone quiet has no story
+    to carry its name -- so it could not be listed, and therefore could not be
+    unfollowed, while still deciding what the feed held.
+    """
+    from tributary.config import TopicConfig
+
+    seed(conn, source_id)
+    spine = [
+        TopicConfig(slug="safety", name="Safety & security", description="d"),
+        TopicConfig(slug="misuse", name="Misuse", description="d", parent="safety"),
+    ]
+    bundle = export.build_bundle(conn, spine=spine)
+
+    assert bundle["spine"] == [
+        {"slug": "safety", "name": "Safety & security", "parent": None, "parent_name": None},
+        {"slug": "misuse", "name": "Misuse", "parent": "safety",
+         "parent_name": "Safety & security"},
+    ]
+
+
+def test_a_bundle_built_without_a_spine_still_has_the_key(conn, source_id):
+    """The page reads `spine` unconditionally, so it is never absent."""
+    seed(conn, source_id)
+    assert export.build_bundle(conn)["spine"] == []
