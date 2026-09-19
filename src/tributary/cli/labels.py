@@ -83,12 +83,31 @@ def topics_cmd(
             f"and {named.matched} name an entity"
         )
 
-    table = Table("topic", "stories", "last story", title="Topics")
+    table = Table("topic", "stories", "below triage", "last story", title="Topics")
+    polluted = 0
     for row in topics.stats(conn):
         # Topics are allowed to be short-lived, so "quiet since" is the column
         # that says whether one has finished rather than failed.
-        table.add_row(row["name"], str(row["stories"]), (row["newest"] or "never")[:10])
+        below = row["below_triage"] or 0
+        polluted += below
+        share = below / row["stories"] if row["stories"] else 0
+        colour = "red" if share >= 0.3 else "yellow" if share >= 0.1 else "dim"
+        table.add_row(
+            row["name"],
+            str(row["stories"]),
+            f"[{colour}]{below}[/]" if below else "[dim]—[/]",
+            (row["newest"] or "never")[:10],
+        )
     console.print(table)
+    # Triage no longer gates the corpus, so the topic floor is the only thing
+    # keeping a crypto post out of whichever AI leaf it most resembles -- and
+    # that floor was measured on triaged material. This column is how the
+    # damage shows up.
+    console.print(
+        f"\n[dim]{polluted} stories are made only of items triage would have dropped.\n"
+        "A topic filling up with those is following being polluted: re-measure "
+        "`topics.floor`.[/]"
+    )
 
 
 @app.command(rich_help_panel=PANEL, name="entities")

@@ -93,16 +93,26 @@ def role_for(kind: str, *, first_in_story: bool) -> str:
 
 
 def unclustered(conn: sqlite3.Connection, limit: int | None = None) -> list[sqlite3.Row]:
-    """Kept, embedded items not yet in a story, oldest first.
+    """Embedded items not yet in a story, oldest first.
 
     Oldest first matters: stories accrete forward in time, so the earliest item
     becomes the seed and later coverage attaches to it.
+
+    **Not filtered by the triage verdict.** Triage used to decide what existed;
+    following decides that now, and a reader's own subjects are a better filter
+    than one profile of prose for everybody. Triage still runs and still scores,
+    because `relevance` in the ranking is its score -- so what it dislikes sinks
+    in Trending rather than never being fetched into a story at all.
     """
+    # Joined to the vectors rather than trusting `embedded_hash`: the hash says
+    # which text was embedded, not that the row survived. `vectors_for` indexes
+    # the result by item, so one item with a hash and no vector used to take the
+    # whole stage down -- which the triage gate happened to hide.
     sql = """
         SELECT i.id, i.kind, i.title, COALESCE(i.published_at, i.fetched_at) AS at
           FROM items i
-         WHERE i.triage_state = 'kept'
-           AND i.embedded_hash IS NOT NULL
+          JOIN item_vectors v ON v.item_id = i.id
+         WHERE i.embedded_hash IS NOT NULL
            AND NOT EXISTS (SELECT 1 FROM story_items si WHERE si.item_id = i.id)
          ORDER BY at ASC
     """

@@ -22,14 +22,14 @@ def make(conn, source_id):
     counter = {"n": 0}
 
     def _make(title, kind="article", at="2026-09-15T00:00:00Z", vector=(1.0,), identifiers=(),
-              source=None, metadata=None):
+              source=None, metadata=None, triage_state="kept"):
         counter["n"] += 1
         item_id = conn.execute(
             "INSERT INTO items (source_id, external_id, kind, url, title, published_at, "
             "triage_state, triage_score, content_hash, embedded_hash, metadata) "
-            "VALUES (?, ?, ?, ?, ?, ?, 'kept', 0.8, 'h', 'h', ?)",
+            "VALUES (?, ?, ?, ?, ?, ?, ?, 0.8, 'h', 'h', ?)",
             (source or source_id, f"e{counter['n']}", kind, f"https://e.test/{counter['n']}",
-             title, at, json.dumps(metadata or {})),
+             title, at, triage_state, json.dumps(metadata or {})),
         ).lastrowid
         conn.execute("INSERT INTO item_vectors (item_id, embedding) VALUES (?, ?)",
                      (item_id, unit(*vector)))
@@ -202,12 +202,22 @@ def test_clustering_is_idempotent(conn, make):
     assert second.assigned == 0  # nothing left unclustered
 
 
-def test_only_kept_items_are_clustered(conn, source_id, make):
+def test_the_triage_verdict_no_longer_decides_what_becomes_a_story(conn, source_id, make):
+    """Following filters the feed now; triage only scores what it finds."""
     make("Kept", vector=(1.0,))
+    make("Rejected", vector=(0.0, 1.0), triage_state="rejected")
+
+    cluster.run(conn)
+    assert cluster.stats(conn)["items"] == 2
+
+
+def test_an_item_with_a_hash_but_no_vector_is_skipped_not_fatal(conn, source_id, make):
+    """One bad row must not take the whole stage down."""
+    make("Fine", vector=(1.0,))
     conn.execute(
         "INSERT INTO items (source_id, external_id, kind, url, title, triage_state, "
         "content_hash, embedded_hash) VALUES (?, 'r', 'article', 'https://e.test/r', "
-        "'Rejected', 'rejected', 'h', 'h')",
+        "'No vector', 'kept', 'h', 'h')",
         (source_id,),
     )
     cluster.run(conn)

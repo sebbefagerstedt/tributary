@@ -365,3 +365,41 @@ def test_parked_stories_are_the_gap_suggest_leads_with(conn, story, axes):
     assert [g.parked for g in groups] == [3, 0]
     assert groups[0].uncovered == 0
     assert groups[0].unplaced == 3
+
+
+def test_stats_counts_stories_triage_would_have_dropped(conn, source_id):
+    """Triage no longer gates the corpus, so this is what says following is polluted."""
+    from tributary import topics as topics_mod
+
+    topic_id = conn.execute(
+        "INSERT INTO topics (slug, name) VALUES ('t', 'A topic')"
+    ).lastrowid
+
+    def story(state):
+        story_id = conn.execute("INSERT INTO stories DEFAULT VALUES").lastrowid
+        item_id = conn.execute(
+            "INSERT INTO items (source_id, external_id, kind, url, title, triage_state, "
+            "content_hash) VALUES (?, ?, 'article', 'https://e.test/x', 'T', ?, 'h')",
+            (source_id, f"e{story_id}", state),
+        ).lastrowid
+        conn.execute("INSERT INTO story_items (story_id, item_id, role) VALUES (?, ?, 'seed')",
+                     (story_id, item_id))
+        conn.execute("INSERT INTO story_topics (story_id, topic_id) VALUES (?, ?)",
+                     (story_id, topic_id))
+
+    story("kept")
+    story("rejected")
+    story("rejected")
+
+    row = next(r for r in topics_mod.stats(conn) if r["slug"] == "t")
+    assert row["stories"] == 3
+    assert row["below_triage"] == 2
+
+
+def test_stats_does_not_count_an_empty_topic_as_polluted(conn):
+    from tributary import topics as topics_mod
+
+    conn.execute("INSERT INTO topics (slug, name) VALUES ('quiet', 'Nothing here')")
+    row = next(r for r in topics_mod.stats(conn) if r["slug"] == "quiet")
+    assert row["stories"] == 0
+    assert (row["below_triage"] or 0) == 0
