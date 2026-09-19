@@ -297,6 +297,52 @@ Still open:
   It is what made the misfiling above look like an absence. Either search should
   ignore the topic filter, or the empty state should say the filter is on.
 
+- **"Kind" is offered before any subject is chosen.** Said of Trending's filter
+  sheet, 2026-09-19: *"It is strange to have 'kind' without any chosen topic."*
+  The sheet is scope, then `Subject` as ten collapsed shelves, then `Kind` as a
+  flat row of facet chips — and the kind row is there from the moment the sheet
+  opens, with nothing selected above it.
+
+  **The two axes are not the same kind of choice, and the sheet presents them as
+  siblings.** Under one home a story sits on exactly one leaf, so the shelves
+  *partition* the pool and their counts add up to it. Facets are any number per
+  story and exist precisely to cut *across* the spine, so the kind chips overlap
+  and their counts sum past the pool. Offered at the top level, `Kind` asks you
+  to slice the whole corpus by a property designed for narrowing a subject you
+  have already walked into.
+
+  **The Feed already does it the other way, and that is the precedent.**
+  `renderFacets(inPlace)` counts facets inside the place you are standing in,
+  with the reason in the comment above it: *"so every chip on the row leads
+  somewhere and the numbers mean what they say."* Trending's sheet does not.
+
+  **There is a real defect behind the strangeness.** `filterSheetHTML`'s `pool`
+  applies `trendScope` and nothing else — neither the chosen `topic` nor the
+  chosen `facet`. So its own docstring (*"Counted in the pool each choice would
+  actually apply to, so no chip here leads to an empty list"*) holds only while
+  nothing is selected. Reopen the sheet with a subject on and both count against
+  the unfiltered bundle: a `Kind` chip reading 17 can be offered over a shelf
+  holding 3. Picking one then does nothing visible at all — `render()` drops a
+  facet that matches nothing in the current place (`if (facet && !inPlace.some(…))
+  facet = ''`), so the sheet closes, the scope bar does not change, and the feed
+  is as it was. A silently discarded tap is worse than an empty list, which at
+  least explains itself. How often it happens depends on the bundle and is not
+  measured.
+
+  Three ways out, none chosen:
+    - **Make kind subordinate.** Show the row only once a subject is chosen —
+      or inside an opened shelf — so the sheet reads as one funnel: scope,
+      subject, kind within it. This is what the ask literally says, and it
+      matches the Feed.
+    - **Keep it top-level and make the counts true.** Count each axis inside
+      the other's selection and offer no chip that would count zero. Cheapest,
+      but it leaves two peer taxonomies on one screen, which is the part that
+      read as strange.
+    - **Take kind out of the sheet.** It is the lexical axis, and on the Feed it
+      is already its own row inside a place rather than a filter you set up
+      front. Worth deciding against the **Redesign the frontend** entry rather
+      than on its own — that one is asking which rows still earn their place.
+
 - **Stories clustered before the `role_for` fix carry stale roles.** Roles are
   stored, not recomputed, so a paper's own coverage can still be labelled as a
   second seed in old stories. `trib cluster --reset` once, on the database that
