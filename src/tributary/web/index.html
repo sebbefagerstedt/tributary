@@ -50,19 +50,26 @@ header {
   border-bottom: 1px solid var(--line);
   padding: calc(env(safe-area-inset-top) + 10px) 16px 10px;
 }
-.bar { display: flex; align-items: center; gap: 12px; max-width: 720px; margin: 0 auto; }
+.bar { display: flex; align-items: center; gap: 10px; max-width: 720px; margin: 0 auto; }
 /* Stacked, because "Tributary" plus a status line plus three tabs does not fit
    across a phone -- and wrapped mid-sentence it reads as a bug rather than a
    subtitle. */
 .brand {
   display: flex; flex-direction: column; margin-right: auto; min-width: 0;
   font-weight: 650; letter-spacing: -.02em; font-size: 17px; line-height: 1.25;
+  /* Truncates rather than pushing the tabs off the screen: four tabs and an
+     avatar leave the wordmark whatever is left, which on a narrow phone is
+     not much. */
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
 }
-.brand span {
+.brand #count {
   color: var(--faint); font-weight: 400; font-size: 12.5px; letter-spacing: 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.tabs { display: flex; gap: 2px; background: var(--surface-2); padding: 3px; border-radius: 10px; }
+.tabs {
+  display: flex; gap: 2px; background: var(--surface-2); padding: 3px;
+  border-radius: 10px; flex: none;
+}
 .tab {
   border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 13px;
   padding: 5px 11px; border-radius: 8px; cursor: pointer; font-weight: 500;
@@ -178,7 +185,7 @@ body.digest-view .search { display: none; }
 /* Whose feed this is. A quiet initial rather than a name: the header is small,
    and the only question it has to answer at a glance is "am I me". */
 .who {
-  flex: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+  flex: none; width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
   font: inherit; font-size: 13px; font-weight: 650; line-height: 1;
   background: var(--surface-2); color: var(--muted); border: 1px solid var(--line);
 }
@@ -195,6 +202,28 @@ body.digest-view .search { display: none; }
 .profile-here { color: var(--faint); font-size: 11.5px; padding-right: 6px; }
 .profile-new { display: flex; gap: 8px; align-items: center; margin-top: 16px; }
 .profile-new .search { margin: 0; flex: 1; }
+
+/* Trending's whole filter state, as one line you read rather than four rows of
+   chips you scan past. */
+.filters.scope { margin-top: 8px; gap: 6px; }
+.scopebar {
+  font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap;
+  padding: 7px 13px; border-radius: 999px; color: var(--muted);
+  background: var(--surface); border: 1px solid var(--line);
+}
+.scopebar.on { color: #fff; background: var(--accent); border-color: var(--accent); }
+.scopebar .caret { margin-left: 6px; opacity: .7; font-size: 10px; }
+.scopebar.clear-all { color: var(--faint); }
+
+.sheet-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+/* A shelf and its rows on one line each, so ten shelves read as ten lines
+   instead of forty loose chips. */
+.sheet-shelf {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  padding: 9px 0; border-top: 1px solid var(--line);
+}
+.leaf.shelf { font-weight: 650; background: var(--surface-2); }
+.sheet-shelf .leaf { font-size: 12px; }
 .linkish {
   font: inherit; color: var(--accent); background: none; border: 0;
   cursor: pointer; text-decoration: underline; padding: 0; margin-top: 8px;
@@ -341,6 +370,18 @@ body.digest-view .search { display: none; }
   color: var(--faint); font-size: 12px; text-align: center;
   margin: 18px 0 0; padding: 0 8px;
 }
+/* Phone widths, last so these win over the base rules they narrow. The
+   wordmark is the one thing in the top row nobody needs: four tabs and an
+   avatar leave it a truncated "Trib", while the line below it still says
+   whether the feed is fresh. */
+@media (max-width: 460px) {
+  .wordmark { display: none; }
+  .brand #count { font-size: 13px; }
+  .tab { padding: 5px 8px; font-size: 12.5px; }
+  .bar { gap: 8px; }
+  .beta { margin-left: 2px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, .sheet { transition: none !important; animation: none !important; }
 }
@@ -350,8 +391,7 @@ body.digest-view .search { display: none; }
 
 <header>
   <div class="bar">
-    <div class="brand">Tributary<span id="count"></span></div>
-    <button class="who" id="who" aria-label="Switch profile"></button>
+    <div class="brand"><span class="wordmark">Tributary</span><span id="count"></span></div>
     <div class="tabs" role="tablist">
       <button class="tab" role="tab" data-view="feed" aria-selected="true">Feed</button>
       <button class="tab" role="tab" data-view="trending" aria-selected="false"
@@ -359,16 +399,24 @@ body.digest-view .search { display: none; }
       <button class="tab" role="tab" data-view="topics" aria-selected="false">Topics</button>
       <button class="tab" role="tab" data-view="saved" aria-selected="false">Saved</button>
     </div>
+    <button class="who" id="who" aria-label="Switch profile"></button>
   </div>
   <div class="filters" id="filters"></div>
   <div class="filters sub" id="subfilters"></div>
   <div class="filters kinds" id="facetfilters"></div>
-  <div class="filters" id="scopes"></div>
+  <div class="filters scope" id="scopes"></div>
   <input id="search" class="search" type="search" autocomplete="off"
     placeholder="Search titles and summaries" aria-label="Search stories">
 </header>
 
 <main id="main"><div class="spinner"></div></main>
+
+<div class="sheet" id="filter-sheet" role="dialog" aria-modal="true" aria-label="Filters">
+  <div class="sheet-bar">
+    <button class="icon" id="close-filters" aria-label="Back">&larr;</button>
+  </div>
+  <div class="sheet-body" id="filter-body"></div>
+</div>
 
 <div class="sheet" id="profiles" role="dialog" aria-modal="true" aria-label="Profiles">
   <div class="sheet-bar">
@@ -780,10 +828,41 @@ const chipRow = (ranked, selected, clearLabel, clearTo = '') => [
 /* Two rows: shelves, then what is on the selected shelf. Both are built from
    the stories actually loaded, so a filter never leads to an empty feed and a
    subject nothing was written about this week simply does not appear. */
+/* The subjects you follow, counted in the feed, in the order the digest ranks
+   them. Flat, with no shelf-then-leaf step: you picked these individually, so
+   nesting them again would be filing your own choices for you. */
+function followedRow(live) {
+  const counts = new Map();
+  for (const story of live) {
+    for (const label of story.topics || []) {
+      for (const slug of [label.slug, label.parent]) {
+        if (!slug || !follows.has(`topic:${slug}`)) continue;
+        const name = slug === label.slug ? label.name : label.parent_name;
+        const seen = counts.get(slug) || { name, n: 0 };
+        seen.n += 1;
+        counts.set(slug, seen);
+      }
+    }
+  }
+  return [...counts.entries()].sort((a, b) => b[1].n - a[1].n);
+}
+
 function renderFilters(live, index) {
-  const shelves = tally(live, shelvesOf);
   const row = document.getElementById('filters');
   const sub = document.getElementById('subfilters');
+
+  /* Following something makes the row *your* subjects rather than the whole
+     spine: the feed already holds only these, so offering the other forty is
+     offering forty empty filters. Following nothing means the feed is
+     everything, and then the shelves are the only way to get around. */
+  if (follows.size) {
+    const mine = followedRow(live);
+    row.innerHTML = mine.length ? chipRow(mine, topic, 'All') : '';
+    sub.innerHTML = '';
+    return;
+  }
+
+  const shelves = tally(live, shelvesOf);
   if (!shelves.length) {
     row.innerHTML = '';
     sub.innerHTML = '';
@@ -948,15 +1027,110 @@ function topicHead(label, count) {
   </div>`;
 }
 
-/* Trending has two halves, and the row only appears once you follow something:
-   "everything" and "everything" are not a choice worth showing. */
+/* --- Trending's filters ----------------------------------------------------
+   The feed shows only what you follow, so its rows are short. Trending is
+   everything, and the same rows there are forty-odd chips over four lines
+   before a single headline. So Trending collapses the lot into one bar that
+   says what is currently on, and puts the choosing in a sheet -- the same
+   gesture the story detail and the profile chooser already use.
+
+   The bar reads as a sentence rather than as controls, because most of the
+   time it is being read, not used. */
+function trendingSummary() {
+  const label = topic ? (topicIndex(bundle.stories).get(topic) || {}).name : '';
+  const kind = facet
+    ? (bundle.facets || []).find((f) => f.slug === facet)
+    : null;
+  return [
+    trendScope === 'mine' && follows.size ? 'What I follow' : 'Everything',
+    label || null,
+    kind ? kind.name : null,
+  ].filter(Boolean).join(' · ');
+}
+
 function renderScope() {
   const row = document.getElementById('scopes');
-  row.innerHTML = view === 'trending' && follows.size
-    ? [['all', 'Everything'], ['mine', 'What I follow']].map(([key, label]) =>
-        `<button class="filter" data-scope="${key}" aria-pressed="${trendScope === key}"
-          >${label}</button>`).join('')
-    : '';
+  if (view !== 'trending') { row.innerHTML = ''; return; }
+  const narrowed = topic || facet || (trendScope === 'mine' && follows.size);
+  row.innerHTML = `<button class="scopebar${narrowed ? ' on' : ''}" id="open-filters"
+    >${esc(trendingSummary())}<span class="caret">&#9662;</span></button>${
+    narrowed ? '<button class="scopebar clear-all" data-clear-filters>Clear</button>' : ''}`;
+}
+
+/* Everything Trending can be narrowed by, on one screen: scope, then subjects
+   grouped by the shelf they sit on, then kind. Counted in the pool each choice
+   would actually apply to, so no chip here leads to an empty list. */
+function filterSheetHTML() {
+  const live = bundle.stories.filter((s) => !marks.dismissed.has(s.story_id));
+  const pool = trendScope === 'mine' && follows.size ? live.filter(isFollowed) : live;
+
+  const scope = follows.size ? `
+    <div class="group-label">Show</div>
+    <div class="sheet-chips">
+      ${[['all', 'Everything'], ['mine', 'What I follow']].map(([k, label]) =>
+        `<button class="leaf${trendScope === k ? ' on' : ''}" data-scope="${k}"
+          >${label}</button>`).join('')}
+    </div>` : '';
+
+  // Grouped by shelf, so forty topics read as ten short rows.
+  const shelves = new Map();
+  for (const story of pool) {
+    for (const label of story.topics || []) {
+      const head = label.parent
+        ? { slug: label.parent, name: label.parent_name }
+        : { slug: label.slug, name: label.name };
+      if (!shelves.has(head.slug)) shelves.set(head.slug, { ...head, n: 0, leaves: new Map() });
+      const shelf = shelves.get(head.slug);
+      shelf.n += 1;
+      if (!label.parent) continue;
+      const leaf = shelf.leaves.get(label.slug) || { ...label, n: 0 };
+      leaf.n += 1;
+      shelf.leaves.set(label.slug, leaf);
+    }
+  }
+  const subjects = [...shelves.values()].sort((a, b) => b.n - a.n).map((shelf) => `
+    <div class="sheet-shelf">
+      <button class="leaf shelf${topic === shelf.slug ? ' on' : ''}"
+        data-pick="${esc(shelf.slug)}">${esc(shelf.name)}<span class="n">${shelf.n}</span></button>
+      ${[...shelf.leaves.values()].sort((a, b) => b.n - a.n).map((leaf) =>
+        `<button class="leaf${topic === leaf.slug ? ' on' : ''}" data-pick="${esc(leaf.slug)}"
+          >${esc(leaf.name)}<span class="n">${leaf.n}</span></button>`).join('')}
+    </div>`).join('');
+
+  const counts = new Map();
+  for (const story of pool) {
+    for (const slug of story.facets || []) counts.set(slug, (counts.get(slug) || 0) + 1);
+  }
+  const names = new Map((bundle.facets || []).map((f) => [f.slug, f.name]));
+  const kinds = [...counts.entries()]
+    .filter(([slug]) => names.has(slug))
+    .sort((a, b) => b[1] - a[1])
+    .map(([slug, n]) => `<button class="leaf${facet === slug ? ' on' : ''}"
+      data-kind="${esc(slug)}">${esc(names.get(slug))}<span class="n">${n}</span></button>`)
+    .join('');
+
+  return `
+    <h1>Narrow it down</h1>
+    ${scope}
+    ${subjects ? `<div class="group-label">Subject</div>
+      <div class="sheet-chips">
+        <button class="leaf${topic ? '' : ' on'}" data-pick="">Anything</button>
+      </div>${subjects}` : ''}
+    ${kinds ? `<div class="group-label">Kind</div>
+      <div class="sheet-chips">
+        <button class="leaf${facet ? '' : ' on'}" data-kind="">Any kind</button>${kinds}
+      </div>` : ''}`;
+}
+
+function openFilters() {
+  document.getElementById('filter-body').innerHTML = filterSheetHTML();
+  document.getElementById('filter-sheet').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeFilters() {
+  document.getElementById('filter-sheet').classList.remove('open');
+  document.body.style.overflow = '';
 }
 
 function render() {
@@ -970,22 +1144,27 @@ function render() {
   // there would be searching a list of subjects rather than the news.
   document.body.classList.toggle('digest-view', view === 'topics');
   if (view === 'topics') {
-    document.getElementById('count').textContent =
-      `${bundle.status.stories} stories · updated ${ago(bundle.generated_at)} ago`;
+    renderCount(bundle.status, ago(bundle.generated_at));
     renderWho();
     main.innerHTML = digestHTML(live);
     return;
   }
-  renderFilters(live, index);
   const inPlace = scoped(live);
   if (facet && !inPlace.some((s) => (s.facets || []).includes(facet))) facet = '';
-  renderFacets(inPlace);
+  // Trending's rows live in its sheet, so the header keeps only the summary.
+  if (view === 'trending') {
+    document.getElementById('filters').innerHTML = '';
+    document.getElementById('subfilters').innerHTML = '';
+    document.getElementById('facetfilters').innerHTML = '';
+  } else {
+    renderFilters(live, index);
+    renderFacets(inPlace);
+  }
   renderScope();
   const stories = visible();
   const status = bundle.status;
   const age = ago(bundle.generated_at);
-  document.getElementById('count').textContent =
-    `${status.stories} stories · updated ${age} ago`;
+  renderCount(status, age);
   renderWho();
 
   let html = entity ? entityHead(entity, stories.length)
@@ -1024,6 +1203,19 @@ function requireProfile() {
   if (profiles.length === 1) { useProfile(profiles[0]); return true; }
   openProfiles();
   return false;
+}
+
+/* Four tabs and an avatar leave this slot about forty pixels on a phone, so
+   the corpus size goes and the freshness stays: "is this stale" is the only
+   question the header has to answer at a glance. The full line is still there
+   on a wider screen, and in the tooltip either way. */
+const tight = () => window.matchMedia('(max-width: 460px)').matches;
+
+function renderCount(status, age) {
+  const full = `${status.stories} stories · updated ${age} ago`;
+  const el = document.getElementById('count');
+  el.textContent = tight() ? `${age} old` : full;
+  el.title = full;
 }
 
 function renderWho() {
@@ -1193,10 +1385,45 @@ document.addEventListener('click', (event) => {
     return;
   }
 
+  if (event.target.closest('#open-filters')) { openFilters(); return; }
+  if (event.target.closest('#close-filters')) { closeFilters(); return; }
+  if (event.target.closest('[data-clear-filters]')) {
+    topic = '';
+    facet = '';
+    trendScope = 'all';
+    store(key('topic'), '');
+    render();
+    return;
+  }
+
+  /* Scope keeps the sheet open: it changes which subjects are worth offering,
+     so you have not finished choosing. A subject or a kind is what you came
+     for, so those apply and get out of the way. */
   const scope = event.target.closest('[data-scope]');
   if (scope) {
     trendScope = scope.dataset.scope;
     render();
+    openFilters();
+    return;
+  }
+
+  const pick = event.target.closest('[data-pick]');
+  if (pick) {
+    entity = '';
+    topic = pick.dataset.pick;
+    store(key('topic'), topic);
+    closeFilters();
+    render();
+    window.scrollTo({ top: 0 });
+    return;
+  }
+
+  const kindPick = event.target.closest('[data-kind]');
+  if (kindPick) {
+    facet = kindPick.dataset.kind;
+    closeFilters();
+    render();
+    window.scrollTo({ top: 0 });
     return;
   }
 
