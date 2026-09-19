@@ -64,7 +64,10 @@ def build_bundle(
     Story items are embedded rather than fetched per story: a feed of 80 stories
     is a few hundred kilobytes, and one request beats eighty.
     """
-    cards = feed_mod.build(conn, limit=limit, days=days, include_seen=True)
+    # Newest first, not best first. The page's default feed is chronological,
+    # so the bundle is selected by date; every card still carries `score`, which
+    # is what Trending sorts by.
+    cards = feed_mod.recent(conn, limit=limit, days=days, include_seen=True)
     story_ids = [card.story_id for card in cards]
     labels = topics.for_stories(conn, story_ids)
     marks = facets.for_stories(conn, story_ids)
@@ -85,6 +88,10 @@ def build_bundle(
                 "source": card.source,
                 "sources": card.sources,
                 "published_at": card.published_at,
+                # Two dates, because they answer different questions: when the
+                # news happened, and when this story last grew. The feed orders
+                # by the first; the second is what "active 2h ago" reports.
+                "last_activity": card.last_activity,
                 "score": round(card.score, 4),
                 "signal": card.signal(),
                 "item_count": card.item_count,

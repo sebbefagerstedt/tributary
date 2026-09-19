@@ -63,8 +63,12 @@ class StoryCard:
     url: str
     kind: str
     source: str
-    published_at: str | None
+    published_at: str | None   # the lead item's date: when the news happened
     score: float
+    # The story's newest item: when it last grew, as opposed to when it broke.
+    # Defaulted because a card can be built without the aggregate that carries
+    # it -- the detail view has no use for it.
+    last_activity: str | None = None
     media_url: str | None = None
     sources: list[str] = field(default_factory=list)
     roles: dict[str, int] = field(default_factory=dict)
@@ -109,6 +113,43 @@ def score_story(relevance: float, age_hours: float, sources: int, roles: int) ->
     return relevance * recency * corroboration
 
 
+def _story_rows(
+    conn: sqlite3.Connection,
+    days: int | None = None,
+    include_seen: bool = True,
+) -> list[sqlite3.Row]:
+    """Every story in the window, with the aggregates both orderings need."""
+    where = []
+    params: list = []
+    if days:
+        where.append("st.last_activity >= datetime('now', ?)")
+        params.append(f"-{int(days)} days")
+    if not include_seen:
+        where.append(
+            "NOT EXISTS (SELECT 1 FROM interactions x "
+            "WHERE x.story_id = st.id AND x.action = 'seen')"
+        )
+    clause = f"WHERE {' AND '.join(where)}" if where else ""
+
+    return conn.execute(
+        f"""
+        SELECT st.id, st.title, st.summary, st.last_activity,
+               MAX(i.triage_score)  AS relevance,
+               COUNT(DISTINCT i.id) AS item_count,
+               COUNT(DISTINCT i.source_id) AS source_count,
+               COUNT(DISTINCT si.role)     AS role_count,
+               MAX(COALESCE(i.published_at, i.fetched_at)) AS newest,
+               MIN(COALESCE(i.published_at, i.fetched_at)) AS origin
+          FROM stories st
+          JOIN story_items si ON si.story_id = st.id
+          JOIN items i        ON i.id = si.item_id
+          {clause}
+         GROUP BY st.id
+        """,
+        params,
+    ).fetchall()
+
+
 def build(
     conn: sqlite3.Connection,
     limit: int = 30,
@@ -127,36 +168,7 @@ def build(
     feed would look like if it could not, and the difference is the measurement.
     """
     now = now or datetime.now(UTC)
-
-    where = []
-    params: list = []
-    if days:
-        where.append("st.last_activity >= datetime('now', ?)")
-        params.append(f"-{int(days)} days")
-    if not include_seen:
-        where.append(
-            "NOT EXISTS (SELECT 1 FROM interactions x "
-            "WHERE x.story_id = st.id AND x.action = 'seen')"
-        )
-    clause = f"WHERE {' AND '.join(where)}" if where else ""
-
-    stories = conn.execute(
-        f"""
-        SELECT st.id, st.title, st.summary, st.last_activity,
-               MAX(i.triage_score)  AS relevance,
-               COUNT(DISTINCT i.id) AS item_count,
-               COUNT(DISTINCT i.source_id) AS source_count,
-               COUNT(DISTINCT si.role)     AS role_count,
-               MAX(COALESCE(i.published_at, i.fetched_at)) AS newest,
-               MIN(COALESCE(i.published_at, i.fetched_at)) AS origin
-          FROM stories st
-          JOIN story_items si ON si.story_id = st.id
-          JOIN items i        ON i.id = si.item_id
-          {clause}
-         GROUP BY st.id
-        """,
-        params,
-    ).fetchall()
+    stories = _story_rows(conn, days=days, include_seen=include_seen)
 
     ranked = sorted(
         (
@@ -178,6 +190,39 @@ def build(
     # know each story's source and kind, which only the card carries.
     pool = [_card(conn, row, score) for score, row in ranked[: max(limit * 6, 60)]]
     return diversify(pool, limit) if diversify_feed else pool[:limit]
+
+
+def recent(
+    conn: sqlite3.Connection,
+    limit: int = 30,
+    days: int | None = None,
+    include_seen: bool = True,
+    now: datetime | None = None,
+) -> list[StoryCard]:
+    """The most recently active stories, newest first.
+
+    The page's default feed is chronological, so the bundle has to be selected
+    by date rather than by rank: taking the top-ranked N and sorting those by
+    date would silently drop a recent story the ranking did not rate, and the
+    reader would never know it existed. Every card still carries its `score`,
+    because Trending is this same set sorted the other way.
+    """
+    now = now or datetime.now(UTC)
+    rows = _story_rows(conn, days=days, include_seen=include_seen)
+    rows.sort(key=lambda row: row["newest"] or "", reverse=True)
+    return [
+        _card(
+            conn,
+            row,
+            score_story(
+                row["relevance"] or 0.0,
+                _age_hours(row["newest"], now),
+                row["source_count"],
+                row["role_count"],
+            ),
+        )
+        for row in rows[:limit]
+    ]
 
 
 def diversify(
@@ -334,6 +379,12 @@ def _story_ends(conn: sqlite3.Connection, story_ids: list[int]) -> dict[int, tup
     return {story_id: (members[0], members[-1]) for story_id, members in found.items()}
 
 
+def _row_value(row: sqlite3.Row, column: str):
+    """A column that only some of the queries select, without a KeyError."""
+    columns = row.keys()
+    return row[column] if column in columns else None
+
+
 def _card(conn: sqlite3.Connection, story: sqlite3.Row, score: float) -> StoryCard:
     members = conn.execute(
         """
@@ -366,6 +417,7 @@ def _card(conn: sqlite3.Connection, story: sqlite3.Row, score: float) -> StoryCa
         kind=lead["kind"],
         source=lead["source_name"],
         published_at=lead["published_at"],
+        last_activity=_row_value(story, "newest"),
         score=score,
         media_url=next((m["media_url"] for m in members if m["media_url"]), None),
         sources=sorted({m["source_name"] for m in members}),
