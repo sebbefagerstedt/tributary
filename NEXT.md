@@ -130,6 +130,53 @@ Open, and nobody has decided: whether the card list survives at all, whether
 topics and facets stay as filter rows now that following exists, and whether
 the digest or the feed is the front door.
 
+## Tapping a topic should open the topic
+
+**Asked 2026-09-19**, after following at both levels started working:
+
+> I need to be able to follow topics on different levels which seems to work.
+> But I want the topic to popup so it is clear what is followed. Also nothing
+> shows up when I click a topic
+
+**Both halves are the same gap: in the digest, nothing you can tap opens a
+topic.** Verified against the live bundle, the three clickable things on a
+subject row do this:
+
+| What you tap | What happens |
+|---|---|
+| The shelf name (`data-to-feed`) | goes to the Feed, **unfiltered** — no banner, no sign of the subject |
+| A leaf chip (`data-follow`) | toggles the follow. The page does not move; only the chip tints |
+| The lead headline (`data-open`) | opens the story sheet — the only one that opens anything |
+
+So "nothing shows up when I click a topic" is literally true, twice over, and
+for two different reasons.
+
+**The shelf name is a regression, and a cheap one to undo.** It used to walk
+into the topic; it was changed on 2026-09-19 to clear the scope instead, because
+going via Topics was leaving a filter on the Feed that you met days later with
+no memory of setting it. That fix was right about the filter and wrong about the
+name — the answer is for the name to *open* the subject, not to navigate
+nowhere. `data-goto` still does exactly that and the story chip still uses it.
+
+**The leaf chip is an affordance collision.** The same chip shape navigates in
+the Trending sheet and follows in the digest, and only a tint tells them apart.
+Whatever replaces this has to make "follow" a control rather than a chip state.
+
+**What is being asked for is a topic sheet** — the same gesture the story
+detail, the profile chooser and the filter sheet already use. It would answer
+both halves at once: what this subject is, what sits under it, how much is
+unread, and a follow control *per level* so the shelf and its leaves are visibly
+separate choices. Open, and worth deciding before building:
+
+- Does the sheet replace walking into the topic, or precede it (a "peek" with an
+  "Open" button)? A sheet that only ever previews adds a tap to every visit.
+- A shelf and its leaves are independent follows today. Does following a shelf
+  show its leaves as followed, or stay separate? `isFollowed` already treats a
+  shelf follow as covering its leaves for the *feed*, so the UI currently says
+  less than the behaviour does.
+- Where entities fit. They are followable and have no level at all, so they
+  either share the sheet or stay a flat row.
+
 ## Ready to start
 
 - **"More like this" on a story page.** Nearest-neighbour over vectors already on
