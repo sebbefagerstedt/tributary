@@ -117,6 +117,25 @@ def test_the_page_opens_a_subject_and_offers_no_kind_row(conn, source_id, tmp_pa
     assert "followsHTML" in page
     # The digest hid the chooser's name field until this rule was scoped.
     assert "body.digest-view > header .search" in page
+
+
+def test_the_page_never_offers_everything_as_a_filter(conn, source_id, tmp_path):
+    """No chip, bar or label names the unfiltered state.
+
+    "All and Everything is unecessary since it is true if no filter is active"
+    (2026-09-19), applied to the three that outlived that pass (2026-09-21).
+    Comments in the source explain why, so only rendered strings are checked.
+    """
+    seed(conn, source_id)
+    export.write_site(conn, tmp_path / "site")
+    page = (tmp_path / "site" / "index.html").read_text()
+
+    rendered = [line for line in page.splitlines() if "Everything" in line]
+    assert all("*" in line or "//" in line or "`Everything`" in line for line in rendered), (
+        rendered
+    )
+    # The scope row is one chip now, so the pair's other half is gone.
+    assert "data-scope=\"all\"" not in page
     # The attributes that navigated nowhere, and the row that has gone with them.
     for gone in ("data-to-feed", "data-goto", 'id="facetfilters"', "data-facet="):
         assert gone not in page, gone
