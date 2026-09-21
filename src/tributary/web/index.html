@@ -100,17 +100,6 @@ header {
   color: var(--faint); border-style: dashed;
 }
 .filter.clear-all::before { content: '\00d7'; margin-right: 5px; font-size: 13px; }
-/* What a story is, rather than where it lives. Outlined rather than filled so
-   it reads as a refinement of the rows above, not a third level of them. */
-.filters.kinds { margin-top: 6px; }
-.filters.kinds .filter {
-  font-size: 12px; font-weight: 500; background: transparent; border-style: dashed;
-}
-.filters.kinds .filter[aria-pressed="true"] {
-  background: var(--text); border-color: var(--text); border-style: solid;
-  color: var(--surface);
-}
-
 .search {
   display: block; width: 100%; max-width: 720px; margin: 8px auto 0;
   font: inherit; font-size: 14px; color: var(--text);
@@ -159,8 +148,10 @@ body.digest-view .search { display: none; }
 }
 .follow.on { background: var(--accent); color: #fff; }
 
-/* Leaves double as the follow control for a row on a shelf, so they carry the
-   same on-state as the shelf button rather than inventing a second language. */
+/* A leaf, a name, a quiet follow: each of these opens its subject, and the
+   tint says whether you follow it. Following moved into the panel that opens,
+   because a chip that both navigates and follows is one control wearing two
+   jobs, told apart only by a colour. */
 .leaf {
   font: inherit; font-size: 12px; cursor: pointer; padding: 5px 10px;
   border-radius: 999px; background: var(--surface-2); color: var(--text);
@@ -340,6 +331,62 @@ body.digest-view .search { display: none; }
 .item-meta { font-size: 12.5px; color: var(--faint); }
 .item-meta .eng { color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; }
 
+/* --- A subject, opened ------------------------------------------------------
+   Shaped like a profile page, which is what was asked for: the name and the
+   follow control together at the top, then what is under it, then what is in
+   it. The follow is a real button rather than a chip's tint, because "clear
+   what is followed" is the whole point of the panel. */
+.subject-where {
+  font-size: 12px; font-weight: 600; letter-spacing: .02em; color: var(--faint);
+  font-family: inherit; background: none; border: 0; padding: 0; cursor: pointer;
+}
+.subject-where::after { content: ' \203a'; }
+.subject-title {
+  font-size: 26px; font-weight: 700; letter-spacing: -.025em;
+  line-height: 1.15; margin: 4px 0 0;
+}
+.subject-stat { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+.subject-stat strong { color: var(--accent); font-weight: 650; }
+.subject-actions { display: flex; gap: 8px; margin: 16px 0 4px; }
+/* Full width and side by side: on a phone these are the two things the panel
+   is for, and a pill in a corner does not read as the answer to "do I follow
+   this". Accent still means "you follow this" -- outlined is the offer, filled
+   is the state -- so the language is the same as the chips elsewhere while the
+   button is still the loudest thing under the name. */
+.follow.wide, .subject-go {
+  flex: 1; font-size: 14px; padding: 11px 14px; border-radius: 12px;
+}
+.follow.wide {
+  background: transparent; color: var(--accent); border-color: var(--accent);
+}
+.follow.wide.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.subject-go {
+  font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+  background: var(--surface-2); color: var(--text); border: 1px solid var(--line);
+}
+/* A leaf is a row rather than a chip, so its name and its follow are two
+   separate targets. As a chip they were one control that both navigated and
+   followed, told apart only by a tint. */
+.subject-row {
+  display: flex; align-items: center; gap: 10px;
+  border-top: 1px solid var(--line); padding: 10px 2px;
+}
+.subject-leaf {
+  flex: 1; font: inherit; font-size: 14.5px; font-weight: 550; text-align: left;
+  color: var(--text); background: none; border: 0; padding: 0; cursor: pointer;
+}
+.subject-leaf .n { color: var(--faint); font-weight: 400; margin-left: 6px;
+  font-variant-numeric: tabular-nums; }
+.subject-leaf .new { color: var(--accent); font-weight: 650; }
+.headline {
+  display: block; width: 100%; font: inherit; font-size: 14.5px; line-height: 1.4;
+  text-align: left; color: var(--text); background: none; cursor: pointer;
+  border: 0; border-top: 1px solid var(--line); padding: 11px 2px;
+}
+.headline.seen { color: var(--faint); }
+.headline .when { color: var(--faint); font-size: 12.5px; }
+.subject-none { color: var(--faint); font-size: 13px; margin: 18px 0 0; }
+
 /* A topic is a place you are in, not a setting you have on. */
 .topic-head {
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
@@ -417,7 +464,6 @@ body.digest-view .search { display: none; }
     <button class="who" id="who" aria-label="Switch profile"></button>
   </div>
   <div class="filters" id="filters"></div>
-  <div class="filters kinds" id="facetfilters"></div>
   <div class="filters scope" id="scopes"></div>
   <input id="search" class="search" type="search" autocomplete="off"
     placeholder="Search titles and summaries" aria-label="Search stories">
@@ -430,6 +476,13 @@ body.digest-view .search { display: none; }
     <button class="icon" id="close-filters" aria-label="Back">&larr;</button>
   </div>
   <div class="sheet-body" id="filter-body"></div>
+</div>
+
+<div class="sheet" id="subject-sheet" role="dialog" aria-modal="true" aria-label="Subject">
+  <div class="sheet-bar">
+    <button class="icon" id="close-subject" aria-label="Back">&larr;</button>
+  </div>
+  <div class="sheet-body" id="subject-body"></div>
 </div>
 
 <div class="sheet" id="profiles" role="dialog" aria-modal="true" aria-label="Profiles">
@@ -498,10 +551,8 @@ let topic = '';
    persisted: which half of it you were last in is not worth remembering. */
 let trendScope = 'all';
 let query = '';   // deliberately not persisted: a stale search on open is a bug
-/* Neither of these is persisted either. A facet is a refinement, and one left
-   on silently is the same bug as a stale search. An entity is a place, but one
-   reached from a story -- landing back in it days later would be disorienting. */
-let facet = '';
+/* Not persisted either. An entity is a place, but one reached from a story --
+   landing back in it days later would be disorienting. */
 let entity = '';
 /* Which shelf is open in Trending's filter sheet. One at a time, and set from
    the current selection every time the sheet opens, so it is a view of where
@@ -525,8 +576,8 @@ const writeSet = (name, set) => {
 
 /* What you follow, as `topic:<slug>` and `entity:<name>`. A preference, so it
    lives beside seen and saved rather than in the bundle -- and following
-   nothing means the whole feed, because an empty feed on a new device is a bug
-   rather than a statement of taste. */
+   nothing means an empty feed, because a feed that is full before you have
+   chosen anything is the habit this project is replacing. */
 const marks = { seen: new Set(), saved: new Set(), dismissed: new Set() };
 let follows = new Set();
 const followed = (name) => follows.has(name);
@@ -541,7 +592,6 @@ function loadProfileState() {
   view = localStorage.getItem(key('view')) || 'feed';
   topic = localStorage.getItem(key('topic')) || '';
   trendScope = 'all';
-  facet = '';
   entity = '';
   document.querySelectorAll('.tab').forEach((t) =>
     t.setAttribute('aria-selected', String(t.dataset.view === view)));
@@ -727,7 +777,8 @@ function cardHTML(s) {
       ${chipsHTML(s)}
       ${(s.entities || []).length ? `<span class="ents">${
         s.entities.slice(0, 2).map((e) =>
-          `<button class="chip" data-entity="${esc(e.name)}">${esc(e.name)}</button>`).join('')
+          `<button class="chip" data-subject="entity:${esc(e.name)}"
+            >${esc(e.name)}</button>`).join('')
       }</span>` : ''}
       <span class="actions">
         <button class="icon${isSaved ? ' on' : ''}" data-act="saved" title="Save"
@@ -775,7 +826,6 @@ const byDate = (list) =>
 function visible() {
   let all = bundle.stories.filter((s) => !marks.dismissed.has(s.story_id));
   all = scoped(all);
-  if (facet) all = all.filter((s) => (s.facets || []).includes(facet));
   // Search cuts across the tabs: looking for something you saved weeks ago
   // should not depend on which tab you left selected.
   if (query) return byDate(all.filter((s) => matches(s, query)));
@@ -835,7 +885,7 @@ const chipRow = (ranked, selected) => ranked.map(([slug, { name, n }]) =>
   `<button class="filter" data-topic="${esc(slug)}" aria-pressed="${selected === slug}"
     >${esc(name)}<span class="n">${n}</span></button>`).join('');
 
-const narrowed = () => Boolean(topic || facet || entity);
+const narrowed = () => Boolean(topic || entity);
 const clearChip = () => (narrowed()
   ? '<button class="filter clear-all" data-clear-filters>Clear</button>' : '');
 
@@ -867,23 +917,6 @@ function renderFilters(live) {
   const row = document.getElementById('filters');
   const mine = follows.size ? followedRow(live) : [];
   row.innerHTML = mine.length ? clearChip() + chipRow(mine, topic) : '';
-}
-
-/* Facets, counted within the place you are in rather than across the feed, so
-   every chip on the row leads somewhere and the numbers mean what they say. */
-function renderFacets(inPlace) {
-  const row = document.getElementById('facetfilters');
-  const names = new Map((bundle.facets || []).map((f) => [f.slug, f.name]));
-  const counts = new Map();
-  for (const story of inPlace) {
-    for (const slug of story.facets || []) counts.set(slug, (counts.get(slug) || 0) + 1);
-  }
-  const ranked = [...counts.entries()]
-    .filter(([slug]) => names.has(slug))
-    .sort((a, b) => b[1] - a[1]);
-  row.innerHTML = ranked.map(([slug, n]) =>
-    `<button class="filter" data-facet="${esc(slug)}" aria-pressed="${facet === slug}"
-      >${esc(names.get(slug))}<span class="n">${n}</span></button>`).join('');
 }
 
 /* --- The digest ------------------------------------------------------------
@@ -975,7 +1008,8 @@ function digestHTML(live) {
     return `
     <section class="digest${on ? ' on' : ''}">
       <div class="digest-head">
-        <button class="digest-name" data-to-feed>${esc(row.name)}</button>
+        <button class="digest-name" data-subject="topic:${esc(row.slug)}"
+          >${esc(row.name)}</button>
         ${followButton(`topic:${row.slug}`, on)}
       </div>
       <div class="digest-count">${
@@ -986,7 +1020,7 @@ function digestHTML(live) {
         >${esc(row.lead.title)}</button>` : ''}
       ${leaves.length ? `<div class="digest-leaves">${leaves.map((leaf) => `
         <button class="leaf${followed(`topic:${leaf.slug}`) ? ' on' : ''}"
-          data-follow="topic:${esc(leaf.slug)}"
+          data-subject="topic:${esc(leaf.slug)}"
           >${esc(leaf.name)}<span class="n">${leaf.unseen || leaf.n}</span></button>`).join('')
       }</div>` : ''}
     </section>`;
@@ -995,7 +1029,7 @@ function digestHTML(live) {
   const inPlay = namesInPlay(live);
   const names = inPlay.map((entity) => {
     const on = followed(`entity:${entity.name}`);
-    return `<button class="leaf${on ? ' on' : ''}" data-follow="entity:${esc(entity.name)}"
+    return `<button class="leaf${on ? ' on' : ''}" data-subject="entity:${esc(entity.name)}"
       >${esc(entity.name)}<span class="n">${entity.n}</span></button>`;
   }).join('');
 
@@ -1008,12 +1042,12 @@ function digestHTML(live) {
   for (const entity of inPlay) shown.add(`entity:${entity.name}`);
 
   const quiet = quietFollows(shown).map(({ key, name }) =>
-    `<button class="leaf on" data-follow="${esc(key)}">${esc(name)}</button>`).join('');
+    `<button class="leaf on" data-subject="${esc(key)}">${esc(name)}</button>`).join('');
 
   return `
     <p class="digest-intro">${follows.size
-      ? `Your feed is the ${plural(follows.size, 'subject')} you follow. Tap to change that.`
-      : 'Your feed is empty until you follow something. Tap a subject to start it.'}</p>
+      ? `Your feed is the ${plural(follows.size, 'subject')} you follow. Tap one to open it.`
+      : 'Your feed is empty until you follow something. Tap a subject to look inside it.'}</p>
     ${shelves}
     ${names ? `<section class="digest">
       <div class="digest-head"><span class="digest-name as-text">Names in play</span></div>
@@ -1022,7 +1056,7 @@ function digestHTML(live) {
     ${quiet ? `<section class="digest">
       <div class="digest-head"><span class="digest-name as-text">Followed, but quiet</span></div>
       <p class="digest-note">Nothing in the feed right now. They still count as
-        subjects you follow &mdash; tap to stop following.</p>
+        subjects you follow &mdash; tap one to open it and stop.</p>
       <div class="digest-leaves">${quiet}</div>
     </section>` : ''}`;
 }
@@ -1070,13 +1104,9 @@ function topicHead(label, count) {
    time it is being read, not used. */
 function trendingSummary() {
   const label = topic ? (topicIndex(bundle.stories).get(topic) || {}).name : '';
-  const kind = facet
-    ? (bundle.facets || []).find((f) => f.slug === facet)
-    : null;
   return [
     trendScope === 'mine' && follows.size ? 'What I follow' : 'Everything',
     label || null,
-    kind ? kind.name : null,
   ].filter(Boolean).join(' · ');
 }
 
@@ -1090,8 +1120,15 @@ function renderScope() {
 }
 
 /* Everything Trending can be narrowed by, on one screen: scope, then subjects
-   a shelf at a time, then kind. Counted in the pool each choice would actually
-   apply to, so no chip here leads to an empty list. */
+   a shelf at a time. Counted in the pool each choice would actually apply to,
+   so no chip here leads to an empty list.
+
+   There used to be a `Kind` row under the subjects -- the facet axis, offered
+   before any subject was chosen. Removed 2026-09-21, on the owner's call:
+   *"I would also like to remove the subtopics/kind (code, agents, multimodal
+   etc.) which lie under general topics. They do not make sense right now."*
+   Facets are still labelled and still in the bundle; nothing in the UI reads
+   them. */
 function filterSheetHTML() {
   const live = bundle.stories.filter((s) => !marks.dismissed.has(s.story_id));
   const pool = trendScope === 'mine' && follows.size ? live.filter(isFollowed) : live;
@@ -1153,18 +1190,6 @@ function filterSheetHTML() {
     </div>`;
   }).join('');
 
-  const counts = new Map();
-  for (const story of pool) {
-    for (const slug of story.facets || []) counts.set(slug, (counts.get(slug) || 0) + 1);
-  }
-  const names = new Map((bundle.facets || []).map((f) => [f.slug, f.name]));
-  const kinds = [...counts.entries()]
-    .filter(([slug]) => names.has(slug))
-    .sort((a, b) => b[1] - a[1])
-    .map(([slug, n]) => `<button class="leaf${facet === slug ? ' on' : ''}"
-      data-kind="${esc(slug)}">${esc(names.get(slug))}<span class="n">${n}</span></button>`)
-    .join('');
-
   return `
     <div class="sheet-head">
       <h1>Narrow it down</h1>
@@ -1172,9 +1197,7 @@ function filterSheetHTML() {
         ? '<button class="linkish sheet-clear" data-clear-filters>Clear all</button>' : ''}
     </div>
     ${scope}
-    ${subjects ? `<div class="group-label">Subject</div>${subjects}` : ''}
-    ${kinds ? `<div class="group-label">Kind</div>
-      <div class="sheet-chips">${kinds}</div>` : ''}`;
+    ${subjects ? `<div class="group-label">Subject</div>${subjects}` : ''}`;
 }
 
 /* The shelf a slug sits on, or '' if it sits on none. A selected leaf opens
@@ -1218,16 +1241,9 @@ function render() {
     main.innerHTML = digestHTML(live);
     return;
   }
-  const inPlace = scoped(live);
-  if (facet && !inPlace.some((s) => (s.facets || []).includes(facet))) facet = '';
-  // Trending's rows live in its sheet, so the header keeps only the summary.
-  if (view === 'trending') {
-    document.getElementById('filters').innerHTML = '';
-    document.getElementById('facetfilters').innerHTML = '';
-  } else {
-    renderFilters(live);
-    renderFacets(inPlace);
-  }
+  // Trending's row lives in its sheet, so the header keeps only the summary.
+  if (view === 'trending') document.getElementById('filters').innerHTML = '';
+  else renderFilters(live);
   renderScope();
   const stories = visible();
   const status = bundle.status;
@@ -1308,7 +1324,197 @@ async function load() {
   }
 }
 
+/* --- Panels ----------------------------------------------------------------
+   A story, a subject, a story opened from inside that subject: these stack,
+   and back climbs one level rather than leaving the site -- *"när man klickar
+   tillbaka ska man komma upp en nivå liksom"*. The story sheet already pushed
+   one history entry for exactly this reason, so that the phone's own back
+   gesture closed the story instead of leaving Tributary; this is the same
+   mechanism with more than one level in it. */
+let panels = [];
+
+const subjectKey = (entry) =>
+  (entry.kind === 'entity' ? `entity:${entry.name}` : `topic:${entry.slug}`);
+
+const parseSubject = (value) => (value.startsWith('entity:')
+  ? { kind: 'entity', name: value.slice(7) }
+  : { kind: 'topic', slug: value.slice(6) });
+
+function openPanel(entry) {
+  panels.push(entry);
+  /* One history entry per level, so the back arrow, Escape and the phone's own
+     gesture are a single path and none of them leaves an entry behind. The URL
+     is left alone: these are panels, not pages worth linking to. */
+  history.pushState({ depth: panels.length }, '');
+  showPanel();
+}
+
+/* Back, however it was asked for -- always through history, so the entry goes
+   with the panel. */
+function closePanel() {
+  if (panels.length) history.back();
+}
+
+/* Out of all of them at once, for the moves that land you somewhere else:
+   walking into a subject's feed, or following a name out of a story. */
+function leavePanels() {
+  const depth = panels.length;
+  panels = [];
+  showPanel();
+  if (depth) history.go(-depth);
+}
+
+window.addEventListener('popstate', () => {
+  if (panels.length) panels.pop();
+  showPanel();
+});
+
+/* The top of the stack is the one panel on screen. Drawn on show rather than
+   on push, so a panel you come back to is redrawn with whatever changed while
+   you were a level deeper -- a follow toggled, a story read. */
+function showPanel() {
+  const top = panels[panels.length - 1] || null;
+  const story = Boolean(top && top.kind === 'story');
+  if (story) fillStory(top.id);
+  else if (top) fillSubject(top);
+  sheet.classList.toggle('open', story);
+  document.getElementById('subject-sheet').classList.toggle('open', Boolean(top) && !story);
+  document.body.style.overflow = top ? 'hidden' : '';
+  if (!top) settle();
+}
+
+/* A story read and then closed greys out without reloading the bundle. */
+function settle() {
+  const card = main.querySelector(`.card[data-id="${current}"]`);
+  if (card) card.classList.add('seen');
+  current = null;
+}
+
 function openStory(id) {
+  if (bundle.stories.some((s) => s.story_id === id)) openPanel({ kind: 'story', id });
+}
+
+/* --- A subject as a place --------------------------------------------------
+   Tapping a subject used to do one of two things, and neither of them opened
+   it: a shelf name went to the feed and cleared the scope on the way, which
+   for anyone following nothing is an empty feed, and a leaf chip toggled a
+   follow without moving at all. Asked for 2026-09-21:
+
+     "I can not see topics when I click them now. It just navigates me to an
+      empty feed. I would also like to get a popup when I click a topic and a
+      chance to follow (similar to an instagram profile)."
+
+   So a subject opens as a panel shaped like a profile: its name and whether
+   you follow it together at the top, then what sits under it, then what is in
+   it. Following is a button rather than a chip's tint -- that is what makes it
+   clear what is followed, and it ends the collision where one chip shape
+   navigated in one place and followed in another. The walk-in is still here,
+   as "See all in the feed", so nothing that used to be reachable has gone. */
+function subjectStories(entry) {
+  const live = bundle.stories.filter((s) => !marks.dismissed.has(s.story_id));
+  return byDate(entry.kind === 'entity'
+    ? live.filter((s) => hasEntity(s, entry.name))
+    : live.filter((s) => hasTopic(s, entry.slug)));
+}
+
+/* The spine first, then the stories: a subject you follow may have gone quiet
+   or left the config, and both of those still have to open. */
+function subjectLabel(slug) {
+  return (bundle.spine || []).find((t) => t.slug === slug)
+    || topicIndex(bundle.stories).get(slug)
+    || { slug, name: slug, parent: null, parent_name: null };
+}
+
+/* What sits under a shelf: the leaves this bundle has stories for, plus any
+   leaf you follow. Without that second half a shelf is where a quiet follow
+   goes to hide, which is the bug "Followed, but quiet" exists to prevent. */
+function subjectLeaves(slug, stories) {
+  const rows = new Map();
+  for (const story of stories) {
+    for (const label of story.topics || []) {
+      if (label.parent !== slug) continue;
+      const row = rows.get(label.slug)
+        || { slug: label.slug, name: label.name, n: 0, unseen: 0 };
+      row.n += 1;
+      if (!marks.seen.has(story.story_id)) row.unseen += 1;
+      rows.set(label.slug, row);
+    }
+  }
+  for (const t of bundle.spine || []) {
+    if (t.parent === slug && follows.has(`topic:${t.slug}`) && !rows.has(t.slug)) {
+      rows.set(t.slug, { slug: t.slug, name: t.name, n: 0, unseen: 0 });
+    }
+  }
+  return [...rows.values()].sort((a, b) => b.unseen - a.unseen || b.n - a.n);
+}
+
+const MAX_HEADLINES = 12;
+
+/* One number unless two say something: a leaf where everything is unread does
+   not need to say the same figure twice. */
+function leafCount(leaf) {
+  if (!leaf.n) return 'quiet';
+  if (!leaf.unseen) return String(leaf.n);
+  return leaf.unseen === leaf.n
+    ? `<span class="new">${leaf.unseen} new</span>`
+    : `<span class="new">${leaf.unseen} new</span> · ${leaf.n}`;
+}
+
+function fillSubject(entry) {
+  const stories = subjectStories(entry);
+  const unseen = stories.filter((s) => !marks.seen.has(s.story_id)).length;
+  const key = subjectKey(entry);
+  const on = followed(key);
+  const label = entry.kind === 'topic' ? subjectLabel(entry.slug) : null;
+  const name = entry.kind === 'entity' ? entry.name : label.name;
+  const leaves = entry.kind === 'entity' ? [] : subjectLeaves(entry.slug, stories);
+
+  /* A leaf names its shelf, and the name climbs: reached from a story chip,
+     the shelf is the level above and there is otherwise no way up to it. */
+  const parent = entry.kind === 'topic' && label.parent
+    ? `<button class="subject-where" data-subject="topic:${esc(label.parent)}"
+        >${esc(label.parent_name || topicName(label.parent))}</button>`
+    : entry.kind === 'entity'
+      ? `<span class="subject-where">${esc((bundle.stories.flatMap((s) => s.entities || [])
+          .find((e) => e.name === entry.name) || {}).kind || 'name')}</span>`
+      : '';
+
+  document.getElementById('subject-body').innerHTML = `
+    ${parent}
+    <h1 class="subject-title">${esc(name)}</h1>
+    <p class="subject-stat">${stories.length
+      ? `${plural(stories.length, 'story')}${unseen ? ` · <strong>${unseen} new</strong>` : ' · all read'}`
+      : 'Nothing in the feed right now'}</p>
+    <div class="subject-actions">
+      <button class="follow wide${on ? ' on' : ''}" data-follow="${esc(key)}"
+        aria-pressed="${on}">${on ? 'Following' : 'Follow'}</button>
+      ${stories.length
+        ? `<button class="subject-go" data-see-feed="${esc(key)}">See all in the feed</button>`
+        : ''}
+    </div>
+    ${leaves.length ? `<div class="group-label">Under this</div>
+      ${leaves.map((leaf) => {
+        const lk = `topic:${leaf.slug}`;
+        const lon = followed(lk);
+        return `<div class="subject-row">
+          <button class="subject-leaf" data-subject="${esc(lk)}">${esc(leaf.name)}<span
+            class="n">${leafCount(leaf)}</span></button>
+          <button class="follow${lon ? ' on' : ''}" data-follow="${esc(lk)}"
+            aria-pressed="${lon}">${lon ? 'Following' : 'Follow'}</button>
+        </div>`;
+      }).join('')}` : ''}
+    ${stories.length ? `<div class="group-label">Latest</div>
+      ${stories.slice(0, MAX_HEADLINES).map((s) =>
+        `<button class="headline${marks.seen.has(s.story_id) ? ' seen' : ''}"
+          data-open="${s.story_id}">${esc(s.title)}
+          <span class="when">· ${esc(ago(s.published_at))}</span></button>`).join('')}
+      ${stories.length > MAX_HEADLINES
+        ? `<p class="subject-none">${stories.length - MAX_HEADLINES} more in the feed.</p>` : ''}`
+      : `<p class="subject-none">Nothing carries this subject in the current
+          bundle. It still counts as something you follow.</p>`}`;
+}
+
+function fillStory(id) {
   const s = bundle.stories.find((x) => x.story_id === id);
   if (!s) return;
   current = id;
@@ -1328,14 +1534,15 @@ function openStory(id) {
     <h1>${esc(s.title)}</h1>
     ${(s.topics || []).length ? `<div class="sheet-topics">${
       (s.topics || []).map((t) =>
-        `<button class="chip topic-link" data-goto="${esc(t.slug)}">${
+        `<button class="chip topic-link" data-subject="topic:${esc(t.slug)}">${
           t.parent_name ? esc(t.parent_name) + ' › ' : ''}${esc(t.name)}</button>`).join('')
     }${(s.entities || []).map((e) =>
-        `<button class="chip entity-link" data-entity="${esc(e.name)}">${esc(e.name)}</button>`
-      ).join('')}</div>` : (s.entities || []).length ? `<div class="sheet-topics">${
+        `<button class="chip entity-link" data-subject="entity:${esc(e.name)}"
+          >${esc(e.name)}</button>`).join('')}</div>`
+      : (s.entities || []).length ? `<div class="sheet-topics">${
       s.entities.map((e) =>
-        `<button class="chip entity-link" data-entity="${esc(e.name)}">${esc(e.name)}</button>`
-      ).join('')}</div>` : ''}
+        `<button class="chip entity-link" data-subject="entity:${esc(e.name)}"
+          >${esc(e.name)}</button>`).join('')}</div>` : ''}
     ${s.summary ? `<p class="abstract">${esc(s.summary)}</p>` : ''}
     ${order.filter((r) => groups[r]).map((role) => `
       <div class="group-label">${esc(names[role] || role)}</div>
@@ -1354,21 +1561,6 @@ function openStory(id) {
     `).join('')}`;
 
   document.getElementById('save-detail').innerHTML = marks.saved.has(id) ? '&#9733;' : '&#9734;';
-  sheet.classList.add('open');
-  document.body.style.overflow = 'hidden';
-  /* A history entry so the phone's own back gesture closes the story instead of
-     leaving the site for whatever was open before Tributary. The URL is left
-     alone: this is a panel, not a page worth linking to. */
-  history.pushState({ sheet: id }, '');
-}
-
-function closeSheet() {
-  sheet.classList.remove('open');
-  document.body.style.overflow = '';
-  // A story read then closed should grey out without reloading the bundle.
-  const card = main.querySelector(`.card[data-id="${current}"]`);
-  if (card) card.classList.add('seen');
-  current = null;
 }
 
 function toggleSave(id) {
@@ -1411,48 +1603,25 @@ document.addEventListener('click', (event) => {
     return;
   }
 
-  /* Going into a topic from a story: close the story and land in the topic,
-     which is the "walk into the subreddit" move rather than a filter toggle. */
-  /* Into everything that names this entity, from a card or a story. Checked
-     before the card itself, since the chip sits inside one. */
-  const door = event.target.closest('[data-entity]');
-  if (door) {
-    event.stopPropagation();
-    entity = door.dataset.entity;
-    facet = '';
-    dismissSheet();
-    render();
-    window.scrollTo({ top: 0 });
-    return;
-  }
-
   if (event.target.closest('[data-clear-entity]')) {
     entity = '';
     render();
     return;
   }
 
-  const kind = event.target.closest('[data-facet]');
-  if (kind) {
-    facet = facet === kind.dataset.facet ? '' : kind.dataset.facet;
-    render();
-    return;
-  }
-
-  /* Following is checked before the cards and chips it sits among. The digest
-     re-renders in place: you are choosing several subjects in a row, and a
-     page that jumps to the top after each one is unusable. */
+  /* Following is checked before the cards and chips it sits among. Neither
+     the digest nor an open panel may jump to the top afterwards: you are
+     choosing several subjects in a row, and a page that scrolls itself after
+     each one is unusable. */
   const follow = event.target.closest('[data-follow]');
   if (follow) {
     event.stopPropagation();
     toggleFollow(follow.dataset.follow);
-    if (view === 'topics') {
-      const top = window.scrollY;
-      render();
-      window.scrollTo({ top });
-    } else {
-      render();
-    }
+    const at = window.scrollY;
+    render();
+    // The feed behind the panel has changed too, so both are redrawn.
+    if (panels.length) showPanel();
+    else if (view === 'topics') window.scrollTo({ top: at });
     return;
   }
 
@@ -1460,7 +1629,6 @@ document.addEventListener('click', (event) => {
   if (event.target.closest('#close-filters')) { closeFilters(); return; }
   if (event.target.closest('[data-clear-filters]')) {
     topic = '';
-    facet = '';
     entity = '';
     trendScope = 'all';
     store(key('topic'), '');
@@ -1472,7 +1640,7 @@ document.addEventListener('click', (event) => {
 
   /* Scope and opening a shelf keep the sheet open: neither is a choice you
      came here to make, only one that changes what is worth offering next. A
-     subject or a kind is the answer, so those apply and get out of the way. */
+     subject is the answer, so that applies and gets out of the way. */
   const scope = event.target.closest('[data-scope]');
   if (scope) {
     trendScope = scope.dataset.scope;
@@ -1501,12 +1669,26 @@ document.addEventListener('click', (event) => {
     return;
   }
 
-  const kindPick = event.target.closest('[data-kind]');
-  if (kindPick) {
-    facet = facet === kindPick.dataset.kind ? '' : kindPick.dataset.kind;
-    closeFilters();
-    render();
-    window.scrollTo({ top: 0 });
+  /* Tapping a subject opens it, wherever it was tapped: the digest, a story's
+     chips, a name on a card. One gesture, one meaning. */
+  const subject = event.target.closest('[data-subject]');
+  if (subject) {
+    event.stopPropagation();
+    openPanel(parseSubject(subject.dataset.subject));
+    return;
+  }
+
+  /* The walk-in, from inside the panel: the feed, scoped to this subject. A
+     place you walked into shows what is in it whether or not you follow it,
+     so this never lands on the empty feed the panel was built to replace. */
+  const walk = event.target.closest('[data-see-feed]');
+  if (walk) {
+    const into = parseSubject(walk.dataset.seeFeed);
+    entity = into.kind === 'entity' ? into.name : '';
+    topic = into.kind === 'topic' ? into.slug : '';
+    store(key('topic'), topic);
+    leavePanels();
+    if (view === 'feed') { render(); window.scrollTo({ top: 0 }); } else selectView('feed');
     return;
   }
 
@@ -1521,31 +1703,6 @@ document.addEventListener('click', (event) => {
   if (open) {
     event.stopPropagation();
     openStory(Number(open.dataset.open));
-    return;
-  }
-
-  /* The digest's subject name is a way back to the feed, and nothing more. The
-     digest is where you choose what to follow; a filter picked up on the way
-     out of it is one you never asked for, and you would meet it later with no
-     memory of setting it. Walking *into* a topic is the story chip below. */
-  if (event.target.closest('[data-to-feed]')) {
-    entity = '';
-    topic = '';
-    store(key('topic'), '');
-    selectView('feed');
-    return;
-  }
-
-  const goto = event.target.closest('[data-goto]');
-  if (goto) {
-    entity = '';
-    topic = goto.dataset.goto;
-    store(key('topic'), topic);
-    dismissSheet();
-    // Opened from the digest, the topic is somewhere to read, so go and read it.
-    if (view === 'topics') { selectView('feed'); return; }
-    render();
-    window.scrollTo({ top: 0 });
     return;
   }
 
@@ -1600,20 +1757,13 @@ document.getElementById('search').addEventListener('input', (event) => {
   render();
 });
 
-/* Every close goes through history, so the back arrow, Escape and the phone's
-   own back gesture all take the same path and the entry is never left behind. */
-const dismissSheet = () => { if (sheet.classList.contains('open')) history.back(); };
-
-window.addEventListener('popstate', () => {
-  if (sheet.classList.contains('open')) closeSheet();
-});
-
-document.getElementById('close').addEventListener('click', dismissSheet);
+document.getElementById('close').addEventListener('click', closePanel);
+document.getElementById('close-subject').addEventListener('click', closePanel);
 document.getElementById('save-detail').addEventListener('click', (event) => {
   if (current !== null) event.currentTarget.innerHTML = toggleSave(current) ? '&#9733;' : '&#9734;';
 });
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') dismissSheet();
+  if (event.key === 'Escape') closePanel();
 });
 
 document.querySelectorAll('.tab').forEach((t) =>

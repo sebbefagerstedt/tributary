@@ -127,7 +127,8 @@ Topics are a tree of shelves and leaves. Only leaves are scored, and each story
 goes to the one that fits best — there is no threshold to tune. A story whose
 two best leaves are on the same shelf and too close to call sits on the shelf
 instead. Facets are for subjects that cut across every shelf, like agents or
-benchmarks. Entities are the labs, model lines and tools you might follow.
+benchmarks; they are labelled and exported, but nothing in the page shows them
+at the moment. Entities are the labs, model lines and tools you might follow.
 
 Naming new ones is a person's job, not the pipeline's. `trib topics --suggest`
 and `trib entities --suggest` show what is clustering and recurring; the

@@ -115,8 +115,9 @@ They should be read together rather than answered twice.
 the screen — with only three cards fully visible before scrolling, and six rows
 above the first headline: brand and profile, tabs, topics, subtopics, facets,
 and search, with the Trending scope row making a seventh. The subtopics row has
-since been deleted and the Feed's remaining rows no longer carry an "All" chip,
-so **re-measure before designing against that number**. The point stands: most
+since been deleted, the Feed's remaining rows no longer carry an "All" chip, and
+the kind row has gone too — so **re-measure before designing against that
+number**. The point stands: most
 of it was added one row at a time, and following now does the job several of
 those rows were built for, so the question is which of them still earn their
 place rather than how to make them shorter.
@@ -126,94 +127,20 @@ churn — some of which was the prerelease leak, now fixed, and some of which wa
 the ranking, now moved to Trending. Worth looking at the live feed again before
 designing against a screenshot that no longer represents it.
 
+**The subject panel is the one piece already designed.** Built 2026-09-21: a
+subject opens as a panel with its name and follow control at the top, its
+leaves under that, then its headlines (`fillSubject`). The reference offered for
+it was Ticketmaster's artist page — *"Jag gillar denna design"* — and the panel
+takes the half that fits a sheet: the name and the follow together at the top,
+the contents below, a back arrow that climbs. What it leaves on the table is the
+half that needs a page: a **hero image** behind the name, and **tabs across one
+subject** (its stories, what sits under it, who keeps appearing in it — the
+three-axis model arriving in the UI). Both are worth revisiting here, where the
+question is what a page looks like rather than what a panel can hold.
+
 Open, and nobody has decided: whether the card list survives at all, whether
-topics and facets stay as filter rows now that following exists, and whether
-the digest or the feed is the front door.
-
-## Tapping a topic should open the topic
-
-**Asked 2026-09-19**, after following at both levels started working:
-
-> I need to be able to follow topics on different levels which seems to work.
-> But I want the topic to popup so it is clear what is followed. Also nothing
-> shows up when I click a topic
-
-**Both halves are the same gap: in the digest, nothing you can tap opens a
-topic.** Verified against the live bundle, the three clickable things on a
-subject row do this:
-
-| What you tap | What happens |
-|---|---|
-| The shelf name (`data-to-feed`) | goes to the Feed, **unfiltered** — no banner, no sign of the subject |
-| A leaf chip (`data-follow`) | toggles the follow. The page does not move; only the chip tints |
-| The lead headline (`data-open`) | opens the story sheet — the only one that opens anything |
-
-So "nothing shows up when I click a topic" is literally true, twice over, and
-for two different reasons.
-
-**The shelf name is a regression, and a cheap one to undo.** It used to walk
-into the topic; it was changed on 2026-09-19 to clear the scope instead, because
-going via Topics was leaving a filter on the Feed that you met days later with
-no memory of setting it. That fix was right about the filter and wrong about the
-name — the answer is for the name to *open* the subject, not to navigate
-nowhere. `data-goto` still does exactly that and the story chip still uses it.
-
-**The leaf chip is an affordance collision.** The same chip shape navigates in
-the Trending sheet and follows in the digest, and only a tint tells them apart.
-Whatever replaces this has to make "follow" a control rather than a chip state.
-
-**What is being asked for is a topic sheet** — the same gesture the story
-detail, the profile chooser and the filter sheet already use. It would answer
-both halves at once: what this subject is, what sits under it, how much is
-unread, and a follow control *per level* so the shelf and its leaves are visibly
-separate choices.
-
-**There is a reference design.** Ticketmaster's artist page, offered 2026-09-19
-as *"Jag gillar denna design"*: a hero with the subject's name over its image,
-a **back arrow top-left**, a **heart top-right**, tabs across the subject
-(`KONSERTER / OM / SETLISTS / …`), then a count with a view toggle, a filter
-control, and the list. What it lends this problem:
-
-- **The heart in the hero is the answer to "clear what is followed".** The
-  follow state belongs where the subject's name is, not in a row somewhere else.
-- **It is a page, not a sheet.** Worth noticing, because the earlier note asked
-  for a "popup". A hero, tabs and a filter row do not fit in a sheet, and the
-  back arrow only makes sense on a page. Decide which before building either.
-- **Tabs are how one subject holds several kinds of content.** Tributary's
-  equivalents would be its stories, what sits under it, and who keeps appearing
-  in it — which is the three-axis model arriving in the UI.
-
-**Back should climb, and today nothing is on the stack to climb.**
-*"när man klickar tillbaka ska man komma upp en nivå liksom"* — story → leaf →
-shelf → feed. `openStory` already does exactly this for one level, on purpose:
-it pushes a history entry so the phone's own back gesture closes the story
-rather than leaving the site. Nothing else pushes anything, so back from inside
-a topic leaves Tributary entirely. The mechanism is right and the coverage is
-one level deep; extending it is the shape of the work, not inventing it.
-
-**The undecided one is how you go down.** In the owner's words: *"Om alla dels
-ska synas i huvudtopic och kunna filtreras eller om man måste klicka in på
-subämne för att 'filtrera'"* — either a shelf shows everything beneath it and
-its leaves are a filter row inside that page, or a leaf is a page you have to
-enter. Nothing is decided, but the first is cheaper than it looks and the second
-is worse than it looks:
-
-- `hasTopic` already matches a shelf through `parent`, so a shelf page showing
-  all of its leaves' stories needs no new query.
-- Under **one home** a story sits on exactly one leaf, so a shelf's stories
-  *are* its leaves' stories — there is no separate "shelf-level" content for a
-  leaf page to be hiding.
-- The leaves are thin. The largest leaf is 10% of the corpus and most are far
-  smaller, so a leaf-as-page is often a handful of cards behind an extra tap.
-
-Still open:
-
-- A shelf and its leaves are independent follows today. Does following a shelf
-  show its leaves as followed, or stay separate? `isFollowed` already treats a
-  shelf follow as covering its leaves for the *feed*, so the UI currently says
-  less than the behaviour does.
-- Where entities fit. They are followable and have no level at all, so they
-  either share the design or stay a flat row.
+topics stay as a filter row now that following exists and a subject opens, and
+whether the digest or the feed is the front door.
 
 ## Ready to start
 
@@ -297,51 +224,14 @@ Still open:
   It is what made the misfiling above look like an absence. Either search should
   ignore the topic filter, or the empty state should say the filter is on.
 
-- **"Kind" is offered before any subject is chosen.** Said of Trending's filter
-  sheet, 2026-09-19: *"It is strange to have 'kind' without any chosen topic."*
-  The sheet is scope, then `Subject` as ten collapsed shelves, then `Kind` as a
-  flat row of facet chips — and the kind row is there from the moment the sheet
-  opens, with nothing selected above it.
-
-  **The two axes are not the same kind of choice, and the sheet presents them as
-  siblings.** Under one home a story sits on exactly one leaf, so the shelves
-  *partition* the pool and their counts add up to it. Facets are any number per
-  story and exist precisely to cut *across* the spine, so the kind chips overlap
-  and their counts sum past the pool. Offered at the top level, `Kind` asks you
-  to slice the whole corpus by a property designed for narrowing a subject you
-  have already walked into.
-
-  **The Feed already does it the other way, and that is the precedent.**
-  `renderFacets(inPlace)` counts facets inside the place you are standing in,
-  with the reason in the comment above it: *"so every chip on the row leads
-  somewhere and the numbers mean what they say."* Trending's sheet does not.
-
-  **There is a real defect behind the strangeness.** `filterSheetHTML`'s `pool`
-  applies `trendScope` and nothing else — neither the chosen `topic` nor the
-  chosen `facet`. So its own docstring (*"Counted in the pool each choice would
-  actually apply to, so no chip here leads to an empty list"*) holds only while
-  nothing is selected. Reopen the sheet with a subject on and both count against
-  the unfiltered bundle: a `Kind` chip reading 17 can be offered over a shelf
-  holding 3. Picking one then does nothing visible at all — `render()` drops a
-  facet that matches nothing in the current place (`if (facet && !inPlace.some(…))
-  facet = ''`), so the sheet closes, the scope bar does not change, and the feed
-  is as it was. A silently discarded tap is worse than an empty list, which at
-  least explains itself. How often it happens depends on the bundle and is not
-  measured.
-
-  Three ways out, none chosen:
-    - **Make kind subordinate.** Show the row only once a subject is chosen —
-      or inside an opened shelf — so the sheet reads as one funnel: scope,
-      subject, kind within it. This is what the ask literally says, and it
-      matches the Feed.
-    - **Keep it top-level and make the counts true.** Count each axis inside
-      the other's selection and offer no chip that would count zero. Cheapest,
-      but it leaves two peer taxonomies on one screen, which is the part that
-      read as strange.
-    - **Take kind out of the sheet.** It is the lexical axis, and on the Feed it
-      is already its own row inside a place rather than a filter you set up
-      front. Worth deciding against the **Redesign the frontend** entry rather
-      than on its own — that one is asking which rows still earn their place.
+- **A shelf follow and a leaf follow say less in the UI than they do in the
+  feed.** `isFollowed` already treats a follow on a shelf as covering every leaf
+  under it, but the subject panel draws each leaf's button from its own key, so
+  a leaf covered by its shelf still reads `Follow`. Either the leaf buttons
+  should show that the shelf already covers them, or a shelf follow should stop
+  covering its leaves. Left alone deliberately: guessing wrong here changes what
+  the feed holds, and the panel at least makes the two levels visible for the
+  first time, which is what was asked for.
 
 - **Stories clustered before the `role_for` fix carry stale roles.** Roles are
   stored, not recomputed, so a paper's own coverage can still be labelled as a
