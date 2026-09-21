@@ -237,6 +237,23 @@ already chosen, which is precisely the subject you went to look at, and the
 banner saying "0 stories" sat above a digest row that had just counted them.
 So `visible()` applies `isFollowed` only when nothing is scoped.
 
+**A place you walked into hides the filter row.** Reported 2026-09-21: *"it now
+shows the filters I follow even though i clicked on a topic"* — and they were
+never filters on that place. Standing in `Industry & policy`, the row offered
+`Language models` and `AI agents`: neither in the feed below, neither lit, and
+the subject actually on screen missing from the row because it is not followed.
+Tapping one would not narrow the place, it would leave it for another. So
+`renderFilters` draws nothing while `narrowed()`, and the row carries no pressed
+state or `Clear` any more — it cannot show a lit chip, because it is gone the
+moment you are inside a subject. It is a way *in* to what you follow, and the
+banner is the place's own chrome.
+
+**Which is why `topicHead` carries `Back to feed`.** `entityHead` always had
+one; a topic's only exit was the `Clear` chip in that row, which renders only
+when you follow something — so following nothing and walking into a topic left
+no way back to the feed at all, on the one path (an empty feed, then Topics,
+then a subject) a new reader is most likely to take.
+
 **Tapping a subject opens it.** Everywhere — the digest, a story's chips, a name
 on a card — `data-subject` opens a panel for that topic or entity. Asked for
 2026-09-21: *"I can not see topics when I click them now. It just navigates me
@@ -333,12 +350,12 @@ already walked into. Facets are still matched, still fingerprinted by
 in the UI reads them. Putting a row back means deciding what it is subordinate
 to first.
 
-**Each surface filters the way its own size allows.** The Feed's chip rows show
+**Each surface filters the way its own size allows.** The Feed's chip row shows
 only the subjects you follow — the feed already holds nothing else, so offering
-the other forty topics is offering forty empty filters. There used to be a
-second row — the whole spine, shelf then leaf — for the case where you followed
-nothing and the feed was therefore everything; that case no longer exists, so
-neither does the row. Trending is everything, where the same rows are forty-odd
+the other forty topics is offering forty empty filters — and only while you are
+not inside a place (above). There used to be a second row — the whole spine,
+shelf then leaf — for the case where you followed nothing and the feed was
+therefore everything; that case no longer exists, so neither does the row. Trending is everything, where the same rows are forty-odd
 chips over four lines before a headline, so it collapses to one bar reading its
 own state (`Everything · AI agents`) that opens a filter sheet — the
 same gesture the story detail and the profile chooser use. **The sheet lists shelves, not leaves.** Showing
@@ -356,9 +373,9 @@ whenever nothing else was — which is only ever a restatement of the row's own
 state. The owner's call, 2026-09-19: *"All and Everything is unecessary since it
 is true if no filter is active. But a way to 'clear' all selected filters is
 better UX."* So the rows hold subjects only; tapping a lit chip turns it off,
-and one `Clear` control — leading the Feed's row, beside Trending's bar, and in
-the sheet's header — appears only when something is on and drops subject and
-entity together.
+and `Clear` appears beside Trending's bar and in the sheet's header only when
+something is on. The Feed's row no longer carries one: it is hidden whenever
+there is anything to clear, and `Back to feed` in the banner is what clears it.
 
 Three `Everything`s outlived that pass and were removed 2026-09-21 — *"There is
 an 'everything' filter. That is unecessary"* — because each was the same
@@ -376,6 +393,17 @@ restatement in a different costume:
   *parked* on a shelf and belong to no leaf, so it is the only way to reach
   them. Only the label was wrong. An open shelf's header drops its count, so
   the header and the chip below it do not read as one thing printed twice.
+
+**A card says where its story lives.** Reported 2026-09-21: *"it is a bit
+strange that e.g. the openai tag shows but you cannot see industry and policy
+until you click on the news"*. The card carried who a story was about and not
+where it sat, so the one axis that decides what the feed holds was the one you
+had to open a story to see. `topicChip` now leads the signal row, in the accent
+the page uses for a place you can walk into, with names after it in neutral —
+an entity is a different cut of the feed, not where this story lives. Under one
+home there is exactly one, and a parked story names its shelf, so it is always
+one chip and never a row. It is shown even inside that subject: scoped to a
+shelf, the chip names the *leaf*, which is the thing the banner cannot say.
 
 **One word per kind.** The badge on a card and the chips counting what else is
 attached to it were two tables, and they drifted: the same kind was badged

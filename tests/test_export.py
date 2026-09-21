@@ -119,6 +119,10 @@ def test_the_page_opens_a_subject_and_offers_no_kind_row(conn, source_id, tmp_pa
     assert "body.digest-view > header .search" in page
     # A shelf's total counts stories parked on it, so the breakdown must too.
     assert "parkedOn" in page and "Not under a subtopic" in page
+    # A card names where its story lives, not just who it is about.
+    assert "topicChip" in page and "topic-chip" in page
+    # A place you walked into is escapable whether or not you follow anything.
+    assert page.count("data-leave") >= 3  # both banners, and the handler
 
 
 def test_the_page_never_offers_everything_as_a_filter(conn, source_id, tmp_path):

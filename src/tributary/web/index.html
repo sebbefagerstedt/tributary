@@ -427,6 +427,11 @@ body.digest-view > header .search { display: none; }
   --c: var(--text); cursor: pointer; font-family: inherit;
   font-size: 12px; padding: 4px 10px;
 }
+/* The subject leads the signal row, in the accent the page uses for a place
+   you can walk into -- the same colour the story detail gives its topic chip.
+   Names beside it stay neutral: an entity is a different cut of the feed, not
+   where this story lives. */
+.topic-chip { --c: var(--accent); cursor: pointer; font-family: inherit; }
 .ents { display: inline-flex; gap: 4px; min-width: 0; overflow: hidden; }
 .ents .chip { --c: var(--muted); cursor: pointer; font-family: inherit; font-weight: 550; }
 .head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
@@ -825,6 +830,21 @@ function stillMoving(s) {
   return new Date(s.last_activity) - new Date(s.published_at) > 6 * 36e5;
 }
 
+/* Where a story lives, on the card. Reported 2026-09-21: *"it is a bit strange
+   that e.g. the openai tag shows but you cannot see industry and policy until
+   you click on the news"* -- the card carried who a story was about and not
+   where it sat, so the one axis that decides what your feed holds was the one
+   you had to open a story to see. Under one home there is exactly one, and a
+   parked story names its shelf, so this is always one chip. It leads the row
+   because it is the strongest thing on it, and it opens its subject like every
+   other name on the page. */
+function topicChip(s) {
+  const label = (s.topics || [])[0];
+  if (!label) return '';
+  return `<button class="chip topic-chip" data-subject="topic:${esc(label.slug)}"
+    >${esc(label.name)}</button>`;
+}
+
 function cardHTML(s) {
   const colour = KINDS[s.kind] || 'var(--muted)';
   const label = KIND_WORD[s.kind] || s.kind;
@@ -848,6 +868,7 @@ function cardHTML(s) {
         loading="lazy" referrerpolicy="no-referrer">` : ''}
     </div>
     <div class="signal">
+      ${topicChip(s)}
       ${chipsHTML(s)}
       ${(s.entities || []).length ? `<span class="ents">${
         s.entities.slice(0, 2).map((e) =>
@@ -951,17 +972,14 @@ function topicIndex(live) {
   return index;
 }
 
-/* Subjects only. The row used to open with an "All" chip, which said nothing
-   the row was not already saying -- with no chip lit, the feed is everything.
-   Clearing is a control, not a filter, so it is `clearChip` below, shown only
-   when there is something to clear, and tapping a lit chip turns it off. */
-const chipRow = (ranked, selected) => ranked.map(([slug, { name, n }]) =>
-  `<button class="filter" data-topic="${esc(slug)}" aria-pressed="${selected === slug}"
+/* The subjects you follow, as ways into them. It cannot show a *lit* chip any
+   more, because the row is gone the moment you are inside a subject -- so it
+   carries no pressed state and no `Clear`: leaving is the banner's job now. */
+const chipRow = (ranked) => ranked.map(([slug, { name, n }]) =>
+  `<button class="filter" data-topic="${esc(slug)}"
     >${esc(name)}<span class="n">${n}</span></button>`).join('');
 
 const narrowed = () => Boolean(topic || entity);
-const clearChip = () => (narrowed()
-  ? '<button class="filter clear-all" data-clear-filters>Clear</button>' : '');
 
 /* The subjects you follow, counted in the feed, in the order the digest ranks
    them. Flat, with no shelf-then-leaf step: you picked these individually, so
@@ -987,10 +1005,18 @@ function followedRow(live) {
    where you followed nothing and the feed was therefore everything. The feed
    is now empty until you follow something, so that case cannot happen and the
    row it needed has gone with it. */
+/* Hidden while you are inside a subject. Reported 2026-09-21: *"it now shows
+   the filters I follow even though i clicked on a topic"* -- and they were not
+   filters on that place at all. Walking into `Industry & policy` left a row
+   offering `Language models` and `AI agents`, neither of them in the feed
+   below, neither of them lit, and the subject you were actually standing in
+   missing from the row because you do not follow it. Tapping one would not
+   narrow the place, it would leave it for a different one. A place carries its
+   own chrome, which is the banner. */
 function renderFilters(live) {
   const row = document.getElementById('filters');
-  const mine = follows.size ? followedRow(live) : [];
-  row.innerHTML = mine.length ? clearChip() + chipRow(mine, topic) : '';
+  const mine = narrowed() || !follows.size ? [] : followedRow(live);
+  row.innerHTML = mine.length ? chipRow(mine) : '';
 }
 
 /* --- The digest ------------------------------------------------------------
@@ -1145,7 +1171,7 @@ function entityHead(name, count) {
     <div class="topic-name">${esc(name)}</div>
     <div class="topic-meta">${kind ? esc(kind) + ' · ' : ''}${
       plural(count, 'story')} naming it, across every topic</div>
-    </div><button class="clear" data-clear-entity>Back to feed</button></div>
+    </div><button class="clear" data-leave>Back to feed</button></div>
     <div class="head-follow">${followButton(`entity:${name}`, followed(`entity:${name}`))}</div>
     </div>`;
 }
@@ -1158,11 +1184,15 @@ function topicHead(label, count) {
   if (!label) return '';
   const where = label.parent_name ? `${esc(label.parent_name)} › ` : '';
   const key = `topic:${label.slug}`;
+  /* The way out lives here, as it always has for an entity. It used to be the
+     `Clear` chip in the filter row above -- which only rendered when you
+     followed something, so following nothing and walking into a topic left no
+     way back to the feed at all. */
   return `<div class="topic-head">
     <div class="head-row"><div>
       <div class="topic-name">${where}${esc(label.name)}</div>
       <div class="topic-meta">${plural(count, 'story')}</div>
-    </div></div>
+    </div><button class="clear" data-leave>Back to feed</button></div>
     <div class="head-follow">${followButton(key, followed(key))}</div>
   </div>`;
 }
@@ -1720,9 +1750,13 @@ document.addEventListener('click', (event) => {
     return;
   }
 
-  if (event.target.closest('[data-clear-entity]')) {
+  // Out of a place, whichever kind it was, and back to the feed itself.
+  if (event.target.closest('[data-leave]')) {
     entity = '';
+    topic = '';
+    store(key('topic'), '');
     render();
+    window.scrollTo({ top: 0 });
     return;
   }
 
