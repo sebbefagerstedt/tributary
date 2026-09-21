@@ -172,6 +172,18 @@ leaf it most resembles, and following is what gets polluted if it fails.
 entirely of items triage would have dropped; a topic filling up with those is
 the signal to re-measure the floor on the new population.
 
+**The profile chooser lists what that profile follows.** Asked for 2026-09-21:
+*"In the profiles, I would also like to see the topics i follow"* — and it is
+where the apps this borrows from keep it. Reddit's "Your communities" sits in
+the drawer behind the avatar; X keeps "Topics" in the profile menu. A follow
+belongs to whoever is reading, and the chooser is the only surface that is about
+them: every other list of subjects on the page is built from the stories in the
+bundle, so it can only show follows the news happens to be covering. Rows carry
+the same count and the same follow button as the subject panel, and tapping one
+opens it. **The rows are a snapshot taken when the chooser opened**, not the
+live set — unfollowing leaves the row in place reading `Follow`, because a row
+that vanishes under the thumb that tapped it leaves nothing to undo with.
+
 **Profiles are a namespace, not a login.** Asked for 2026-09-19: *"a Login that
 is just a selection of choosing a profile or creating a new profile which only
 is a name. No password."* So a profile prefixes every `localStorage` key this
@@ -247,6 +259,32 @@ navigated in the Trending sheet and followed in the digest. A shelf's panel
 lists its leaves with a follow each, so the two levels are visibly separate
 choices; a leaf you follow is listed even when the bundle is quiet about it,
 for the same reason **Followed, but quiet** exists.
+
+**The panel is a page wearing a sheet, and that is deliberate.** Checked against
+how other apps do this, 2026-09-21, because the brief was "a popup … similar to
+an instagram profile" and the two halves of that pull in different directions.
+What the survey said:
+
+- **Every app opens a subject as a page, not an overlay.** An Instagram profile,
+  a Reddit community, a YouTube channel and an X trend are all full pages in a
+  navigation stack. None of them is a transient sheet.
+- **Apple's rule for a sheet** is that it "helps people perform a *scoped task*
+  that's closely related to their current context". Browsing a subject that has
+  levels under it is not a scoped task.
+- **Nielsen Norman on bottom sheets**: an expanded one looks like an ordinary
+  page, so people reach for the back gesture — and are disoriented when the
+  sheet has not wired it up. The fix they give is to support Back.
+- **Nested modals are the named anti-pattern**: layers stacked on layers, no
+  single exit, and no way to tell where you are.
+
+Tributary's `.sheet` is `position: fixed; inset: 0` — full screen, with a back
+arrow and one history entry per level. So it already *is* a pushed page in
+everything but the entrance animation, and the back gesture that the sheet
+literature says is usually missing is the mechanism this was built on. The one
+finding that did apply: stacked layers were indistinguishable, all bar and no
+label. Each panel now names itself in its bar (`#subject-where`, a leaf naming
+its shelf), which is what a pushed page does and what makes depth legible.
+Nothing else from the survey argued for changing the shape.
 
 **Back climbs one level.** `panels` is a stack — a subject, a leaf inside it, a
 story opened from either — and each entry pushes one history entry, so the back

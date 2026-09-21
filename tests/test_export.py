@@ -113,6 +113,10 @@ def test_the_page_opens_a_subject_and_offers_no_kind_row(conn, source_id, tmp_pa
 
     assert 'id="subject-sheet"' in page
     assert "data-subject=" in page and "data-see-feed=" in page
+    # The chooser is the surface a follow belongs to, so it lists them.
+    assert "followsHTML" in page
+    # The digest hid the chooser's name field until this rule was scoped.
+    assert "body.digest-view > header .search" in page
     # The attributes that navigated nowhere, and the row that has gone with them.
     for gone in ("data-to-feed", "data-goto", 'id="facetfilters"', "data-facet="):
         assert gone not in page, gone

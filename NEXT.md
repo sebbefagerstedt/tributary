@@ -129,14 +129,28 @@ designing against a screenshot that no longer represents it.
 
 **The subject panel is the one piece already designed.** Built 2026-09-21: a
 subject opens as a panel with its name and follow control at the top, its
-leaves under that, then its headlines (`fillSubject`). The reference offered for
-it was Ticketmaster's artist page — *"Jag gillar denna design"* — and the panel
-takes the half that fits a sheet: the name and the follow together at the top,
-the contents below, a back arrow that climbs. What it leaves on the table is the
-half that needs a page: a **hero image** behind the name, and **tabs across one
-subject** (its stories, what sits under it, who keeps appearing in it — the
-three-axis model arriving in the UI). Both are worth revisiting here, where the
-question is what a page looks like rather than what a panel can hold.
+leaves under that, then its headlines (`fillSubject`). **Page versus sheet is
+settled** — see "The panel is a page wearing a sheet" in `CLAUDE.md`; a survey
+of how other apps open a subject found nothing that argued for changing the
+shape, only for naming each layer in its bar. Do not re-open that question
+without new evidence.
+
+What the survey did leave on the table, both from the references offered
+(Ticketmaster's artist page, an Instagram profile) and both wanting a page's
+worth of room:
+
+- **A hero image** behind the subject's name. Cards already carry `media_url`,
+  so a subject could borrow its most recent one; nothing has been tried.
+- **Tabs across one subject** — its stories, what sits under it, who keeps
+  appearing in it. That is the three-axis model arriving in the UI, and it is
+  the one idea here that would change what a subject *is* on screen rather than
+  how it looks. Every app surveyed uses tabs for exactly this.
+
+One smaller thing the survey turned up and this does **not** do: X asks you to
+confirm before unfollowing on mobile. Tributary does not, on the grounds that a
+follow here costs nothing to restore and the chooser's list keeps the row
+around to undo with. Worth revisiting only if someone actually loses a follow
+by mis-tapping.
 
 Open, and nobody has decided: whether the card list survives at all, whether
 topics stay as a filter row now that following exists and a subject opens, and

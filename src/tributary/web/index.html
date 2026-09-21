@@ -112,9 +112,11 @@ header {
 main { max-width: 720px; margin: 0 auto; padding: 14px 14px 80px; }
 
 /* The digest is a page of subjects, not of news: the feed's filter rows and
-   its search would both be answering a question nobody asked here. */
-body.digest-view .filters,
-body.digest-view .search { display: none; }
+   its search would both be answering a question nobody asked here. Scoped to
+   the header, because the profile chooser's name field is a `.search` too and
+   an unscoped rule hid it -- so a profile could not be added from this tab. */
+body.digest-view > header .filters,
+body.digest-view > header .search { display: none; }
 
 /* A subject, what is unread in it, and the one control that matters. Framed
    rather than carded: these are shelves, and a shelf that looks like a story
@@ -141,9 +143,12 @@ body.digest-view .search { display: none; }
 .digest-intro { color: var(--muted); font-size: 13.5px; margin: 2px 2px 4px; }
 .digest-note { color: var(--faint); font-size: 12.5px; margin: 4px 0 0; line-height: 1.45; }
 
+/* `min-width` because the label carries the state: Follow and Following are
+   different lengths, and a button that resizes as you tap it moves the row
+   under your thumb. Every app that ships this pins the width instead. */
 .follow {
   font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
-  padding: 5px 11px; border-radius: 999px; white-space: nowrap;
+  padding: 5px 11px; border-radius: 999px; white-space: nowrap; min-width: 86px;
   background: var(--surface-2); color: var(--muted); border: 1px solid transparent;
 }
 .follow.on { background: var(--accent); color: #fff; }
@@ -192,6 +197,12 @@ body.digest-view .search { display: none; }
 .profile-row.on .profile-pick { color: var(--accent); }
 .profile-here { color: var(--faint); font-size: 11.5px; padding-right: 6px; }
 .profile-new { display: flex; gap: 8px; align-items: center; margin-top: 16px; }
+/* The list of what this profile follows, on the surface that is about this
+   profile. Reddit keeps "Your communities" in the drawer behind the avatar and
+   X keeps "Topics" in the profile menu: both put what you follow on the
+   identity surface rather than in the feed. */
+.profile-follows { margin-top: 4px; }
+.profile-follows .subject-row:last-child { border-bottom: 1px solid var(--line); }
 .profile-new .search { margin: 0; flex: 1; }
 
 /* Trending's whole filter state, as one line you read rather than four rows of
@@ -304,6 +315,13 @@ body.digest-view .search { display: none; }
 .sheet-bar .icon {
   min-width: 44px; min-height: 44px; font-size: 20px;
   display: flex; align-items: center; justify-content: center;
+}
+/* Stacked panels look identical from the bar down, and a stack of identical
+   layers is what makes nesting disorienting. A pushed page names itself, so
+   this one does too. */
+.sheet-where {
+  align-self: center; font-size: 13px; font-weight: 600; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
 }
 .sheet-body { max-width: 720px; margin: 0 auto; padding: 18px 16px; }
 .sheet h1 { font-size: 22px; line-height: 1.25; letter-spacing: -.02em; margin: 0 0 12px; }
@@ -481,6 +499,7 @@ body.digest-view .search { display: none; }
 <div class="sheet" id="subject-sheet" role="dialog" aria-modal="true" aria-label="Subject">
   <div class="sheet-bar">
     <button class="icon" id="close-subject" aria-label="Back">&larr;</button>
+    <span class="sheet-where" id="subject-where"></span>
   </div>
   <div class="sheet-body" id="subject-body"></div>
 </div>
@@ -644,6 +663,55 @@ function removeProfile(name) {
   renderProfiles();
 }
 
+/* Everything this profile follows, counted in the bundle. Asked for
+   2026-09-21: *"In the profiles, I would also like to see the topics i
+   follow"* -- and it is where the apps this borrows from keep it. Reddit's
+   "Your communities" lives in the drawer behind the avatar; X keeps "Topics"
+   in the profile menu. A follow is a property of whoever is reading, and the
+   chooser is the only surface that is about them.
+
+   Rows are drawn from a snapshot taken when the chooser opened, not from the
+   live set, so unfollowing leaves the row in place with `Follow` on it. A row
+   that vanishes under the thumb that tapped it gives you nothing to undo with.
+*/
+let followsShown = null;
+
+function followRows() {
+  const live = bundle ? bundle.stories.filter((s) => !marks.dismissed.has(s.story_id)) : [];
+  const keys = new Set([...follows, ...(followsShown || [])]);
+  return [...keys].map((k) => {
+    const topical = k.startsWith('topic:');
+    const id = k.slice(topical ? 6 : 7);
+    return {
+      key: k,
+      name: topical ? topicName(id) : id,
+      unseen: live.filter((s) => (topical ? hasTopic(s, id) : hasEntity(s, id))
+        && !marks.seen.has(s.story_id)).length,
+      n: live.filter((s) => (topical ? hasTopic(s, id) : hasEntity(s, id))).length,
+    };
+  }).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+}
+
+function followsHTML() {
+  const rows = followRows();
+  if (!rows.length) {
+    return `<div class="group-label">Following</div>
+      <p class="note">Nothing yet. Your feed stays empty until you follow
+        something &mdash; <button class="linkish" data-view-jump="topics"
+        >pick some subjects</button>.</p>`;
+  }
+  return `<div class="group-label">Following ${rows.length}</div>
+    <div class="profile-follows">${rows.map((row) => {
+      const on = followed(row.key);
+      return `<div class="subject-row">
+        <button class="subject-leaf" data-subject="${esc(row.key)}">${esc(row.name)}<span
+          class="n">${leafCount(row)}</span></button>
+        <button class="follow${on ? ' on' : ''}" data-follow="${esc(row.key)}"
+          aria-pressed="${on}">${on ? 'Following' : 'Follow'}</button>
+      </div>`;
+    }).join('')}</div>`;
+}
+
 function renderProfiles() {
   const list = profiles.map((name) => `
     <div class="profile-row${name === profile ? ' on' : ''}">
@@ -663,10 +731,12 @@ function renderProfiles() {
       <input id="profile-name" class="search" type="text" maxlength="24"
         placeholder="New profile name" aria-label="New profile name">
       <button class="follow on" type="submit">Add</button>
-    </form>`;
+    </form>
+    ${profile ? followsHTML() : ''}`;
 }
 
 function openProfiles() {
+  followsShown = new Set(follows);
   renderProfiles();
   document.getElementById('profiles').classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -1450,8 +1520,9 @@ function subjectLeaves(slug, stories) {
 
 const MAX_HEADLINES = 12;
 
-/* One number unless two say something: a leaf where everything is unread does
-   not need to say the same figure twice. */
+/* One number unless two say something: a row where everything is unread does
+   not need to say the same figure twice. Shared with the profile chooser's
+   follows list, which counts the same way. */
 function leafCount(leaf) {
   if (!leaf.n) return 'quiet';
   if (!leaf.unseen) return String(leaf.n);
@@ -1478,6 +1549,12 @@ function fillSubject(entry) {
       ? `<span class="subject-where">${esc((bundle.stories.flatMap((s) => s.entities || [])
           .find((e) => e.name === entry.name) || {}).kind || 'name')}</span>`
       : '';
+
+  /* The bar, so a stack of full-screen panels is not a stack of identical
+     ones: a leaf says which shelf it came from, a shelf says its own name. */
+  document.getElementById('subject-where').textContent = entry.kind === 'topic' && label.parent
+    ? `${label.parent_name || topicName(label.parent)} › ${name}`
+    : name;
 
   document.getElementById('subject-body').innerHTML = `
     ${parent}
@@ -1619,8 +1696,10 @@ document.addEventListener('click', (event) => {
     toggleFollow(follow.dataset.follow);
     const at = window.scrollY;
     render();
-    // The feed behind the panel has changed too, so both are redrawn.
-    if (panels.length) showPanel();
+    // Whatever is on top has to show it worked; the feed behind it has changed
+    // too, so it is redrawn either way.
+    if (document.getElementById('profiles').classList.contains('open')) renderProfiles();
+    else if (panels.length) showPanel();
     else if (view === 'topics') window.scrollTo({ top: at });
     return;
   }
@@ -1674,6 +1753,8 @@ document.addEventListener('click', (event) => {
   const subject = event.target.closest('[data-subject]');
   if (subject) {
     event.stopPropagation();
+    // Tapped in the profile chooser, which is not a layer to come back to.
+    if (profile) closeProfiles();
     openPanel(parseSubject(subject.dataset.subject));
     return;
   }
@@ -1694,6 +1775,7 @@ document.addEventListener('click', (event) => {
 
   const jump = event.target.closest('[data-view-jump]');
   if (jump) {
+    if (profile) closeProfiles();
     selectView(jump.dataset.viewJump);
     return;
   }
