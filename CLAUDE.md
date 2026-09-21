@@ -260,6 +260,19 @@ lists its leaves with a follow each, so the two levels are visibly separate
 choices; a leaf you follow is listed even when the bundle is quiet about it,
 for the same reason **Followed, but quiet** exists.
 
+**"Under this" has to account for every story the panel counts.** Reported
+2026-09-21: a shelf saying 24 stories over leaves adding to 21. Not an
+off-by-one — it is **parking**. A story whose top two leaves share a shelf and
+sit within `park_margin` stays on the shelf, so `hasTopic` counts it in the
+shelf's total and no leaf row can. At ~13% of the corpus the gap is the rule,
+not an edge case. The panel now ends the list with **Not under a subtopic** and
+its count, plus a line saying why and that following the shelf still collects
+them. It is a row with nothing to open or follow, because parked stories are
+not a subtopic — only a shelf with leaves can hold them, so a leaf's panel
+never shows it. The digest has the same arithmetic and does not show this: its
+leaf chips are a way in rather than a breakdown, and a tenth chip on every
+shelf row would cost more than it explains.
+
 **The panel is a page wearing a sheet, and that is deliberate.** Checked against
 how other apps do this, 2026-09-21, because the brief was "a popup … similar to
 an instagram profile" and the two halves of that pull in different directions.

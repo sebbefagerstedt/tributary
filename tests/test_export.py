@@ -117,6 +117,8 @@ def test_the_page_opens_a_subject_and_offers_no_kind_row(conn, source_id, tmp_pa
     assert "followsHTML" in page
     # The digest hid the chooser's name field until this rule was scoped.
     assert "body.digest-view > header .search" in page
+    # A shelf's total counts stories parked on it, so the breakdown must too.
+    assert "parkedOn" in page and "Not under a subtopic" in page
 
 
 def test_the_page_never_offers_everything_as_a_filter(conn, source_id, tmp_path):

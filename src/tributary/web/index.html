@@ -404,6 +404,10 @@ body.digest-view > header .search { display: none; }
 .headline.seen { color: var(--faint); }
 .headline .when { color: var(--faint); font-size: 12.5px; }
 .subject-none { color: var(--faint); font-size: 13px; margin: 18px 0 0; }
+/* A row that completes the arithmetic rather than offering a choice: parked
+   stories are not a subtopic, so there is nothing here to open or follow. */
+.subject-leaf.as-text { cursor: default; color: var(--muted); font-weight: 550; }
+.subject-note { color: var(--faint); font-size: 12.5px; line-height: 1.45; margin: 8px 2px 0; }
 
 /* A topic is a place you are in, not a setting you have on. */
 .topic-head {
@@ -1507,6 +1511,19 @@ function subjectLabel(slug) {
     || { slug, name: slug, parent: null, parent_name: null };
 }
 
+/* Stories filed on the shelf itself rather than on any leaf under it. They
+   exist because of **parking**: when a story's top two leaves share a shelf and
+   sit within `park_margin`, the shelf is clear but the leaf is a coin-toss, so
+   it stays on the shelf. `hasTopic` counts them in the shelf's total and no
+   leaf row can, so without a row of their own the panel says 24 above a list
+   adding to 21 -- which is what it did, and what was reported. About 13% of
+   the corpus is parked, so the gap is the rule rather than an edge case. */
+function parkedOn(slug, stories) {
+  const rows = stories.filter((s) =>
+    (s.topics || []).some((label) => label.slug === slug && !label.parent));
+  return { n: rows.length, unseen: rows.filter((s) => !marks.seen.has(s.story_id)).length };
+}
+
 /* What sits under a shelf: the leaves this bundle has stories for, plus any
    leaf you follow. Without that second half a shelf is where a quiet follow
    goes to hide, which is the bug "Followed, but quiet" exists to prevent. */
@@ -1551,6 +1568,10 @@ function fillSubject(entry) {
   const label = entry.kind === 'topic' ? subjectLabel(entry.slug) : null;
   const name = entry.kind === 'entity' ? entry.name : label.name;
   const leaves = entry.kind === 'entity' ? [] : subjectLeaves(entry.slug, stories);
+  /* Only a shelf can hold parked stories, and only when it has leaves to have
+     been undecided between. */
+  const parked = entry.kind === 'topic' && leaves.length
+    ? parkedOn(entry.slug, stories) : { n: 0, unseen: 0 };
 
   /* A leaf names its shelf, and the name climbs: reached from a story chip,
      the shelf is the level above and there is otherwise no way up to it. */
@@ -1591,7 +1612,14 @@ function fillSubject(entry) {
           <button class="follow${lon ? ' on' : ''}" data-follow="${esc(lk)}"
             aria-pressed="${lon}">${lon ? 'Following' : 'Follow'}</button>
         </div>`;
-      }).join('')}` : ''}
+      }).join('')}
+      ${parked.n ? `<div class="subject-row">
+        <span class="subject-leaf as-text">Not under a subtopic<span
+          class="n">${leafCount(parked)}</span></span>
+      </div>
+      <p class="subject-note">Too close to call between two of these, so they
+        sit on ${esc(name)} itself. Following ${esc(name)} still collects
+        them.</p>` : ''}` : ''}
     ${stories.length ? `<div class="group-label">Latest</div>
       ${stories.slice(0, MAX_HEADLINES).map((s) =>
         `<button class="headline${marks.seen.has(s.story_id) ? ' seen' : ''}"
