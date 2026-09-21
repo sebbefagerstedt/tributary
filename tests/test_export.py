@@ -99,6 +99,25 @@ def test_site_assets_use_relative_paths(conn, source_id, tmp_path):
     assert "'./index.html'" in worker
 
 
+def test_the_page_opens_a_subject_and_offers_no_kind_row(conn, source_id, tmp_path):
+    """Both halves of the owner's call on 2026-09-21.
+
+    Tapping a subject has to open it -- it used to clear the scope and land on
+    the feed, which for anyone following nothing is an empty one -- and the
+    facet row ("code, agents, multimodal") is gone from the UI. Facets are
+    still labelled and still in the bundle; nothing reads them.
+    """
+    seed(conn, source_id)
+    export.write_site(conn, tmp_path / "site")
+    page = (tmp_path / "site" / "index.html").read_text()
+
+    assert 'id="subject-sheet"' in page
+    assert "data-subject=" in page and "data-see-feed=" in page
+    # The attributes that navigated nowhere, and the row that has gone with them.
+    for gone in ("data-to-feed", "data-goto", 'id="facetfilters"', "data-facet="):
+        assert gone not in page, gone
+
+
 def test_the_service_worker_never_caches_the_feed_data(conn, source_id, tmp_path):
     """A stale feed is worse than an honest error."""
     seed(conn, source_id)

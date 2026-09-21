@@ -225,14 +225,36 @@ already chosen, which is precisely the subject you went to look at, and the
 banner saying "0 stories" sat above a digest row that had just counted them.
 So `visible()` applies `isFollowed` only when nothing is scoped.
 
-**Leaving the digest does not leave a filter behind.** A subject's name there is
-`data-to-feed`: it returns to the feed and clears any scope. It used to set the
-topic on the way out, so tapping a subject to read it left the feed filtered —
-persisted, so you met it again days later with no memory of setting it, and
-(once follows gated the feed) showing nothing at all. Walking *into* a topic is
-`data-goto`, which only the story chip carries now. The two were one attribute
-and keying them apart on `view` is wrong: a story opened *from* the digest is
-still a story.
+**Tapping a subject opens it.** Everywhere — the digest, a story's chips, a name
+on a card — `data-subject` opens a panel for that topic or entity. Asked for
+2026-09-21: *"I can not see topics when I click them now. It just navigates me
+to an empty feed. I would also like to get a popup when I click a topic and a
+chance to follow (similar to an instagram profile)."* Both halves were one gap.
+Nothing in the digest opened anything: the shelf name (`data-to-feed`) went to
+the feed and cleared the scope on the way, which for anyone following nothing is
+an empty feed, and a leaf chip toggled a follow without moving at all. Before
+that, the name had set the topic on the way out, which left the feed filtered
+days later with no memory of setting it — so the fix for *that* was right about
+the filter and wrong about the name. A name should open its subject; neither
+navigating nowhere nor leaving a filter behind is that.
+
+**The panel is shaped like a profile**, which is what was asked for: the name and
+the follow control together at the top, then what sits under it, then its
+headlines, then "See all in the feed" for the walk-in that `data-goto` used to
+be. Following is a button rather than a chip's tint — that is what makes it
+*clear what is followed*, and it ends the collision where one chip shape
+navigated in the Trending sheet and followed in the digest. A shelf's panel
+lists its leaves with a follow each, so the two levels are visibly separate
+choices; a leaf you follow is listed even when the bundle is quiet about it,
+for the same reason **Followed, but quiet** exists.
+
+**Back climbs one level.** `panels` is a stack — a subject, a leaf inside it, a
+story opened from either — and each entry pushes one history entry, so the back
+arrow, Escape and the phone's own gesture are one path. *"När man klickar
+tillbaka ska man komma upp en nivå liksom."* The story sheet already did this
+for one level, on purpose: without it, back left the site. The panel on top is
+drawn on show rather than on push, so one you return to reflects what changed
+while you were deeper — a follow toggled, a story read.
 
 **The feed orders by when the news broke, not by the story's clock.** A story's
 clock restarts when its wake grows (see `trib renewal`), and a chronological
@@ -246,6 +268,20 @@ top-ranked N and sorting those by date would silently drop a recent story the
 ranking did not rate, and the reader would never learn it existed. Every card
 still carries `score`, which is all Trending needs.
 
+**There is no kind row.** Facets had their own filter row under the Feed's
+subjects and their own `Kind` group in Trending's sheet. Removed 2026-09-21, on
+the owner's call: *"I would also like to remove the subtopics/kind (code,
+agents, multimodal etc.) which lie under general topics. They do not make sense
+right now."* The axes were being offered as siblings when they are not: under
+one home the topic shelves *partition* the corpus, while facets are any number
+per story and exist to cut across it, so the kind chips overlapped and their
+counts summed past the pool. Offered before any subject was chosen, `Kind` asked
+you to slice everything by a property built for narrowing somewhere you had
+already walked into. Facets are still matched, still fingerprinted by
+`Config.label_fingerprint`, and still in the bundle as `bundle.facets` — nothing
+in the UI reads them. Putting a row back means deciding what it is subordinate
+to first.
+
 **Each surface filters the way its own size allows.** The Feed's chip rows show
 only the subjects you follow — the feed already holds nothing else, so offering
 the other forty topics is offering forty empty filters. There used to be a
@@ -253,7 +289,7 @@ second row — the whole spine, shelf then leaf — for the case where you follo
 nothing and the feed was therefore everything; that case no longer exists, so
 neither does the row. Trending is everything, where the same rows are forty-odd
 chips over four lines before a headline, so it collapses to one bar reading its
-own state (`Everything · AI agents · Code`) that opens a filter sheet — the
+own state (`Everything · AI agents`) that opens a filter sheet — the
 same gesture the story detail and the profile chooser use. **The sheet lists shelves, not leaves.** Showing
 all forty-odd subjects at once only moved the wall of chips behind a tap, so a
 shelf opens on tap and one is open at a time, with `Everything` inside it
@@ -261,16 +297,16 @@ standing for the shelf itself; a shelf with nothing under it picks instead of
 expanding. The sheet opens with the shelf holding the current selection already
 open, and a collapsed shelf lights up for a leaf chosen inside it. So scope and
 opening a shelf keep the sheet open, because neither finishes the choice; a
-subject or a kind applies and closes.
+subject is the answer, so it applies and closes.
 
 **No chip means "no filter".** `All`, `Everything`, `Anything` and `Any kind`
 were each the first chip of a row, lit whenever nothing else was — which is
 only ever a restatement of the row's own state. The owner's call, 2026-09-19:
 *"All and Everything is unecessary since it is true if no filter is active. But
 a way to 'clear' all selected filters is better UX."* So the rows hold subjects
-and kinds only; tapping a lit chip turns it off, and one `Clear` control —
+only; tapping a lit chip turns it off, and one `Clear` control —
 leading the Feed's row, beside Trending's bar, and in the sheet's header —
-appears only when something is on and drops subject, kind and entity together.
+appears only when something is on and drops subject and entity together.
 The one surviving `Everything` is inside an opened shelf in the sheet, where it
 means "this whole shelf", which is a selection rather than the lack of one.
 
@@ -343,6 +379,8 @@ largest leaf 10% of the corpus, none empty. What it does not fix: 41% of stories
 have a runner-up on a *different* shelf within 0.02, and those pick a side. The
 answer to that is a "related topics" row, not multi-label, which was measured
 worse.
+
+Facets are labelled but not shown: see **There is no kind row** above.
 
 **Facets are regexes because some subjects are lexical.** An agent paper is also
 a safety paper and a benchmark paper, so similarity files it under whichever it
