@@ -337,16 +337,32 @@ open, and a collapsed shelf lights up for a leaf chosen inside it. So scope and
 opening a shelf keep the sheet open, because neither finishes the choice; a
 subject is the answer, so it applies and closes.
 
-**No chip means "no filter".** `All`, `Everything`, `Anything` and `Any kind`
-were each the first chip of a row, lit whenever nothing else was — which is
-only ever a restatement of the row's own state. The owner's call, 2026-09-19:
-*"All and Everything is unecessary since it is true if no filter is active. But
-a way to 'clear' all selected filters is better UX."* So the rows hold subjects
-only; tapping a lit chip turns it off, and one `Clear` control —
-leading the Feed's row, beside Trending's bar, and in the sheet's header —
-appears only when something is on and drops subject and entity together.
-The one surviving `Everything` is inside an opened shelf in the sheet, where it
-means "this whole shelf", which is a selection rather than the lack of one.
+**No chip means "no filter", and the word is gone from the UI.** `All`,
+`Everything`, `Anything` and `Any kind` were each the first chip of a row, lit
+whenever nothing else was — which is only ever a restatement of the row's own
+state. The owner's call, 2026-09-19: *"All and Everything is unecessary since it
+is true if no filter is active. But a way to 'clear' all selected filters is
+better UX."* So the rows hold subjects only; tapping a lit chip turns it off,
+and one `Clear` control — leading the Feed's row, beside Trending's bar, and in
+the sheet's header — appears only when something is on and drops subject and
+entity together.
+
+Three `Everything`s outlived that pass and were removed 2026-09-21 — *"There is
+an 'everything' filter. That is unecessary"* — because each was the same
+restatement in a different costume:
+
+- **The sheet's `Show` row** was `Everything` / `What I follow`, a pair where
+  one chip meant "no scope". It is now the one chip that means something, and
+  tapping it while lit turns it off. Off is everything.
+- **Trending's bar** opened with `Everything`, so the unfiltered state had a
+  name where it needed a way in. With nothing on it now reads `Filter`; with
+  something on it lists what is on.
+- **The first chip inside an open shelf** now carries the shelf's own name.
+  Unlike the other two this is a real selection and had to stay: under one home
+  it is not the same as picking every leaf, because about 13% of stories are
+  *parked* on a shelf and belong to no leaf, so it is the only way to reach
+  them. Only the label was wrong. An open shelf's header drops its count, so
+  the header and the chip below it do not read as one thing printed twice.
 
 **One word per kind.** The badge on a card and the chips counting what else is
 attached to it were two tables, and they drifted: the same kind was badged

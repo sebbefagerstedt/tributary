@@ -1172,12 +1172,16 @@ function topicHead(label, count) {
 
    The bar reads as a sentence rather than as controls, because most of the
    time it is being read, not used. */
+/* What is on, and nothing when nothing is. The bar used to open with
+   `Everything`, which is the same restatement the chips were carrying: the
+   unfiltered state does not need a name, it needs a way in. */
 function trendingSummary() {
   const label = topic ? (topicIndex(bundle.stories).get(topic) || {}).name : '';
-  return [
-    trendScope === 'mine' && follows.size ? 'What I follow' : 'Everything',
+  const on = [
+    trendScope === 'mine' && follows.size ? 'What I follow' : null,
     label || null,
-  ].filter(Boolean).join(' · ');
+  ].filter(Boolean);
+  return on.length ? on.join(' · ') : 'Filter';
 }
 
 function renderScope() {
@@ -1203,12 +1207,15 @@ function filterSheetHTML() {
   const live = bundle.stories.filter((s) => !marks.dismissed.has(s.story_id));
   const pool = trendScope === 'mine' && follows.size ? live.filter(isFollowed) : live;
 
+  /* One chip, not a pair. `Everything` was the other half, lit whenever the
+     other was not -- which only ever restated the row's own state, the same
+     thing `All` and `Any kind` were removed for. Tapping the lit chip turns it
+     off, and off is everything. */
   const scope = follows.size ? `
     <div class="group-label">Show</div>
     <div class="sheet-chips">
-      ${[['all', 'Everything'], ['mine', 'What I follow']].map(([k, label]) =>
-        `<button class="leaf${trendScope === k ? ' on' : ''}" data-scope="${k}"
-          >${label}</button>`).join('')}
+      <button class="leaf${trendScope === 'mine' ? ' on' : ''}"
+        data-scope="mine">What I follow</button>
     </div>` : '';
 
   // Grouped by shelf, so forty topics read as ten short rows.
@@ -1242,17 +1249,22 @@ function filterSheetHTML() {
           >${esc(shelf.name)}<span class="n">${shelf.n}</span></button>
       </div>`;
     }
+    /* The first chip inside an open shelf is the shelf itself, named rather
+       than called `Everything`. It is a selection, and not the same as picking
+       every leaf: about 13% of stories are parked on a shelf and belong to no
+       leaf at all, so this is the only way to reach them. The open header
+       drops its count so the two lines do not read as one thing twice. */
     const open = openShelf === shelf.slug;
     // The shelf lights up for anything chosen inside it, so a collapsed sheet
     // still says where the selection is.
     const holds = topic === shelf.slug || shelf.leaves.has(topic);
     return `<div class="sheet-shelf${open ? ' open' : ''}">
       <button class="leaf shelf${holds ? ' on' : ''}" data-shelf="${esc(shelf.slug)}"
-        aria-expanded="${open}">${esc(shelf.name)}<span class="n">${shelf.n}</span
-        ><span class="caret">&#9662;</span></button>
+        aria-expanded="${open}">${esc(shelf.name)}${open ? '' : `<span class="n">${shelf.n}</span>`
+        }<span class="caret">&#9662;</span></button>
       ${open ? `<div class="sheet-leaves">
         <button class="leaf${topic === shelf.slug ? ' on' : ''}" data-pick="${esc(shelf.slug)}"
-          >Everything<span class="n">${shelf.n}</span></button>
+          >${esc(shelf.name)}<span class="n">${shelf.n}</span></button>
         ${leaves.map((leaf) =>
           `<button class="leaf${topic === leaf.slug ? ' on' : ''}" data-pick="${esc(leaf.slug)}"
             >${esc(leaf.name)}<span class="n">${leaf.n}</span></button>`).join('')}
@@ -1722,7 +1734,7 @@ document.addEventListener('click', (event) => {
      subject is the answer, so that applies and gets out of the way. */
   const scope = event.target.closest('[data-scope]');
   if (scope) {
-    trendScope = scope.dataset.scope;
+    trendScope = trendScope === scope.dataset.scope ? 'all' : scope.dataset.scope;
     render();
     drawFilters();
     return;
