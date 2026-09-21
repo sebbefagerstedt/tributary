@@ -123,6 +123,8 @@ def test_the_page_opens_a_subject_and_offers_no_kind_row(conn, source_id, tmp_pa
     assert "topicChip" in page and "topic-chip" in page
     # A place you walked into is escapable whether or not you follow anything.
     assert page.count("data-leave") >= 3  # both banners, and the handler
+    # Both breadcrumb segments navigate; a leaf is not a dead end.
+    assert 'class="crumb"' in page and 'class="crumb here"' in page
 
 
 def test_the_page_never_offers_everything_as_a_filter(conn, source_id, tmp_path):
