@@ -248,6 +248,18 @@ state or `Clear` any more — it cannot show a lit chip, because it is gone the
 moment you are inside a subject. It is a way *in* to what you follow, and the
 banner is the place's own chrome.
 
+**Every part of the banner's name is a way somewhere.** Asked for 2026-09-21:
+*"I also want to be able to click on e.g Ai agent-> coding agents to browse
+other topics deeper and to go back to ai agents"*. `AI agents › Coding agents`
+was plain text, so a leaf was a dead end: the only moves were back to the feed
+or into a story. Both segments are now `data-subject` buttons, which is the
+rule the rest of the page already follows rather than a fourth behaviour for
+names. Going up and browsing sideways are the same gesture because they land on
+the same surface: the shelf's panel lists every leaf under it with a count and
+a follow each, and its **See all in the feed** is what puts you in the shelf
+itself. The current segment opens its own subject too — from a shelf, that is
+how you reach the leaves without leaving the feed first.
+
 **Which is why `topicHead` carries `Back to feed`.** `entityHead` always had
 one; a topic's only exit was the `Clear` chip in that row, which renders only
 when you follow something — so following nothing and walking into a topic left

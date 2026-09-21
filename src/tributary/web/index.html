@@ -415,6 +415,16 @@ body.digest-view > header .search { display: none; }
   padding: 12px 15px; margin-bottom: 10px; box-shadow: var(--shadow);
 }
 .topic-name { font-size: 17px; font-weight: 650; letter-spacing: -.015em; }
+/* Each segment is a button, so the line still reads as a name rather than as
+   controls: same size and weight as the text it replaced, with the ancestor
+   muted the way a breadcrumb's ancestors are. */
+.crumb {
+  font: inherit; font-size: inherit; font-weight: inherit; letter-spacing: inherit;
+  color: var(--muted); background: none; border: 0; padding: 0; cursor: pointer;
+  text-align: left;
+}
+.crumb.here { color: var(--text); }
+.crumb-sep { color: var(--faint); }
 .topic-meta { color: var(--faint); font-size: 12.5px; margin-top: 2px; }
 /* The follow control sits under the name rather than beside it: the name wraps
    on a phone, and a button sharing that line would be squeezed to nothing. */
@@ -1180,17 +1190,30 @@ function entityHead(name, count) {
    since you are standing in it, the obvious place to decide whether it belongs
    in your feed. Following used to be reachable only from the digest, so the
    subject you were reading was the one subject you could not act on. */
+/* The banner names where you are, and every part of that name is a way
+   somewhere. Asked for 2026-09-21: *"I also want to be able to click on e.g
+   Ai agent-> coding agents to browse other topics deeper and to go back to ai
+   agents"* -- the breadcrumb was plain text, so a leaf was a dead end. Both
+   segments open their subject, which is the one rule the rest of the page
+   already follows: the shelf's panel lists every leaf under it with a count
+   and a follow each, so going up is also how you browse sideways, and its
+   "See all in the feed" is what lands you back in the shelf itself. */
 function topicHead(label, count) {
   if (!label) return '';
-  const where = label.parent_name ? `${esc(label.parent_name)} › ` : '';
   const key = `topic:${label.slug}`;
+  const where = label.parent
+    ? `<button class="crumb" data-subject="topic:${esc(label.parent)}"
+        >${esc(label.parent_name || topicName(label.parent))}</button
+        ><span class="crumb-sep"> › </span>`
+    : '';
   /* The way out lives here, as it always has for an entity. It used to be the
      `Clear` chip in the filter row above -- which only rendered when you
      followed something, so following nothing and walking into a topic left no
      way back to the feed at all. */
   return `<div class="topic-head">
     <div class="head-row"><div>
-      <div class="topic-name">${where}${esc(label.name)}</div>
+      <div class="topic-name">${where}<button class="crumb here"
+        data-subject="${esc(key)}">${esc(label.name)}</button></div>
       <div class="topic-meta">${plural(count, 'story')}</div>
     </div><button class="clear" data-leave>Back to feed</button></div>
     <div class="head-follow">${followButton(key, followed(key))}</div>
