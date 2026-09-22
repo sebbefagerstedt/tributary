@@ -43,38 +43,60 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* --- Chrome -----------------------------------------------------------------
+   The brief is the shape of Instagram and TikTok with better things in it, and
+   what was measured wrong was chrome: 145px of tabs, chips and a search box
+   above the first headline. So the tabs live at the bottom, where every one of
+   those apps keeps them and where a thumb already is; the top is one slim line
+   that slides away while you read down and comes back the moment you scroll
+   up; and search is an icon until you want it. */
 header {
   position: sticky; top: 0; z-index: 20;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: saturate(180%) blur(12px);
-  border-bottom: 1px solid var(--line);
-  padding: calc(env(safe-area-inset-top) + 10px) 16px 10px;
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: saturate(180%) blur(14px);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  padding: calc(env(safe-area-inset-top) + 8px) 16px 8px;
+  transition: transform .22s ease;
 }
-.bar { display: flex; align-items: center; gap: 10px; max-width: 720px; margin: 0 auto; }
-/* Stacked, because "Tributary" plus a status line plus three tabs does not fit
-   across a phone -- and wrapped mid-sentence it reads as a bug rather than a
-   subtitle. */
+body.head-hidden > header { transform: translateY(-110%); }
+.bar { display: flex; align-items: center; gap: 6px; max-width: 720px; margin: 0 auto; }
 .brand {
-  display: flex; flex-direction: column; margin-right: auto; min-width: 0;
-  font-weight: 650; letter-spacing: -.02em; font-size: 17px; line-height: 1.25;
-  /* Truncates rather than pushing the tabs off the screen: four tabs and an
-     avatar leave the wordmark whatever is left, which on a narrow phone is
-     not much. */
-  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  display: flex; align-items: baseline; gap: 8px; margin-right: auto; min-width: 0;
+  white-space: nowrap; overflow: hidden;
 }
+.wordmark { font-weight: 750; letter-spacing: -.035em; font-size: 21px; line-height: 1.2; }
 .brand #count {
-  color: var(--faint); font-weight: 400; font-size: 12.5px; letter-spacing: 0;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: var(--faint); font-weight: 400; font-size: 12.5px;
+  overflow: hidden; text-overflow: ellipsis;
 }
-.tabs {
-  display: flex; gap: 2px; background: var(--surface-2); padding: 3px;
-  border-radius: 10px; flex: none;
+.head-icon {
+  width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; color: var(--text); padding: 0;
+}
+.head-icon svg { width: 21px; height: 21px; }
+body.searching .head-icon#search-toggle { color: var(--accent); }
+
+/* The four surfaces, at the bottom. Icon over word, because the word alone at
+   this size is a row of small grey text and the icon alone makes "Topics" a
+   guess. Fixed rather than hiding with the header: it is where you go next,
+   and hiding it would make leaving a place a two-step gesture. */
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  display: flex; justify-content: center;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: saturate(180%) blur(14px);
+  border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  padding: 4px 8px calc(env(safe-area-inset-bottom) + 4px);
 }
 .tab {
-  border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 13px;
-  padding: 5px 11px; border-radius: 8px; cursor: pointer; font-weight: 500;
+  flex: 1; max-width: 150px; border: 0; background: transparent; color: var(--faint);
+  font: inherit; font-size: 11px; font-weight: 600; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 6px 4px 5px; border-radius: 12px;
 }
-.tab[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.tab svg { width: 24px; height: 24px; }
+.tab[aria-selected="true"] { color: var(--text); }
+.tab[aria-selected="true"] svg { stroke-width: 2.3; }
 
 /* Topic filters. A scrolling row rather than a wrapping one: the header is
    sticky, and a wrapped row would eat the screen on a phone as topics grow. */
@@ -107,16 +129,24 @@ header {
   border-radius: 10px; padding: 8px 12px; -webkit-appearance: none;
 }
 .search::placeholder { color: var(--faint); }
+/* An icon until it is wanted. A query still showing keeps it open, because a
+   filter you cannot see is the silent narrowing this page keeps removing. */
+header > .search { display: none; }
+body.searching > header > .search { display: block; }
 .search:focus { outline: none; border-color: var(--accent); }
 
-main { max-width: 720px; margin: 0 auto; padding: 14px 14px 80px; }
+main {
+  max-width: 720px; margin: 0 auto;
+  padding: 12px 12px calc(env(safe-area-inset-bottom) + 96px);
+}
 
 /* The digest is a page of subjects, not of news: the feed's filter rows and
    its search would both be answering a question nobody asked here. Scoped to
    the header, because the profile chooser's name field is a `.search` too and
    an unscoped rule hid it -- so a profile could not be added from this tab. */
 body.digest-view > header .filters,
-body.digest-view > header .search { display: none; }
+body.digest-view > header .search,
+body.digest-view #search-toggle { display: none; }
 
 /* A subject, what is unread in it, and the one control that matters. Framed
    rather than carded: these are shelves, and a shelf that looks like a story
@@ -171,8 +201,8 @@ body.digest-view > header .search { display: none; }
    rather than in a banner: it belongs to the tab, and a banner above the feed
    would be read as a fault. */
 .beta {
-  font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
-  vertical-align: super; margin-left: 3px; opacity: .65;
+  font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  margin-left: 2px; opacity: .7; vertical-align: 1px;
 }
 .note {
   color: var(--faint); font-size: 12.5px; margin: 0 2px 12px; line-height: 1.45;
@@ -181,9 +211,9 @@ body.digest-view > header .search { display: none; }
 /* Whose feed this is. A quiet initial rather than a name: the header is small,
    and the only question it has to answer at a glance is "am I me". */
 .who {
-  flex: none; width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
-  font: inherit; font-size: 13px; font-weight: 650; line-height: 1;
-  background: var(--surface-2); color: var(--muted); border: 1px solid var(--line);
+  flex: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer;
+  font: inherit; font-size: 14px; font-weight: 700; line-height: 1;
+  background: var(--accent); color: #fff; border: 0; margin-left: 2px;
 }
 .who:empty { display: none; }
 .profile-row {
@@ -241,46 +271,85 @@ body.digest-view > header .search { display: none; }
   cursor: pointer; text-decoration: underline; padding: 0; margin-top: 8px;
 }
 
+/* --- Cards --------------------------------------------------------------------
+   Big, and led by a picture: *"det är svårare att missa"*. Every card has a
+   cover. A story with art shows it edge to edge; one without -- a paper, a
+   release, a model card, which never carry one -- gets a typographic cover
+   instead, its headline set large on the colour of its kind. That is what keeps
+   the wall even: Discover's uniformity comes from a corpus of publisher
+   articles, and "do not cut arXiv" is what makes this one the other kind. */
 .card {
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 14px 15px; margin-bottom: 10px; box-shadow: var(--shadow);
+  background: var(--surface); border: 1px solid var(--line); border-radius: 20px;
+  margin-bottom: 14px; box-shadow: var(--shadow); overflow: hidden;
   cursor: pointer; transition: transform .12s ease, opacity .2s ease;
 }
-.card:active { transform: scale(.992); }
+.card:active { transform: scale(.993); }
 .card.gone { opacity: 0; transform: scale(.96); }
-.card.seen .title { color: var(--muted); }
+.card.seen .title, .card.seen .cover-title { opacity: .62; }
+.card.seen .cover-img { filter: saturate(.6); }
 
-.meta { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; flex-wrap: wrap; }
+.cover-img {
+  display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover;
+  background: color-mix(in srgb, var(--line) 70%, var(--surface-2));
+}
+/* The kind's own colour, deepened toward black so white type holds on it in
+   both themes; the diagonal wash is only there so a column of them does not
+   read as flat swatches. */
+.cover-type {
+  --k: var(--muted);
+  position: relative; display: flex; flex-direction: column; justify-content: flex-end;
+  min-height: 200px; padding: 44px 20px 20px; color: #fff;
+  background:
+    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--k) 80%, #fff) 0%, transparent 50%),
+    linear-gradient(160deg, color-mix(in srgb, var(--k) 78%, #000), color-mix(in srgb, var(--k) 42%, #000));
+}
+.cover-kind {
+  position: absolute; top: 16px; left: 20px;
+  font-size: 11px; font-weight: 750; text-transform: uppercase; letter-spacing: .12em;
+  opacity: .88;
+}
+.cover-title {
+  font-size: 24px; font-weight: 750; line-height: 1.17; letter-spacing: -.022em;
+  margin: 0; text-wrap: balance;
+  display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden;
+}
+.card-body { padding: 13px 16px 12px; }
+
+.meta { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; flex-wrap: wrap; }
 .badge {
-  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .055em;
-  padding: 2.5px 7px; border-radius: 5px; color: #fff; white-space: nowrap;
+  font-size: 10px; font-weight: 750; text-transform: uppercase; letter-spacing: .06em;
+  padding: 2px 6px; border-radius: 5px; color: #fff; white-space: nowrap;
 }
 .when { color: var(--faint); font-size: 12.5px; }
-.src { color: var(--muted); font-size: 12.5px; }
+.src { color: var(--muted); font-size: 12.5px; font-weight: 600; }
 .title {
-  font-size: 16.5px; font-weight: 600; line-height: 1.34; letter-spacing: -.011em;
-  margin: 0 0 6px;
+  font-size: 20px; font-weight: 700; line-height: 1.25; letter-spacing: -.018em;
+  margin: 0 0 6px; text-wrap: balance;
 }
 .summary {
-  color: var(--muted); font-size: 14px; line-height: 1.52; margin: 0;
+  color: var(--muted); font-size: 14.5px; line-height: 1.5; margin: 0;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
-/* min-width:0 lets the text column shrink, without which the clamp above
-   never engages and the thumbnail gets squeezed to nothing instead. */
-.row { display: flex; gap: 12px; align-items: flex-start; }
-.row .text { flex: 1; min-width: 0; }
-.thumb {
-  width: 76px; height: 76px; flex: none; display: block;
-  border-radius: 10px; object-fit: cover; background: var(--surface-2);
+/* What the story set off, as one quiet line: a dot in each role's colour and a
+   word. These were pills, and a card with a wake wrapped them onto three rows
+   -- the colour language is kept, the chrome is not. */
+.wake {
+  display: flex; flex-wrap: wrap; gap: 3px 12px; margin-top: 9px;
+  font-size: 12.5px; color: var(--muted);
 }
+.wake span { white-space: nowrap; }
+.wake .dot::before {
+  content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--c, var(--muted)); margin-right: 5px; vertical-align: 1px;
+}
+.wake .eng { color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; }
 .signal {
-  margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--line);
-  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin-top: 11px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
   font-size: 12.5px; color: var(--faint);
 }
+.signal .chip { font-size: 12px; padding: 3px 10px; }
+.chip.ent { --c: var(--muted); cursor: pointer; font-family: inherit; font-weight: 550; }
 .signal b { color: var(--accent); font-weight: 600; }
-/* The wake of a story -- what it set off -- coloured by role. --c is set per
-   chip, so one rule covers every role and the palette stays in :root. */
 .chip {
   font-size: 11.5px; font-weight: 600; line-height: 1.55; white-space: nowrap;
   padding: 2px 8px; border-radius: 999px;
@@ -289,7 +358,10 @@ body.digest-view > header .search { display: none; }
   border: 1px solid color-mix(in srgb, var(--c, var(--muted)) 26%, transparent);
 }
 .chip.eng { --c: var(--accent); font-variant-numeric: tabular-nums; }
-.actions { margin-left: auto; display: flex; gap: 4px; }
+/* On the meta line, top right of the words: on a card this size they are the
+   only controls, and a corner is where a thumb looks for them. */
+.actions { margin-left: auto; display: flex; gap: 0; flex: none; margin-right: -8px; }
+.actions .icon { font-size: 17px; padding: 6px 8px; }
 .icon {
   border: 0; background: transparent; color: var(--faint); font-size: 15px;
   padding: 4px 7px; border-radius: 7px; cursor: pointer; line-height: 1;
@@ -327,10 +399,13 @@ body.digest-view > header .search { display: none; }
 .sheet h1 { font-size: 22px; line-height: 1.25; letter-spacing: -.02em; margin: 0 0 12px; }
 .sheet-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .sheet-clear { flex: none; margin-top: 0; font-size: 13px; }
+/* Edge to edge, as the card's cover was: the story page opens on the same
+   picture the card led with, larger. */
 .hero {
-  display: block; width: 100%; height: 190px; object-fit: cover;
-  border-radius: 12px; background: var(--surface-2); margin-bottom: 16px;
+  display: block; width: calc(100% + 32px); margin: -18px -16px 18px;
+  aspect-ratio: 16 / 9; object-fit: cover; background: var(--surface-2);
 }
+.sheet h1 { font-size: 25px; }
 .abstract { color: var(--muted); font-size: 15px; line-height: 1.6; margin: 0 0 22px; }
 .group-label {
   font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
@@ -364,8 +439,18 @@ body.digest-view > header .search { display: none; }
 .subject-where.as-text { cursor: default; }
 .subject-where.as-text::after { content: none; }
 .subject-title {
-  font-size: 26px; font-weight: 700; letter-spacing: -.025em;
-  line-height: 1.15; margin: 4px 0 0;
+  font-size: 28px; font-weight: 750; letter-spacing: -.028em;
+  line-height: 1.12; margin: 4px 0 0;
+}
+.subject-banner {
+  width: calc(100% + 32px); margin: -18px -16px 16px; height: 150px;
+  background: var(--surface-2); overflow: hidden; position: relative;
+}
+.subject-banner img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.subject-banner.plain {
+  background:
+    radial-gradient(110% 120% at 90% 0%, color-mix(in srgb, var(--accent) 55%, #fff) 0%, transparent 55%),
+    linear-gradient(150deg, var(--accent), color-mix(in srgb, var(--accent) 45%, #000));
 }
 .subject-stat { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
 .subject-stat strong { color: var(--accent); font-weight: 650; }
@@ -453,8 +538,6 @@ body.digest-view > header .search { display: none; }
    Names beside it stay neutral: an entity is a different cut of the feed, not
    where this story lives. */
 .topic-chip { --c: var(--accent); cursor: pointer; font-family: inherit; }
-.ents { display: inline-flex; gap: 4px; min-width: 0; overflow: hidden; }
-.ents .chip { --c: var(--muted); cursor: pointer; font-family: inherit; font-weight: 550; }
 .head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .clear {
   border: 1px solid var(--line); background: var(--surface-2); color: var(--muted);
@@ -480,17 +563,6 @@ body.digest-view > header .search { display: none; }
   color: var(--faint); font-size: 12px; text-align: center;
   margin: 18px 0 0; padding: 0 8px;
 }
-/* Phone widths, last so these win over the base rules they narrow. The
-   wordmark is the one thing in the top row nobody needs: four tabs and an
-   avatar leave it a truncated "Trib", while the line below it still says
-   whether the feed is fresh. */
-@media (max-width: 460px) {
-  .wordmark { display: none; }
-  .brand #count { font-size: 13px; }
-  .tab { padding: 5px 8px; font-size: 12.5px; }
-  .bar { gap: 8px; }
-  .beta { margin-left: 2px; }
-}
 
 @media (prefers-reduced-motion: reduce) {
   *, .sheet { transition: none !important; animation: none !important; }
@@ -502,22 +574,23 @@ body.digest-view > header .search { display: none; }
 <header>
   <div class="bar">
     <div class="brand"><span class="wordmark">Tributary</span><span id="count"></span></div>
-    <div class="tabs" role="tablist">
-      <button class="tab" role="tab" data-view="feed" aria-selected="true">Feed</button>
-      <button class="tab" role="tab" data-view="trending" aria-selected="false"
-        >Trending<span class="beta">beta</span></button>
-      <button class="tab" role="tab" data-view="topics" aria-selected="false">Topics</button>
-      <button class="tab" role="tab" data-view="saved" aria-selected="false">Saved</button>
-    </div>
+    <button class="icon head-icon" id="search-toggle" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
     <button class="who" id="who" aria-label="Switch profile"></button>
   </div>
-  <div class="filters" id="filters"></div>
-  <div class="filters scope" id="scopes"></div>
   <input id="search" class="search" type="search" autocomplete="off"
     placeholder="Search titles and summaries" aria-label="Search stories">
+  <div class="filters" id="filters"></div>
+  <div class="filters scope" id="scopes"></div>
 </header>
 
 <main id="main"><div class="spinner"></div></main>
+
+<nav class="tabbar" role="tablist">
+  <button class="tab" role="tab" data-view="feed" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg><span>Feed</span></button>
+  <button class="tab" role="tab" data-view="trending" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg><span>Trending<span class="beta">beta</span></span></button>
+  <button class="tab" role="tab" data-view="topics" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Topics</span></button>
+  <button class="tab" role="tab" data-view="saved" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4.5L5 21V4a1 1 0 0 1 1-1z"/></svg><span>Saved</span></button>
+</nav>
 
 <div class="sheet" id="filter-sheet" role="dialog" aria-modal="true" aria-label="Filters">
   <div class="sheet-bar">
@@ -1005,24 +1078,22 @@ function engagement(counts) {
   return parts.join(' · ');
 }
 
-function chipsHTML(s) {
+/* What else came with the headline, as one line: a dot in each kind's colour
+   and a count, then how many sources and how loud the argument was. */
+function wakeHTML(s) {
   const counts = {};
   for (const item of s.items || []) counts[item.kind] = (counts[item.kind] || 0) + 1;
-  // The headline is already the card; the chips are what else came with it.
+  // The headline is already the card; the line is what else came with it.
   if (counts[s.kind]) counts[s.kind] -= 1;
 
-  const chips = Object.entries(KIND_WORD)
+  const parts = Object.entries(KIND_WORD)
     .filter(([kind]) => counts[kind])
     .map(([kind, word]) =>
-      `<span class="chip" style="--c:${KINDS[kind]}">${
-        plural(counts[kind], word)}</span>`);
-
-  if ((s.sources || []).length > 1) {
-    chips.push(`<span class="chip">${plural(s.sources.length, 'source')}</span>`);
-  }
+      `<span class="dot" style="--c:${KINDS[kind]}">${plural(counts[kind], word)}</span>`);
+  if ((s.sources || []).length > 1) parts.push(`<span>${plural(s.sources.length, 'source')}</span>`);
   const drew = engagement(s.engagement);
-  if (drew) chips.push(`<span class="chip eng">${drew}</span>`);
-  return chips.join('');
+  if (drew) parts.push(`<span class="eng">${drew}</span>`);
+  return parts.length ? `<div class="wake">${parts.join('')}</div>` : '';
 }
 
 /* The feed orders by when the news broke, so a story that has grown since says
@@ -1049,43 +1120,48 @@ function topicChip(s) {
     >${esc(label.name)}</button>`;
 }
 
+/* A cover, then the words, then where it lives and what you can do with it.
+   With art the cover is the picture and the headline sits under it; without,
+   the headline *is* the cover, so it is not printed twice. */
 function cardHTML(s) {
   const colour = KINDS[s.kind] || 'var(--muted)';
   const label = KIND_WORD[s.kind] || s.kind;
   const isSaved = marks.saved.has(s.story_id);
   const isSeen = marks.seen.has(s.story_id);
+  const cover = s.media_url
+    ? `<img class="cover-img" src="${esc(s.media_url)}" alt="" loading="lazy"
+        referrerpolicy="no-referrer">`
+    : '';
   return `
-  <article class="card${isSeen ? ' seen' : ''}" data-id="${s.story_id}">
-    <div class="meta">
-      <span class="badge" style="background:${colour}">${esc(label)}</span>
-      <span class="src">${esc(s.source)}</span>
-      <span class="when">${esc(ago(s.published_at))}</span>
-      ${stillMoving(s) ? `<span class="active">active ${
-        esc(ago(s.last_activity))}</span>` : ''}
-    </div>
-    <div class="row">
-      <div class="text">
-        <h2 class="title">${esc(s.title)}</h2>
-        ${s.summary ? `<p class="summary">${esc(s.summary)}</p>` : ''}
+  <article class="card${isSeen ? ' seen' : ''}${cover ? ' has-art' : ''}" data-id="${s.story_id}">
+    ${cover || `<div class="cover-type" style="--k:${colour}">
+      <span class="cover-kind">${esc(label)}</span>
+      <h2 class="cover-title">${esc(s.title)}</h2>
+    </div>`}
+    <div class="card-body">
+      <div class="meta">
+        ${cover ? `<span class="badge" style="background:${colour}">${esc(label)}</span>` : ''}
+        <span class="src">${esc(s.source)}</span>
+        <span class="when">${esc(ago(s.published_at))}</span>
+        ${stillMoving(s) ? `<span class="active">active ${
+          esc(ago(s.last_activity))}</span>` : ''}
+        <span class="actions">
+          <button class="icon" data-seed="${s.story_id}" title="More like this"
+            aria-label="More like this">&plus;</button>
+          <button class="icon${isSaved ? ' on' : ''}" data-act="saved" title="Save"
+            >${isSaved ? '&#9733;' : '&#9734;'}</button>
+          <button class="icon" data-act="dismissed" title="Dismiss">&times;</button>
+        </span>
       </div>
-      ${s.media_url ? `<img class="thumb" src="${esc(s.media_url)}" alt=""
-        loading="lazy" referrerpolicy="no-referrer">` : ''}
-    </div>
-    <div class="signal">
-      ${topicChip(s)}
-      ${chipsHTML(s)}
-      ${(s.entities || []).length ? `<span class="ents">${
-        s.entities.slice(0, 2).map((e) =>
-          `<button class="chip" data-subject="entity:${esc(e.name)}"
-            >${esc(e.name)}</button>`).join('')
-      }</span>` : ''}
-      <span class="actions">
-        <button class="icon" data-seed="${s.story_id}" title="More like this"
-          aria-label="More like this">&plus;</button>
-        <button class="icon${isSaved ? ' on' : ''}" data-act="saved" title="Save"
-          >${isSaved ? '&#9733;' : '&#9734;'}</button>
-        <button class="icon" data-act="dismissed" title="Dismiss">&times;</button>
-      </span>
+      ${cover ? `<h2 class="title">${esc(s.title)}</h2>` : ''}
+      ${s.summary ? `<p class="summary">${esc(s.summary)}</p>` : ''}
+      ${wakeHTML(s)}
+      ${topicChip(s) || (s.entities || []).length ? `<div class="signal">
+        ${topicChip(s)}
+        ${(s.entities || []).slice(0, 3).map((e) =>
+          `<button class="chip ent" data-subject="entity:${esc(e.name)}"
+            >${esc(e.name)}</button>`).join('')}
+      </div>` : ''}
     </div>
   </article>`;
 }
@@ -1690,17 +1766,12 @@ function requireProfile() {
   return false;
 }
 
-/* Four tabs and an avatar leave this slot about forty pixels on a phone, so
-   the corpus size goes and the freshness stays: "is this stale" is the only
-   question the header has to answer at a glance. The full line is still there
-   on a wider screen, and in the tooltip either way. */
-const tight = () => window.matchMedia('(max-width: 460px)').matches;
-
+/* Freshness beside the wordmark: "is this stale" is the one question the top
+   line has to answer at a glance. The corpus size is in the tooltip. */
 function renderCount(status, age) {
-  const full = `${status.stories} stories · updated ${age} ago`;
   const el = document.getElementById('count');
-  el.textContent = tight() ? `${age} old` : full;
-  el.title = full;
+  el.textContent = `updated ${age} ago`;
+  el.title = `${status.stories} stories · updated ${age} ago`;
 }
 
 function renderWho() {
@@ -2007,7 +2078,13 @@ function fillSubject(entry) {
     ? `${label.parent_name || topicName(label.parent)} › ${name}`
     : name;
 
+  /* A banner, the way a profile page has one: the newest picture any of its
+     stories carries, or a wash of the accent when none does. Borrowed, not
+     chosen -- a subject has no art of its own. */
+  const art = byDate(stories).find((s) => s.media_url);
   document.getElementById('subject-body').innerHTML = `
+    <div class="subject-banner${art ? '' : ' plain'}">${art
+      ? `<img src="${esc(art.media_url)}" alt="" referrerpolicy="no-referrer">` : ''}</div>
     ${parent}
     <h1 class="subject-title">${esc(name)}</h1>
     <p class="subject-stat">${stories.length
@@ -2106,6 +2183,7 @@ function toggleSave(id) {
 
 function selectView(next) {
   view = next;
+  document.body.classList.remove('head-hidden');
   store(key('view'), view);
   document.querySelectorAll('.tab').forEach((t) =>
     t.setAttribute('aria-selected', String(t.dataset.view === view)));
@@ -2318,10 +2396,21 @@ document.addEventListener('click', (event) => {
 });
 
 /* Feed art is hotlinked from whatever the source published, so some of it will
-   404 or be blocked. Drop those rather than leave a grey box on the card.
-   Capture, because error events do not bubble. */
+   404 or be blocked. Drop those rather than leave a grey box -- and on a card,
+   redraw it with a typographic cover, because a card whose cover vanished is a
+   hole in a wall where every card has one. The story forgets the address, so
+   the next render does not try it again. Capture: error events do not bubble. */
 document.addEventListener('error', (event) => {
-  if (event.target instanceof HTMLImageElement) event.target.remove();
+  const img = event.target;
+  if (!(img instanceof HTMLImageElement)) return;
+  const card = img.classList.contains('cover-img') && img.closest('.card');
+  const story = card && bundle && bundle.stories.find((s) => s.story_id === Number(card.dataset.id));
+  if (story) {
+    story.media_url = null;
+    card.outerHTML = cardHTML(story);
+  } else {
+    img.remove();
+  }
 }, true);
 
 /* Delegated, because the form is rebuilt every time the chooser opens. */
@@ -2352,6 +2441,29 @@ document.getElementById('search').addEventListener('input', (event) => {
   query = event.target.value.trim().toLowerCase();
   render();
 });
+
+/* Search is an icon until it is wanted. Closing it clears the query, because a
+   hidden search still narrowing the feed is a filter nobody can see. */
+document.getElementById('search-toggle').addEventListener('click', () => {
+  const input = document.getElementById('search');
+  const opening = !document.body.classList.contains('searching');
+  document.body.classList.toggle('searching', opening);
+  if (opening) { input.focus(); return; }
+  input.value = '';
+  if (query) { query = ''; render(); }
+});
+
+/* The top line slides away while you read down and comes back the moment you
+   scroll up -- the gesture that already means "take me back". A few pixels of
+   slack, so the jitter at the end of a fling does not flash it. */
+let lastScroll = 0;
+window.addEventListener('scroll', () => {
+  const y = window.scrollY || 0;
+  if (Math.abs(y - lastScroll) < 6) return;
+  const hide = y > lastScroll && y > 90 && !document.body.classList.contains('searching');
+  document.body.classList.toggle('head-hidden', hide);
+  lastScroll = y;
+}, { passive: true });
 
 document.getElementById('close').addEventListener('click', closePanel);
 document.getElementById('close-subject').addEventListener('click', closePanel);

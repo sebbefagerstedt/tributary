@@ -261,80 +261,31 @@ and its own triage profile. That answers wants 1 and 2 for about the cost of a
 config file. It does not answer want 3, and it costs a second feed to check,
 which is close to the thing being asked to avoid.
 
-## Redesign the frontend
+## Redesign the frontend — first pass built, now the owner's review
 
-**This is next**, the owner's call on 2026-09-22 — with posting on hold, it is
-the first thing to pick up. Start by interviewing the owner on the open
-questions at the end of this section rather than designing against the notes.
+**Built overnight on 2026-09-22, while the owner slept**, on the request *"do
+the redesign now during the night"*: a bottom tab bar, a one-line header that
+hides while you read, search behind an icon, a cover on every card (art, or a
+typographic cover for the kinds that never have art), the wake as one line,
+and a banner on a subject's panel. What each decision is and why is in
+`CLAUDE.md` under "The redesign" — every one of them was made without asking,
+and each is one piece that can be reverted on its own.
 
-**Asked 2026-09-19**, in those words and no more, so the brief is open. What is
-known, so it is not rediscovered:
+**So the next step is the interview this was meant to start with**, against the
+real thing now rather than notes. Ask about each decision in that list, then:
 
-**It is a self-contained job.** The page is one file with no build step and the
-JSON bundle is the contract, so a rewrite touches nothing else in the repo —
-that was the point of the split. What a replacement must keep is small: the
-four surfaces and what orders each, follows and marks namespaced per profile in
-`localStorage`, and the fact that it has to work as a static file on GitHub
-Pages with no server behind it.
-
-**The brief is "keep the format, replace the content".** The owner's call,
-2026-09-22: *"Jag vill absolut inte ersätta formaten av instagram och tiktok,
-snarare behålla det men att ersätta innehållet."* Read with *"Combo reddit,
-tiktok, youtube … för snabb info"* and *"vill ta bort mitt sociala medier
-beroende"*, that settles what those apps were ever cited for: not a source list
-and not a ranking, but the *shape* — fast, image-led, immersive, mostly not
-prose — pointed at something worth reading. The Google Discover screenshot
-offered the same day is that shape made concrete, and `CLAUDE.md` records what
-it costs: one image per card, which `og:image` half-solves and papers and
-releases never will.
-
-**The measured complaint is chrome, and only chrome.** At 390×844 the header was
-182px — 22% of the screen — over six rows above the first headline: brand and
-profile, tabs, topics, subtopics, facets, and search, with the Trending scope
-row making a seventh. **How many cards fit is not the complaint**, and was
-briefly written up as though it were: see `CLAUDE.md`, "Big cards are wanted".
-A large card is what the reader came for; a row of chips they did not ask for
-is not. The subtopics row has
-since been deleted, the Feed's remaining rows no longer carry an "All" chip, and
-the kind row has gone too — so **re-measure before designing against that
-number**. The point stands: most
-of it was added one row at a time, and following now does the job several of
-those rows were built for, so the question is which of them still earn their
-place rather than how to make them shorter.
-
-**The original complaint was "boring"**, said of a feed that was mostly release
-churn — some of which was the prerelease leak, now fixed, and some of which was
-the ranking, now moved to Trending. Worth looking at the live feed again before
-designing against a screenshot that no longer represents it.
-
-**The subject panel is the one piece already designed.** Built 2026-09-21: a
-subject opens as a panel with its name and follow control at the top, its
-leaves under that, then its headlines (`fillSubject`). **Page versus sheet is
-settled** — see "The panel is a page wearing a sheet" in `CLAUDE.md`; a survey
-of how other apps open a subject found nothing that argued for changing the
-shape, only for naming each layer in its bar. Do not re-open that question
-without new evidence.
-
-What the survey did leave on the table, both from the references offered
-(Ticketmaster's artist page, an Instagram profile) and both wanting a page's
-worth of room:
-
-- **A hero image** behind the subject's name. Cards already carry `media_url`,
-  so a subject could borrow its most recent one; nothing has been tried.
+- **Whether topics stay as a filter row** at all, now that following exists
+  and a subject opens as a panel. The row survived the redesign unchanged.
+- **Whether the digest or the feed is the front door.** The feed still is.
 - **Tabs across one subject** — its stories, what sits under it, who keeps
-  appearing in it. That is the three-axis model arriving in the UI, and it is
-  the one idea here that would change what a subject *is* on screen rather than
-  how it looks. Every app surveyed uses tabs for exactly this.
+  appearing in it. The one idea from the survey not tried: it would change what
+  a subject *is* on screen, which is not a call to make overnight.
 
 One smaller thing the survey turned up and this does **not** do: X asks you to
 confirm before unfollowing on mobile. Tributary does not, on the grounds that a
 follow here costs nothing to restore and the chooser's list keeps the row
 around to undo with. Worth revisiting only if someone actually loses a follow
 by mis-tapping.
-
-Open, and nobody has decided: whether the card list survives at all, whether
-topics stay as a filter row now that following exists and a subject opens, and
-whether the digest or the feed is the front door.
 
 ## Ready to start
 
@@ -435,16 +386,6 @@ not sure about several and want to be asked about them, one at a time, first.
   every 5 seconds"*, on three requests spaced well apart — the first one
   included, under curl's User-Agent and tributary's. So its shape is still
   unverified, and the rate limit is the first thing an adapter has to survive.
-- **Is Trending becoming a Discover-shaped card list?** Big cards are wanted, so
-  the density half is settled — and so, now, is the image half: **the corpus
-  cannot carry one image per card.** Checked 2026-09-22: an arXiv abstract's
-  `og:image` is arXiv's logo, the same on every paper, and a GitHub release's is
-  a card rendered from its own title, which the owner declined as art. Papers
-  and releases stay imageless for good, so a Discover-shaped Trending needs a
-  typographic card for them. The live bundle that day: 72 of 120 stories had
-  art, and the 11 papers and 7 releases among the other 48 will not get it
-  from `og:image`.
-
 - **`LENS_FLOOR = 0.72` is a guess and is the one number in the page that is.**
   It decides when a lens catches a story its words would miss. bge puts
   unrelated text near 0.5 and a story's own members merge at 0.92, so it sits in

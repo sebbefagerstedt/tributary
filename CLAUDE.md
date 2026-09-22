@@ -474,8 +474,8 @@ from Hugging Face thumbnails, so arXiv, HN and GitHub releases carry none — an
 at ~235 papers a week against ~90 non-papers, that is most of the feed. The
 cheap half of the fix is `og:image`, **built 2026-09-22** — see "Describing an
 item" under Sources for what it does and does not cover. The other half does not
-exist: a paper and a release have no image, ever, so either imageless kinds get
-a typographic card or the wall stays uneven. Discover's
+exist: a paper and a release have no image, ever, so imageless kinds get a
+typographic cover (built 2026-09-22, below). Discover's
 uniformity comes from a uniform corpus — publisher articles and nothing else —
 and "do not cut arXiv" is the rule that makes this corpus the other kind.
 
@@ -487,10 +487,46 @@ card that fills the screen is harder to skip, which is the point; the earlier
 "dense card list" framing treated size as waste and had it backwards. **What is
 waste is chrome** — a 182px header is rows nobody asked for, while a large card
 is the thing they came for. So the Discover shape is not a reversal to weigh
-against anything, it is the target, and `og:image` is what stands between this
-corpus and it.
+against anything, it is the target.
 
-**One word per kind.** The badge on a card and the chips counting what else is
+**The redesign, built overnight on 2026-09-22 without the owner present.** Asked
+for in those words — *"do the redesign now during the night"* — so the open
+questions in `NEXT.md` were decided here rather than in an interview, and each
+decision is one piece that can be reverted alone:
+
+- **The tabs are a bottom bar** (`.tabbar`), icon over word. Instagram, TikTok,
+  X and Reddit all keep primary navigation there, where the thumb already is.
+  It stays fixed while the header hides, because it is where you go next.
+- **The top is one line** — wordmark, freshness, a search icon, the avatar —
+  and it **slides away while you scroll down**, back the moment you scroll up.
+  That is form, not a hook: it is what the reader's own gesture already means.
+- **Search is an icon until wanted** (`body.searching`). Closing it clears the
+  query, because a hidden search still narrowing the feed is a filter nobody
+  can see — the same reason the page has kept removing silent narrowing.
+- **Every card has a cover.** Art edge to edge when the story has it; otherwise
+  a **typographic cover** — the headline set large on its kind's colour, the
+  kind named at the top — and then the headline is not printed again below. A
+  hotlinked image that fails redraws its card with a typographic cover, rather
+  than leaving a hole in a wall where every card has one.
+- **The wake is one quiet line** (`wakeHTML`): a dot in the kind's colour and a
+  count, then sources and engagement. The coloured pills it replaces wrapped a
+  busy card onto three rows; the colour language is kept, the chrome is not.
+- **Save, More like this and Dismiss sit on the meta line**, top right of the
+  words, so the topic and name chips below them can wrap instead of clipping.
+- **A subject's panel has a banner**, the way a profile has one: the newest
+  picture among its stories, or an accent wash. Borrowed — a subject has no art
+  of its own. This was the untried "hero image" idea from the survey.
+
+Measured at 390×844 against the page before it, with five follows: the first
+card starts at 108px instead of 159. **While reading down the chrome is 63px
+instead of 145** — only the bottom bar. At rest it is 96 + 63 = 159 against 145,
+because the tabs moved rather than vanished; that is the price of having them
+under the thumb, and it is only paid at the top of the page. Cards are larger,
+so about two start on the first screen instead of three — which is the point,
+not a regression (see above). `tests/test_lens.py` checks the cover contract:
+art or a typographic cover, never neither, and the headline exactly once.
+
+**One word per kind.** The badge on a card and the line counting what else is
 attached to it were two tables, and they drifted: the same kind was badged
 `news` while the chip beside it said `1 article`, and `code` against `1 repo`.
 Nothing told a reader those were the same thing. `KIND_WORD` is now the only
