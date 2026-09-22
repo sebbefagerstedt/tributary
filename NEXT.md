@@ -102,22 +102,27 @@ proposals should be ranked by vector rather than by followers are all in
 `CLAUDE.md` under *"A reader's own topic is a lens, not a home"* — read that
 first, it is the design. What is left here is the work.
 
-Three tiers, and only the first costs nothing:
+Three tiers, and the first one — the private lens, the only one that costs
+nothing — is built. Name one on the subjects page and it filters the feed on its
+own words at once; teach it with **More like this** on a card and it starts
+matching stories that never use the word. How it works is in `CLAUDE.md`. The
+two above it:
 
-1. **A private lens.** Instant, no approval, held in `localStorage` beside
-   follows, unlimited because nobody else sees it. **The bundle already carries
-   the vectors** — `story.centroid`, int8 and base64, with `bundle.vectors`
-   declaring the packing — so what is left is picking seed stories, storing the
-   lens, and a predicate in `visible()`.
-2. **A shared topic.** Visible to other readers, so it needs the server the
+1. **A shared topic.** Visible to other readers, so it needs the server the
    posting entry describes. This is where proposal ranking lives, gated on
    cosine-dedupe, yield and coherence.
-3. **A spine topic.** `config.toml`, an argmax home, re-labels the corpus,
+2. **A spine topic.** `config.toml`, an argmax home, re-labels the corpus,
    human-accepted. Unchanged, and rare.
 
-Tier 1 is not throwaway: tier 2 is "sync tier 1 to a server", which is additive.
-And the order is forced — topics cannot be ranked by followers before there are
-followers, but a personal filter is useful with one reader.
+The private one was not a detour: a shared topic is "sync the private one to a
+server", which is additive. And the order was forced — topics cannot be ranked
+by followers before there are followers, but a personal filter is useful with
+one reader.
+
+**What the shared one now needs is only storage.** A lens is already shaped like
+a row — `{id, name, terms, vector, seeds, created}` — and a comment will be
+addressed by `story_id`. Moving them to a server should not touch `visible()`,
+the panel, or the chip row.
 
 **The ceiling on the client-side version is reach, not comments.** A lens sees
 only the bundle: 120 stories over 30 days. Raising that is affordable on the
@@ -255,11 +260,12 @@ whether the digest or the feed is the front door.
   Propose-then-accept, like topics. It is a stage, never a `Source`, because
   adapters do not touch the database. Google's own Follow button works this way
   — see `CLAUDE.md` under Sources.
-- **"More like this" on a story page.** Nearest-neighbour over `story.centroid`,
-  which the bundle now carries, so this runs in the page with no server and no
-  second request. This is the rest of "I want to keep reading if I find
-  something interesting", and it is the same cosine a personal lens needs — do
-  them together.
+- **"More like this" as a row on the story page.** The cosine and the vectors
+  are both in place — `cosine` and `decodeVector` ship in the page's lens maths
+  block, and a card already offers **More like this** to *teach a subject*. What
+  does not exist is the simpler reading of it: open a story, see its nearest
+  neighbours, keep going. That is the rest of *"I want to continue reading if I
+  find something interesting"* and it is now a few lines over what is there.
 - **Podcast links.** Podcast feeds are RSS, so this is config plus a check that
   the `rss` adapter reads enclosures sensibly; the feeds are already found and
   verified (see "Sources" in `CLAUDE.md`). Latent Space's podcast feed carries
@@ -379,6 +385,15 @@ whether the digest or the feed is the front door.
   if arXiv serves one, so does every paper — and that is most of the feed. It is
   two `curl`s on a machine that can reach them, and it decides whether a
   Discover-shaped card is possible at all or only possible for news.
+
+- **`LENS_FLOOR = 0.72` is a guess and is the one number in the page that is.**
+  It decides when a lens catches a story its words would miss. bge puts
+  unrelated text near 0.5 and a story's own members merge at 0.92, so it sits in
+  the gap between them and nothing more. Measuring it needs a corpus with real
+  lenses on it: take a handful of subjects, seed each with two or three stories
+  by hand, and look at where the cosines to the rest actually fall — the same
+  exercise `topics floor` had. Until then the lexical half is what carries a
+  lens, which is why the order in `lensMatcher` is words first.
 
 ## Designed, deliberately not built
 
