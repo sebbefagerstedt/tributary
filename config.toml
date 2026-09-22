@@ -46,11 +46,6 @@ url = "https://simonwillison.net/atom/everything/"
 
 [[sources]]
 kind = "rss"
-name = "Import AI"
-url = "https://importai.substack.com/feed"
-
-[[sources]]
-kind = "rss"
 name = "Latent Space"
 url = "https://www.latent.space/feed"
 
@@ -66,8 +61,9 @@ url = "https://thegradient.pub/rss/"
 
 # --- Press -------------------------------------------------------------------
 # Substack is deliberately absent from this list. It blocks GitHub Actions IPs,
-# which is why Import AI 403s on a run and works locally, and adding more of it
-# would mean sources that behave differently depending on where trib runs.
+# which is why Import AI 403'd on every run while working locally and was
+# dropped, and adding more of it would mean sources that behave differently
+# depending on where trib runs.
 
 [[sources]]
 kind = "rss"

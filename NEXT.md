@@ -359,8 +359,6 @@ whether the digest or the feed is the front door.
 
 ## Needs a decision, or a look
 
-- **Import AI**: drop it from `config.toml` or accept the gap. It returns HTTP
-  403 on Actions because Substack blocks those IPs, and works fine locally.
 - **Anthropic is not a source**, and should be. It has no feed on `anthropic.com`
   or `alignment.anthropic.com` under any path, and no `application/rss+xml` in
   either page head — so it is the HTML-scrape adapter's first real customer. Two

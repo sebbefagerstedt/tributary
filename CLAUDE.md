@@ -19,9 +19,10 @@ fits together, and the decisions that should not be rediscovered.
   optional and priced, never on by default.
 - **Do not cut arXiv.** A new paper is news whether or not anyone has reacted to
   it. Any popularity gate has to be per-kind, never global.
-- **No Substack sources.** Substack blocks GitHub Actions IPs — Import AI returns
-  403 on every scheduled run and works fine locally. Every source must behave
-  the same wherever `trib` runs.
+- **No Substack sources.** Substack blocks GitHub Actions IPs — Import AI
+  returned 403 on every scheduled run while working fine locally, and was
+  dropped for it on 2026-09-22. Every source must behave the same wherever
+  `trib` runs.
 - **The ranking is not an engagement metric — but that is about mechanics, not
   format.** The project exists partly to replace a social-media habit with "något
   vettigt", so a ranking tuned to keep you scrolling is the thing being avoided.
@@ -678,7 +679,8 @@ safety writing and Reddit; about 90 non-paper items a week against arXiv's ~235.
 Findings that should not be researched again:
 
 - **Every added source fetches from Actions too** — checked on the first runs
-  after they landed (2026-09-18). Only Import AI fails there, being Substack.
+  after they landed (2026-09-18). Only Import AI failed there, being Substack,
+  and it was dropped on 2026-09-22.
 - **Reddit needs no API key.** The `.rss` endpoints are public Atom, given three
   things: a descriptive User-Agent (a default one gets 403 HTML before the rate
   limiter), the multireddit form `r/a+b+c/.rss` (one rate-limit token for all of
