@@ -160,11 +160,13 @@ def _attributes(tag: str) -> dict[str, str]:
 _WANTED_KEYS = frozenset(_DESCRIPTION_KEYS) | frozenset(_IMAGE_KEYS)
 
 
-def _head_meta(html: str | None) -> dict[str, str]:
+def head_meta(html: str | None, wanted: frozenset[str] = _WANTED_KEYS) -> dict[str, str]:
     """Every ``<meta>`` in the head this stage has a use for, by key.
 
     One pass for both halves, which is what makes taking the picture free: the
-    page was already fetched and already parsed to find its description.
+    page was already fetched and already parsed to find its description. The
+    sitemap adapter asks for more keys -- a title and a date -- from the same
+    parse, since a page it found in a sitemap arrives with neither.
     """
     if not html:
         return {}
@@ -174,7 +176,7 @@ def _head_meta(html: str | None) -> dict[str, str]:
         attributes = _attributes(tag)
         key = (attributes.get("property") or attributes.get("name") or "").lower()
         content = attributes.get("content")
-        if key in _WANTED_KEYS and content and key not in found:
+        if key in wanted and content and key not in found:
             found[key] = content
     return found
 
@@ -189,7 +191,7 @@ def page_summary(html: str | None) -> str | None:
     is machine-readable by design. If a page does not have one, this returns
     nothing and the item keeps its bare title -- which is the honest outcome.
     """
-    found = _head_meta(html)
+    found = head_meta(html)
     for key in _DESCRIPTION_KEYS:
         text = strip_html(found.get(key))
         if text and len(text) >= MIN_WRITTEN:
@@ -206,7 +208,7 @@ def page_image(html: str | None, base_url: str = "") -> str | None:
     and a relative path with no base is a broken `<img>` on the card. So is a
     site's own logo or generated card (`_NOT_ART`), which is not this page's.
     """
-    found = _head_meta(html)
+    found = head_meta(html)
     for key in _IMAGE_KEYS:
         if not (raw := (found.get(key) or "").strip()):
             continue
