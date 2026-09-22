@@ -186,14 +186,38 @@ fetched becomes a story. Triage still runs, and its score is still `relevance`
 in the ranking — so what the profile dislikes sinks in Trending rather than
 never existing. Trending is marked **beta** in the UI while that is judged.
 
-**The consequence to watch is the topic floor.** Topics have no relevance
-threshold by design — a story goes to its single best leaf — and `floor = 0.55`
-was measured at *1 story in 2239* **on already-triaged material**. On
-everything, that floor is the only thing between a crypto post and whichever AI
-leaf it most resembles, and following is what gets polluted if it fails.
-`trib topics --stats` has a **below triage** column counting stories made
-entirely of items triage would have dropped; a topic filling up with those is
-the signal to re-measure the floor on the new population.
+**The topic floor was re-measured on everything, and stays at 0.55.** Topics
+have no relevance threshold by design — a story goes to its single best leaf —
+and `floor = 0.55` was first measured at *1 story in 2239* **on already-triaged
+material**. Once everything became a story, the floor was the only thing
+between a crypto post and whichever AI leaf it most resembles, so it was
+measured again on 2026-09-22: 30 days of stories, 428 of them labelled by hand
+as about AI or not.
+
+- **There is no gap to cut at.** Short and image-only posts score low whatever
+  they are about — *Anthropic releases Opus 5.5* scored 0.565, *Qwen 4
+  Announced* 0.559 — so raising the floor cuts AI news about as fast as filler:
+  0.58 costs 17 more AI stories their topic for 30 fewer filler, 0.60 costs 44
+  for 56. arXiv papers never score that low; the lowest of 299 was 0.631.
+- **Filler is 9% of stories with a topic** — 102 of 1,167, about three a day
+  spread over every topic, 2–8% in the big ones. It is only a large share of a
+  *thin* topic, where three stray stories can be all there is.
+- **Most of it is one source**, the Hacker News front page: 105 of 139 non-AI
+  stories. A floor of 0.60 for stories made only of its items was the best rule
+  measured — 33 fewer filler, 8 more AI stories without a topic, 6 of them
+  still carrying an entity — and was not taken, because the problem is not big
+  enough to earn a per-source mechanism. Two others did worse: hidden "not
+  about AI" descriptions competing in the argmax lost to a plain floor, since
+  AI news about politics matches a politics description better than any leaf;
+  and triage as a second opinion changed nothing, because it misjudges short
+  posts both ways.
+- **The below-triage column overstates filler.** `trib topics --stats` counts
+  a topic's stories made entirely of items triage would have dropped, and
+  triage drops short AI posts too — *Grok 4.7*, *MiMo v2.6*, *Transformers
+  Explained Visually*. In the same 30 days, 9 of Frontier model releases' 24
+  stories were below triage and 7 of those 9 were real releases. Read the
+  column as "short or off the profile", never as "not AI"; what a topic holds
+  is in its headlines.
 
 **The profile chooser lists what that profile follows.** Asked for 2026-09-21:
 *"In the profiles, I would also like to see the topics i follow"* — and it is
@@ -829,7 +853,7 @@ cluster.AMBIGUOUS_LOW    = 0.86
 cluster.WINDOW_DAYS      = 14
 triage threshold         = 0.66   # no longer a gate; only labels kept/rejected
 store.MAX_ITEM_AGE_DAYS  = 60     # must match `trib prune --days` in the workflow
-topics floor             = 0.55   # 1 in 2239 -- but measured on TRIAGED material
+topics floor             = 0.55   # re-measured on everything: no gap, 9% filler
 topics park_margin       = 0.02   # parks about 13% of stories on a shelf
 ```
 
