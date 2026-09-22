@@ -263,6 +263,10 @@ which is close to the thing being asked to avoid.
 
 ## Redesign the frontend
 
+**This is next**, the owner's call on 2026-09-22 — with posting on hold, it is
+the first thing to pick up. Start by interviewing the owner on the open
+questions at the end of this section rather than designing against the notes.
+
 **Asked 2026-09-19**, in those words and no more, so the brief is open. What is
 known, so it is not rediscovered:
 
