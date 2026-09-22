@@ -3,6 +3,54 @@
 Only upcoming work lives here. **When something is built, delete its entry** —
 history is in git, and the reasoning behind how things work is in `CLAUDE.md`.
 
+## On the machine at home — three checks, ten minutes
+
+Everything else in this file can be built from a sandbox. These three cannot:
+the research container's proxy refuses the hosts involved, so nobody has
+actually looked. Each one decides something that is currently a guess.
+
+**1. Does an arXiv abstract page carry `og:image`?**
+
+```bash
+curl -sL https://arxiv.org/abs/1706.03762 | grep -io '<meta[^>]*og:image[^>]*>'
+```
+
+If it prints something, add `Kind.PAPER` to `_ILLUSTRATED_KINDS` in
+`describe.py` and **most of the feed gets a picture** — papers are ~235 items a
+week against ~90 of everything else, and they are the reason a Discover-shaped
+card is currently impossible. If it prints nothing, that is the answer and the
+imageless kinds need a typographic card instead. Either way, write which down.
+
+**2. Does a GitHub release page?**
+
+```bash
+curl -sL https://github.com/ggml-org/llama.cpp/releases/latest \
+  | grep -io '<meta[^>]*og:image[^>]*>'
+```
+
+GitHub generates a social card at `opengraph.githubassets.com`, so this will
+probably print something. The real question is whether you *want* it: it is a
+rendered card with a repo name on it, not a photograph, and a feed full of them
+may look worse than a feed with none. Look at the URL it prints before adding
+`Kind.REPO`.
+
+**3. Is GDELT reachable and shaped the way the docs say?**
+
+```bash
+curl -s 'https://api.gdeltproject.org/api/v2/doc/doc?query=%22language+model%22&mode=ArtList&maxrecords=5&format=json&timespan=24h' | head -c 2000
+```
+
+Look for `url`, `socialimage` and `domain` on each record — those are what make
+it usable here, because a real URL keeps tier-1 clustering working. **Do not
+build on it yet even if it works**: it is all world news, so the per-kind
+popularity gate has to exist first or it floods the feed the way arXiv once did.
+See `CLAUDE.md` under Sources for why Google News RSS is not the alternative.
+
+**And one that is not a home job.** Backfilling `og:image` over everything
+already fetched needs `trib describe --reset` against the *deployed* database,
+which lives in the Actions cache — so it is a one-off workflow step, not
+something to run locally. Without it only newly fetched items get art.
+
 ## Posting and commenting — the next big step, and the one that changes the architecture
 
 **This is the next big step: real accounts, a server, and topics that are shared
@@ -102,22 +150,27 @@ proposals should be ranked by vector rather than by followers are all in
 `CLAUDE.md` under *"A reader's own topic is a lens, not a home"* — read that
 first, it is the design. What is left here is the work.
 
-Three tiers, and only the first costs nothing:
+Three tiers, and the first one — the private lens, the only one that costs
+nothing — is built. Name one on the subjects page and it filters the feed on its
+own words at once; teach it with **More like this** on a card and it starts
+matching stories that never use the word. How it works is in `CLAUDE.md`. The
+two above it:
 
-1. **A private lens.** Instant, no approval, held in `localStorage` beside
-   follows, unlimited because nobody else sees it. **The bundle already carries
-   the vectors** — `story.centroid`, int8 and base64, with `bundle.vectors`
-   declaring the packing — so what is left is picking seed stories, storing the
-   lens, and a predicate in `visible()`.
-2. **A shared topic.** Visible to other readers, so it needs the server the
+1. **A shared topic.** Visible to other readers, so it needs the server the
    posting entry describes. This is where proposal ranking lives, gated on
    cosine-dedupe, yield and coherence.
-3. **A spine topic.** `config.toml`, an argmax home, re-labels the corpus,
+2. **A spine topic.** `config.toml`, an argmax home, re-labels the corpus,
    human-accepted. Unchanged, and rare.
 
-Tier 1 is not throwaway: tier 2 is "sync tier 1 to a server", which is additive.
-And the order is forced — topics cannot be ranked by followers before there are
-followers, but a personal filter is useful with one reader.
+The private one was not a detour: a shared topic is "sync the private one to a
+server", which is additive. And the order was forced — topics cannot be ranked
+by followers before there are followers, but a personal filter is useful with
+one reader.
+
+**What the shared one now needs is only storage.** A lens is already shaped like
+a row — `{id, name, terms, vector, seeds, created}` — and a comment will be
+addressed by `story_id`. Moving them to a server should not touch `visible()`,
+the panel, or the chip row.
 
 **The ceiling on the client-side version is reach, not comments.** A lens sees
 only the bundle: 120 stories over 30 days. Raising that is affordable on the
@@ -255,11 +308,12 @@ whether the digest or the feed is the front door.
   Propose-then-accept, like topics. It is a stage, never a `Source`, because
   adapters do not touch the database. Google's own Follow button works this way
   — see `CLAUDE.md` under Sources.
-- **"More like this" on a story page.** Nearest-neighbour over `story.centroid`,
-  which the bundle now carries, so this runs in the page with no server and no
-  second request. This is the rest of "I want to keep reading if I find
-  something interesting", and it is the same cosine a personal lens needs — do
-  them together.
+- **"More like this" as a row on the story page.** The cosine and the vectors
+  are both in place — `cosine` and `decodeVector` ship in the page's lens maths
+  block, and a card already offers **More like this** to *teach a subject*. What
+  does not exist is the simpler reading of it: open a story, see its nearest
+  neighbours, keep going. That is the rest of *"I want to continue reading if I
+  find something interesting"* and it is now a few lines over what is there.
 - **Podcast links.** Podcast feeds are RSS, so this is config plus a check that
   the `rss` adapter reads enclosures sensibly; the feeds are already found and
   verified (see "Sources" in `CLAUDE.md`). Latent Space's podcast feed carries
@@ -351,34 +405,27 @@ whether the digest or the feed is the front door.
   second seed in old stories. `trib cluster --reset` once, on the database that
   matters, rebuilds them.
 
-- **GDELT as a broad-coverage source — probe before designing.** Open, keyless,
-  15-minute updates, and `ArtList` carries a real `url` plus a `socialimage`.
-  But nothing has been verified from a machine that can reach it, it is
-  query-driven rather than scheduled, and it is all world news, which makes the
-  per-kind popularity gate mandatory. Run the endpoint by hand on the WSL box
-  first. Why Google News RSS is *not* the alternative is in `CLAUDE.md`.
+- **GDELT as a broad-coverage source.** Open, keyless, 15-minute updates, and
+  `ArtList` carries a real `url` plus a `socialimage` — but query-driven rather
+  than scheduled, and all world news, which makes the per-kind popularity gate
+  mandatory before it can land. Probe it first: see the top of this file.
 - **News sitemaps as a second adapter kind.** Covers publishers with no feed,
   which is the only gap feed autodiscovery leaves. Simple XML, no new
   dependency, 48-hour window by spec.
-- **Is Trending becoming a Discover-shaped card list?** The screenshot that
-  asked for it is two stories per phone screen with no summary, which reverses
-  the dense-card-list decision. The image half is blocked on `og:image` above
-  and can never cover papers or releases. Decide the density question before
-  designing, not after.
+- **Is Trending becoming a Discover-shaped card list?** Big cards are wanted, so
+  the density half is settled; what is not is whether the corpus can carry one
+  image per card at all. That is checks 1 and 2 at the top of this file, and
+  until they are run there is nothing to design against.
 
-- **Nothing already fetched has a picture yet.** `og:image` landed 2026-09-22,
-  but every item in the deployed database is already marked in `described`, so
-  the stage will never revisit it. `trib describe --reset` once, on the database
-  that matters, backfills art for everything still inside the retention window.
-  Expect a few hundred page fetches spread over the runs that follow, capped at
-  `DEFAULT_LIMIT` each.
-- **Does an arXiv abstract or a GitHub release page carry `og:image`?** Nobody
-  has looked, so `_ILLUSTRATED_KINDS` is bounded to `article` and `post` and
-  those two kinds are never visited for art alone. If GitHub serves its
-  generated social card, every release gets a picture for one line of config;
-  if arXiv serves one, so does every paper — and that is most of the feed. It is
-  two `curl`s on a machine that can reach them, and it decides whether a
-  Discover-shaped card is possible at all or only possible for news.
+
+- **`LENS_FLOOR = 0.72` is a guess and is the one number in the page that is.**
+  It decides when a lens catches a story its words would miss. bge puts
+  unrelated text near 0.5 and a story's own members merge at 0.92, so it sits in
+  the gap between them and nothing more. Measuring it needs a corpus with real
+  lenses on it: take a handful of subjects, seed each with two or three stories
+  by hand, and look at where the cosines to the rest actually fall — the same
+  exercise `topics floor` had. Until then the lexical half is what carries a
+  lens, which is why the order in `lensMatcher` is words first.
 
 ## Designed, deliberately not built
 

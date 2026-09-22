@@ -71,10 +71,29 @@ Actions cache). **Open it with `tributary.db.connect()`**, never
 `sqlite3.connect()`: vectors live in a sqlite-vec `vec0` table, and a plain
 connection fails with `no such module: vec0`.
 
-**Testing the page:** headless Chromium does not start on the dev machine until
-`sudo .venv/bin/playwright install-deps chromium` has been run. Until then,
-drive `src/tributary/web/index.html` with jsdom, stubbing `fetch` to return an
-exported `data.json`.
+**Testing the page:** `tests/test_lens.py` boots the whole script under **node**
+against a real exported bundle, with a thirty-line DOM stub and a fake `fetch`,
+and then calls into it — so `render()`, `visible()` and the lens maths are
+covered without a browser, a build step or an npm dependency. It skips where
+node is absent. Prefer extending it over adding another string assertion on the
+exported HTML: those catch a renamed class and nothing else.
+
+It also slices the block between `/* LENS_MATHS_START */` and
+`/* LENS_MATHS_END */` out of the page and runs it alone, which is why
+everything in there must stay pure — no DOM, no `localStorage`, no globals.
+That is what lets the page's cosine be checked against the numpy that packed
+the vectors it reads.
+
+**For layout, screenshot it.** On the dev machine headless Chromium still needs
+`sudo .venv/bin/playwright install-deps chromium` first. In a Claude Code remote
+container it is already there and the note above used to say otherwise: pass
+`executable_path="/opt/pw-browsers/chromium"` and `args=["--no-sandbox"]`,
+because the pinned Playwright asks for a build number the image does not carry
+and otherwise tells you to run `playwright install`, which is wrong. Serve the
+exported site over HTTP rather than `file://` — the page fetches `data.json`,
+and CORS blocks that on a file URL. Screenshot at 390×844, and **not**
+`full_page`: `.sheet` is `position: fixed`, so a full-page capture renders the
+chrome underneath it and invents a bug that is not there.
 
 ## Architecture
 
@@ -553,9 +572,30 @@ across rather than partitioning — which is a facet matched by embedding instea
 of regex. A saved query. Nothing competes, nothing is re-labelled, and
 multi-label is fine precisely because it is not a home.
 
-**Which is why a personal lens needs no server.** It is the shape `isFollowed`
-already has: a `localStorage` predicate over the shared bundle, so per-reader
-filtering happens in the page and never in the pipeline. The bundle carries
+**Which is why a personal lens needs no server — and it is built, 2026-09-22.**
+It is the shape `isFollowed` already has: a `localStorage` predicate over the
+shared bundle, so per-reader filtering happens in the page and never in the
+pipeline. A lens is `{id, name, terms, vector, seeds, created}` under the
+profile's `lenses` key, followed as `lens:<id>` in the same set as
+`topic:<slug>` and `entity:<name>`, and **it is a subject like any other**: it
+fills the feed through `isFollowed`, sits in the chip row, opens as a panel, and
+is a place you can walk into. Nothing in the UI knows it is yours except the
+panel, which says so and offers to delete it.
+
+**Words first, then the vector.** `lensMatcher` asks the lexical question before
+the semantic one, the order and for the reason the clusterer uses. That is what
+makes `LENS_FLOOR = 0.72` safe to ship **unmeasured** — bge puts unrelated text
+near 0.5 and a story's own members merge at 0.92, so it is a guess in the gap
+between them, and a lens always matches its own name whatever the floor does. A
+floor set badly makes a lens narrow, never broken. Measure it against a real
+corpus before trusting the vector half on its own.
+
+**Teaching folds earlier seeds in by their number.** `addSeed` blends the stored
+vector against the new story weighted by how many seeds it already stands for,
+rather than averaging the two — otherwise the fifth story you point at would
+weigh as much as the four before it. It deliberately does *not* recompute from
+`seeds`: a story leaves the bundle after thirty days, and a lens must not
+quietly forget what it was taught. The bundle carries
 story centroids as of 2026-09-22, quantised to int8 and base64-encoded
 (`export._centroids`): measured at `--limit 120` that is **+60KB raw, +40KB
 gzipped**, against four times that for float32. The error it costs, over a

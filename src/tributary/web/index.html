@@ -359,6 +359,10 @@ body.digest-view > header .search { display: none; }
   font-family: inherit; background: none; border: 0; padding: 0; cursor: pointer;
 }
 .subject-where::after { content: ' \203a'; }
+/* A lens has no level above it, so the label is a statement rather than a way
+   up: no chevron promising somewhere to go, and nothing to press. */
+.subject-where.as-text { cursor: default; }
+.subject-where.as-text::after { content: none; }
 .subject-title {
   font-size: 26px; font-weight: 700; letter-spacing: -.025em;
   line-height: 1.15; margin: 4px 0 0;
@@ -403,6 +407,13 @@ body.digest-view > header .search { display: none; }
 }
 .headline.seen { color: var(--faint); }
 .headline .when { color: var(--faint); font-size: 12.5px; }
+.subject-drop {
+  margin-top: 10px; width: 100%; padding: 11px; border-radius: 10px;
+  /* --video is the page's only red, and a delete is the one destructive
+     control here; a token of its own would be a palette entry used once. */
+  border: 1px solid var(--line); background: none; color: var(--video);
+  font: inherit; font-size: 14px; cursor: pointer;
+}
 .subject-none { color: var(--faint); font-size: 13px; margin: 18px 0 0; }
 /* A row that completes the arithmetic rather than offering a choice: parked
    stories are not a subtopic, so there is nothing here to open or follow. */
@@ -562,6 +573,99 @@ const KIND_WORD = {
   paper: 'paper', model: 'model', repo: 'repo', video: 'video',
   discussion: 'discussion', article: 'article', post: 'post',
 };
+/* --- Lens maths ------------------------------------------------------------
+   `tests/test_lens.py` slices everything between the two markers below out
+   verbatim and runs it under node, so all of it must stay **pure**: no DOM, no
+   localStorage, no globals. That is the only way the cosine in here is ever
+   checked against the numpy that produced the vectors it reads.
+
+   A lens is a reader's own topic. `CLAUDE.md` explains why it cannot be a
+   spine topic -- `_home` takes an argmax, so a new leaf would compete with the
+   whole spine for every story and re-label the corpus -- and why it is
+   facet-shaped instead: any number per story, cutting across rather than
+   partitioning. A saved query. */
+
+/* LENS_MATHS_START */
+function matches(s, needle) {
+  const hay = [s.title, s.summary, s.source, ...(s.topics || []).map((t) => t.name),
+    ...(s.entities || []).map((e) => e.name),
+    ...(s.items || []).flatMap((i) => [i.title, i.source])];
+  return hay.some((text) => text && text.toLowerCase().includes(needle));
+}
+
+/* The bundle packs a story's centroid one byte per dimension (`bundle.vectors`
+   says so, and `export._centroids` is where it happens). Assigning a 0..255
+   char code into an Int8Array is the sign extension -- 200 lands as -56. */
+function decodeVector(packed) {
+  if (!packed) return null;
+  return Int8Array.from(atob(packed), (c) => c.charCodeAt(0));
+}
+
+function encodeVector(bytes) {
+  return btoa(String.fromCharCode(...new Uint8Array(bytes.buffer)));
+}
+
+/* Cosine on the packed bytes directly: the quantisation scale divides out, so
+   dequantising first would buy nothing but rounding. */
+function cosine(a, b) {
+  if (!a || !b || a.length !== b.length) return 0;
+  let dot = 0;
+  let na = 0;
+  let nb = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
+  }
+  return na && nb ? dot / Math.sqrt(na * nb) : 0;
+}
+
+/* The trick `topics.centroids` plays on a story's members, one level up: a
+   lens seeded by example is the re-normalised mean of what it was seeded from.
+   `weights` is what keeps that honest as seeds are added one at a time -- the
+   stored vector already stands for every earlier seed, so it is folded back in
+   carrying their number rather than counting once. */
+function meanVector(vectors, weights) {
+  const usable = vectors.map((v, i) => [v, weights ? weights[i] : 1]).filter(([v]) => v);
+  if (!usable.length) return null;
+  const width = usable[0][0].length;
+  const sum = new Float64Array(width);
+  for (const [v, w] of usable) for (let i = 0; i < width; i += 1) sum[i] += v[i] * w;
+  let norm = 0;
+  for (let i = 0; i < width; i += 1) norm += sum[i] * sum[i];
+  norm = Math.sqrt(norm);
+  if (!norm) return null;
+  const out = new Int8Array(width);
+  for (let i = 0; i < width; i += 1) {
+    out[i] = Math.max(-127, Math.min(127, Math.round((sum[i] / norm) * 127)));
+  }
+  return out;
+}
+
+/* How close a story must sit to a lens's own vector to count. **Not measured.**
+   bge puts unrelated text near 0.5 and a story's own members merge at 0.92, so
+   this is a guess in the gap between them and the first thing to re-test once
+   there are lenses over a real corpus. What makes the guess safe is that the
+   lexical half runs first: a lens always matches its own words, so a floor set
+   too high makes it narrow rather than broken. */
+const LENS_FLOOR = 0.72;
+
+const lensTerms = (lens) => (lens.terms && lens.terms.length ? lens.terms : [lens.name])
+  .map((term) => String(term).trim().toLowerCase()).filter(Boolean);
+
+/* Words first, then the vector -- cheapest and most predictable first, which is
+   the order the clusterer uses for the same reason. */
+function lensMatcher(lens) {
+  const terms = lensTerms(lens);
+  const vector = decodeVector(lens.vector);
+  return (story) => {
+    if (terms.some((term) => matches(story, term))) return true;
+    if (!vector || !story.centroid) return false;
+    return cosine(vector, decodeVector(story.centroid)) >= LENS_FLOOR;
+  };
+}
+/* LENS_MATHS_END */
+
 const main = document.getElementById('main');
 const sheet = document.getElementById('sheet');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
@@ -592,6 +696,7 @@ let query = '';   // deliberately not persisted: a stale search on open is a bug
 /* Not persisted either. An entity is a place, but one reached from a story --
    landing back in it days later would be disorienting. */
 let entity = '';
+let lensScope = '';   // a lens you walked into, the third kind of place
 /* Which shelf is open in Trending's filter sheet. One at a time, and set from
    the current selection every time the sheet opens, so it is a view of where
    you are rather than a preference of its own. */
@@ -627,10 +732,13 @@ function loadProfileState() {
   marks.saved = readSet('saved');
   marks.dismissed = readSet('dismissed');
   follows = readSet('follows');
+  lenses = readLenses();
+  forgetLenses();
   view = localStorage.getItem(key('view')) || 'feed';
   topic = localStorage.getItem(key('topic')) || '';
   trendScope = 'all';
   entity = '';
+  lensScope = '';
   document.querySelectorAll('.tab').forEach((t) =>
     t.setAttribute('aria-selected', String(t.dataset.view === view)));
 }
@@ -638,13 +746,97 @@ function loadProfileState() {
 function toggleFollow(name) {
   if (follows.has(name)) follows.delete(name); else follows.add(name);
   writeSet('follows', follows);
+  forgetLenses();
+}
+
+/* --- Lenses: a reader's own topics -----------------------------------------
+   Stored beside follows, for the same reason: a lens is a preference, and a
+   static host has nowhere else to put one. The shape is deliberately the shape
+   a row in a table would have -- `{id, name, terms, vector, seeds, created}` --
+   because the destination is a server with real accounts and shared topics,
+   and the only thing that should change then is where the row lives.
+
+   A lens is followed the moment it is made. You wrote it down; that is the
+   whole of wanting it in the feed. */
+let lenses = [];
+
+const readLenses = () => {
+  try { return JSON.parse(localStorage.getItem(key('lenses')) || '[]'); }
+  catch { return []; }
+};
+const writeLenses = () => {
+  try { localStorage.setItem(key('lenses'), JSON.stringify(lenses)); }
+  catch { /* private mode */ }
+  forgetLenses();
+};
+const lensById = (id) => lenses.find((l) => l.id === id) || null;
+const lensKey = (lens) => `lens:${lens.id}`;
+
+/* Every lens the feed is currently being filtered by, matcher and all. Cached
+   because `isFollowed` asks once per story: without it, one render decodes each
+   lens's vector a hundred and twenty times over. Invalidated wherever the
+   answer could have changed, and again at the top of `render`.
+
+   `toggleFollow` above calls `forgetLenses` before this line in source order.
+   That is fine: nothing runs until `load()` at the foot of the file, by which
+   point the whole script has evaluated. */
+let lensCache = null;
+const forgetLenses = () => { lensCache = null; };
+
+function activeLenses() {
+  if (!lensCache) {
+    lensCache = lenses.filter((l) => follows.has(lensKey(l)))
+      .map((l) => ({ lens: l, hit: lensMatcher(l) }));
+  }
+  return lensCache;
+}
+
+function createLens(name) {
+  const clean = String(name || '').trim();
+  if (!clean) return null;
+  const lens = {
+    id: `l${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+    name: clean,
+    terms: [clean],
+    vector: null,
+    seeds: [],
+    created: new Date().toISOString(),
+  };
+  lenses.push(lens);
+  writeLenses();
+  toggleFollow(lensKey(lens));
+  return lens;
+}
+
+/* Teaching a lens by example. The stored vector already stands for every
+   earlier seed, so it is folded back in carrying their number -- otherwise the
+   fifth story you point at would weigh as much as the four before it.
+   Deliberately not recomputed from `seeds`: a story leaves the bundle after
+   thirty days and a lens must not quietly forget what it was taught. */
+function addSeed(lens, storyId) {
+  const story = bundle.stories.find((s) => s.story_id === storyId);
+  if (!story || !story.centroid || lens.seeds.includes(storyId)) return false;
+  const prior = decodeVector(lens.vector);
+  const mean = meanVector([prior, decodeVector(story.centroid)], [lens.seeds.length, 1]);
+  if (!mean) return false;
+  lens.seeds.push(storyId);
+  lens.vector = encodeVector(mean);
+  writeLenses();
+  return true;
+}
+
+function removeLens(id) {
+  lenses = lenses.filter((l) => l.id !== id);
+  writeLenses();
+  follows.delete(`lens:${id}`);
+  writeSet('follows', follows);
 }
 
 /* The first profile inherits whatever this device already stored, so turning
    profiles on does not silently wipe the follows someone has been building.
    Runs once: after it, `profiles` is non-empty and the branch is dead. */
 function adoptLegacyState(name) {
-  for (const old of ['seen', 'saved', 'dismissed', 'follows', 'view', 'topic']) {
+  for (const old of ['seen', 'saved', 'dismissed', 'follows', 'lenses', 'view', 'topic']) {
     const value = localStorage.getItem(old);
     if (value === null) continue;
     try {
@@ -772,7 +964,9 @@ function isFollowed(s) {
     if (follows.has(`topic:${t.slug}`)) return true;
     if (t.parent && follows.has(`topic:${t.parent}`)) return true;
   }
-  return (s.entities || []).some((e) => follows.has(`entity:${e.name}`));
+  if ((s.entities || []).some((e) => follows.has(`entity:${e.name}`))) return true;
+  // A lens is a subject like any other: following one fills the feed with it.
+  return activeLenses().some(({ hit }) => hit(s));
 }
 
 function mark(kind, id, on) {
@@ -886,6 +1080,8 @@ function cardHTML(s) {
             >${esc(e.name)}</button>`).join('')
       }</span>` : ''}
       <span class="actions">
+        <button class="icon" data-seed="${s.story_id}" title="More like this"
+          aria-label="More like this">&plus;</button>
         <button class="icon${isSaved ? ' on' : ''}" data-act="saved" title="Save"
           >${isSaved ? '&#9733;' : '&#9734;'}</button>
         <button class="icon" data-act="dismissed" title="Dismiss">&times;</button>
@@ -913,12 +1109,6 @@ function shelvesOf(s) {
 
 /* Searches the story and everything attached to it, so a paper found by the
    title of the thread arguing about it still comes back. */
-function matches(s, needle) {
-  const hay = [s.title, s.summary, s.source, ...(s.topics || []).map((t) => t.name),
-    ...(s.entities || []).map((e) => e.name),
-    ...(s.items || []).flatMap((i) => [i.title, i.source])];
-  return hay.some((text) => text && text.toLowerCase().includes(needle));
-}
 
 /* Newest first, by the date on the card. Deliberately not the date the ranking
    uses: a story's clock restarts when its wake grows, and a chronological feed
@@ -946,7 +1136,7 @@ function visible() {
      walked into is a place, and a place shows what is in it -- requiring a
      follow as well emptied every subject you had not already chosen, which is
      exactly the subject you went to look at. */
-  return byDate(topic || entity ? all : all.filter(isFollowed));
+  return byDate(narrowed() ? all : all.filter(isFollowed));
 }
 
 const hasEntity = (s, name) => (s.entities || []).some((e) => e.name === name);
@@ -955,6 +1145,10 @@ const hasEntity = (s, name) => (s.entities || []).some((e) => e.name === name);
    both -- "everything about OpenAI" is supposed to cut across topics. */
 function scoped(stories) {
   if (entity) return stories.filter((s) => hasEntity(s, entity));
+  if (lensScope) {
+    const lens = lensById(lensScope);
+    return lens ? stories.filter(lensMatcher(lens)) : stories;
+  }
   if (topic) return stories.filter((s) => hasTopic(s, topic));
   return stories;
 }
@@ -985,11 +1179,17 @@ function topicIndex(live) {
 /* The subjects you follow, as ways into them. It cannot show a *lit* chip any
    more, because the row is gone the moment you are inside a subject -- so it
    carries no pressed state and no `Clear`: leaving is the banner's job now. */
-const chipRow = (ranked) => ranked.map(([slug, { name, n }]) =>
-  `<button class="filter" data-topic="${esc(slug)}"
+const chipRow = (ranked) => ranked.map(([subject, { name, n }]) =>
+  `<button class="filter" data-filter="${esc(subject)}"
     >${esc(name)}<span class="n">${n}</span></button>`).join('');
 
-const narrowed = () => Boolean(topic || entity);
+/* The place you are standing in, as one key. Three variables hold it because
+   they filter differently; everything that only needs to *name* it wants this. */
+const scopeKey = () => (entity ? `entity:${entity}`
+  : lensScope ? `lens:${lensScope}`
+  : topic ? `topic:${topic}` : '');
+
+const narrowed = () => Boolean(topic || entity || lensScope);
 
 /* The subjects you follow, counted in the feed, in the order the digest ranks
    them. Flat, with no shelf-then-leaf step: you picked these individually, so
@@ -1001,11 +1201,18 @@ function followedRow(live) {
       for (const slug of [label.slug, label.parent]) {
         if (!slug || !follows.has(`topic:${slug}`)) continue;
         const name = slug === label.slug ? label.name : label.parent_name;
-        const seen = counts.get(slug) || { name, n: 0 };
+        const seen = counts.get(`topic:${slug}`) || { name, n: 0 };
         seen.n += 1;
-        counts.set(slug, seen);
+        counts.set(`topic:${slug}`, seen);
       }
     }
+  }
+  /* Your own subjects sit in the same row as the spine's. The feed does not
+     distinguish them -- `isFollowed` asks both the same question -- so neither
+     does the way back into them. */
+  for (const { lens, hit } of activeLenses()) {
+    const n = live.filter(hit).length;
+    if (n) counts.set(lensKey(lens), { name: lens.name, n });
   }
   return [...counts.entries()].sort((a, b) => b[1].n - a[1].n);
 }
@@ -1102,15 +1309,22 @@ function topicName(slug) {
    row and wrong for a follow: the follow is still counted, still gates the
    feed, and had no row left to turn it off with. */
 function quietFollows(shown) {
-  return [...follows].filter((f) => !shown.has(f)).map((f) => ({
-    key: f,
-    name: f.startsWith('topic:') ? topicName(f.slice(6)) : f.slice(7),
-  })).sort((a, b) => a.name.localeCompare(b.name));
+  return [...follows].filter((f) => !shown.has(f)).map((f) => {
+    if (f.startsWith('topic:')) return { key: f, name: topicName(f.slice(6)) };
+    if (f.startsWith('lens:')) {
+      const lens = lensById(f.slice(5));
+      return lens ? { key: f, name: lens.name } : null;
+    }
+    return { key: f, name: f.slice(7) };
+  }).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function digestHTML(live) {
+  /* No early return on an empty spine. Your own subjects are yours whatever the
+     news is doing, and bailing out here left a reader with nothing labelled --
+     a quiet day, a fresh database -- looking at "Nothing labelled yet" with no
+     way to make one. */
   const rows = digestRows(live);
-  if (!rows.length) return '<div class="empty">Nothing labelled yet.</div>';
 
   const shelves = rows.map((row) => {
     const on = followed(`topic:${row.slug}`);
@@ -1150,15 +1364,42 @@ function digestHTML(live) {
     for (const leaf of row.leaves.keys()) shown.add(`topic:${leaf}`);
   }
   for (const entity of inPlay) shown.add(`entity:${entity.name}`);
+  // Yours are listed in full below, quiet or not, so they never turn up twice.
+  for (const lens of lenses) shown.add(lensKey(lens));
 
   const quiet = quietFollows(shown).map(({ key, name }) =>
     `<button class="leaf on" data-subject="${esc(key)}">${esc(name)}</button>`).join('');
+
+  /* Your own subjects, first, because they are the only ones on this page you
+     can make. A lens is listed even when it is matching nothing -- unlike a
+     spine topic it cannot come back on its own, and a thing you wrote that has
+     silently vanished is the bug "Followed, but quiet" exists to prevent. */
+  const mine = lenses.map((lens) => {
+    const on = followed(lensKey(lens));
+    const n = live.filter(lensMatcher(lens)).length;
+    return `<button class="leaf${on ? ' on' : ''}" data-subject="${esc(lensKey(lens))}"
+      >${esc(lens.name)}<span class="n">${n || 'quiet'}</span></button>`;
+  }).join('');
 
   return `
     <p class="digest-intro">${follows.size
       ? `Your feed is the ${plural(follows.size, 'subject')} you follow. Tap one to open it.`
       : 'Your feed is empty until you follow something. Tap a subject to look inside it.'}</p>
-    ${shelves}
+    <section class="digest">
+      <div class="digest-head">
+        <span class="digest-name as-text">Your own subjects</span>
+      </div>
+        ${mine ? `<div class="digest-leaves">${mine}</div>`
+        : `<p class="digest-note">Name a subject and it starts filtering the feed
+            straight away. Teach it what else belongs with <strong>More like
+            this</strong> on any card.</p>`}
+      <form class="profile-new" data-new-lens="" autocomplete="off">
+        <input class="search lens-name" type="text" maxlength="40"
+          placeholder="New subject name" aria-label="New subject name">
+        <button class="follow on" type="submit">Add</button>
+      </form>
+    </section>
+    ${shelves || '<div class="empty">Nothing labelled yet.</div>'}
     ${names ? `<section class="digest">
       <div class="digest-head"><span class="digest-name as-text">Names in play</span></div>
       <div class="digest-leaves">${names}</div>
@@ -1171,6 +1412,21 @@ function digestHTML(live) {
     </section>` : ''}`;
 }
 
+
+/* The same banner for a lens. It says what the lens is made of, because a
+   subject you wrote yourself is the one whose contents need explaining -- a
+   topic's name is the spine's promise, a lens's name is only your own. */
+function lensHead(lens, count) {
+  const key = `lens:${lens.id}`;
+  const taught = lens.seeds.length
+    ? ` · taught by ${plural(lens.seeds.length, 'story')}` : '';
+  return `<div class="topic-head"><div class="head-row"><div>
+    <div class="topic-name">${esc(lens.name)}</div>
+    <div class="topic-meta">Your own subject · ${plural(count, 'story')}${taught}</div>
+    </div><button class="clear" data-leave>Back to feed</button></div>
+    <div class="head-follow">${followButton(key, followed(key))}</div>
+    </div>`;
+}
 
 /* The banner that makes an entity a place: everything that names it, across
    every topic, with a way back out. */
@@ -1365,12 +1621,14 @@ function closeFilters() {
 }
 
 function render() {
+  forgetLenses();
   const live = bundle.stories.filter((s) => !marks.dismissed.has(s.story_id));
   const index = topicIndex(live);
   // A selection whose topic has since gone quiet would otherwise be unclearable.
   if (topic && !index.has(topic)) topic = '';
 
   if (entity && !live.some((s) => hasEntity(s, entity))) entity = '';
+  if (lensScope && !lensById(lensScope)) lensScope = '';
   // The digest is its own page: filter rows belong to the feed, and search
   // there would be searching a list of subjects rather than the news.
   document.body.classList.toggle('digest-view', view === 'topics');
@@ -1391,6 +1649,7 @@ function render() {
   renderWho();
 
   let html = entity ? entityHead(entity, stories.length)
+    : lensScope && lensById(lensScope) ? lensHead(lensById(lensScope), stories.length)
     : topic ? topicHead(index.get(topic), stories.length) : '';
   if (view === 'trending') {
     html += `<p class="note">Ranked by relevance, how recent it is, and how many
@@ -1472,12 +1731,17 @@ async function load() {
    mechanism with more than one level in it. */
 let panels = [];
 
-const subjectKey = (entry) =>
-  (entry.kind === 'entity' ? `entity:${entry.name}` : `topic:${entry.slug}`);
+const subjectKey = (entry) => {
+  if (entry.kind === 'entity') return `entity:${entry.name}`;
+  if (entry.kind === 'lens') return `lens:${entry.id}`;
+  return `topic:${entry.slug}`;
+};
 
-const parseSubject = (value) => (value.startsWith('entity:')
-  ? { kind: 'entity', name: value.slice(7) }
-  : { kind: 'topic', slug: value.slice(6) });
+const parseSubject = (value) => {
+  if (value.startsWith('entity:')) return { kind: 'entity', name: value.slice(7) };
+  if (value.startsWith('lens:')) return { kind: 'lens', id: value.slice(5) };
+  return { kind: 'topic', slug: value.slice(6) };
+};
 
 function openPanel(entry) {
   panels.push(entry);
@@ -1551,9 +1815,14 @@ function openStory(id) {
    as "See all in the feed", so nothing that used to be reachable has gone. */
 function subjectStories(entry) {
   const live = bundle.stories.filter((s) => !marks.dismissed.has(s.story_id));
-  return byDate(entry.kind === 'entity'
-    ? live.filter((s) => hasEntity(s, entry.name))
-    : live.filter((s) => hasTopic(s, entry.slug)));
+  if (entry.kind === 'entity') return byDate(live.filter((s) => hasEntity(s, entry.name)));
+  if (entry.kind === 'lens') {
+    const lens = lensById(entry.id);
+    if (!lens) return [];
+    const hit = lensMatcher(lens);
+    return byDate(live.filter(hit));
+  }
+  return byDate(live.filter((s) => hasTopic(s, entry.slug)));
 }
 
 /* The spine first, then the stories: a subject you follow may have gone quiet
@@ -1613,7 +1882,103 @@ function leafCount(leaf) {
     : `<span class="new">${leaf.unseen} new</span> · ${leaf.n}`;
 }
 
+/* A lens's panel, shaped like every other subject's: the name and whether you
+   follow it at the top, then what it is, then what is in it. The two things a
+   curated topic never needs are here because a lens is yours -- what taught it,
+   and a way to throw it away. */
+function fillLens(entry) {
+  const lens = lensById(entry.id);
+  const body = document.getElementById('subject-body');
+  if (!lens) {
+    document.getElementById('subject-where').textContent = 'Gone';
+    body.innerHTML = `<h1 class="subject-title">Deleted</h1>
+      <p class="subject-none">This subject no longer exists.</p>`;
+    return;
+  }
+  const stories = subjectStories(entry);
+  const unseen = stories.filter((s) => !marks.seen.has(s.story_id)).length;
+  const key = lensKey(lens);
+  const on = followed(key);
+
+  document.getElementById('subject-where').textContent = `Your subjects › ${lens.name}`;
+  body.innerHTML = `
+    <span class="subject-where as-text">Your own subject</span>
+    <h1 class="subject-title">${esc(lens.name)}</h1>
+    <p class="subject-stat">${stories.length
+      ? `${plural(stories.length, 'story')}${unseen ? ` · <strong>${unseen} new</strong>` : ' · all read'}`
+      : 'Nothing in the feed right now'}</p>
+    <div class="subject-actions">
+      <button class="follow wide${on ? ' on' : ''}" data-follow="${esc(key)}"
+        aria-pressed="${on}">${on ? 'Following' : 'Follow'}</button>
+      ${stories.length
+        ? `<button class="subject-go" data-see-feed="${esc(key)}">See all in the feed</button>`
+        : ''}
+    </div>
+    <div class="group-label">What it matches</div>
+    <p class="subject-note">Anything mentioning
+      ${lensTerms(lens).map((term) => `<strong>${esc(term)}</strong>`).join(' or ')}${
+        lens.seeds.length
+          ? `, and anything that reads like the ${plural(lens.seeds.length, 'story')}
+             you taught it with. Use <strong>More like this</strong> on a card to
+             teach it another.`
+          : `. Use <strong>More like this</strong> on a card to teach it what
+             else belongs here, and it will start matching stories that do not
+             use the word.`}</p>
+    ${stories.length ? `<div class="group-label">Latest</div>
+      ${stories.slice(0, MAX_HEADLINES).map((s) =>
+        `<button class="headline${marks.seen.has(s.story_id) ? ' seen' : ''}"
+          data-open="${s.story_id}">${esc(s.title)}
+          <span class="when">· ${esc(ago(s.published_at))}</span></button>`).join('')}
+      ${stories.length > MAX_HEADLINES
+        ? `<p class="subject-none">${stories.length - MAX_HEADLINES} more in the feed.</p>` : ''}`
+      : `<p class="subject-none">Nothing matches it in the current bundle. It
+          still counts as something you follow.</p>`}
+    <div class="group-label">Yours to change</div>
+    <button class="subject-drop" data-drop-lens="${esc(lens.id)}">Delete this subject</button>`;
+}
+
+/* "More like this", as a place rather than a prompt. Teaching a lens is the
+   one action on this page that needs to ask *which* subject, and a panel is
+   already how the page asks anything -- so it is the same sheet, the same back
+   gesture, the same one-level-up rule. */
+function fillSeed(entry) {
+  const story = bundle.stories.find((s) => s.story_id === entry.id);
+  const body = document.getElementById('subject-body');
+  document.getElementById('subject-where').textContent = 'More like this';
+  if (!story) { body.innerHTML = '<p class="subject-none">That story has gone.</p>'; return; }
+
+  const rows = lenses.map((lens) => {
+    const has = lens.seeds.includes(story.story_id);
+    return `<div class="subject-row">
+      <button class="subject-leaf" data-subject="${esc(lensKey(lens))}">${esc(lens.name)}<span
+        class="n">${lens.seeds.length ? `${lens.seeds.length} taught` : 'words only'}</span></button>
+      <button class="follow${has ? ' on' : ''}" ${has ? 'disabled' : ''}
+        data-add-seed="${esc(lens.id)}" data-story="${story.story_id}"
+        >${has ? 'Added' : 'Add'}</button>
+    </div>`;
+  }).join('');
+
+  body.innerHTML = `
+    <h1 class="subject-title">More like this</h1>
+    <p class="subject-stat">${esc(story.title)}</p>
+    ${story.centroid ? '' : `<p class="subject-note">This story has no vector in
+      the current bundle, so it cannot teach a subject yet. It will once the
+      pipeline has embedded it.</p>`}
+    ${rows ? `<div class="group-label">Add it to</div>${rows}` : ''}
+    <div class="group-label">${rows ? 'Or start a new one' : 'Start a subject from it'}</div>
+    <form class="profile-new" data-new-lens="${story.story_id}" autocomplete="off">
+      <input class="search lens-name" type="text" maxlength="40"
+        placeholder="Name this subject" aria-label="Name this subject">
+      <button class="follow on" type="submit">Create</button>
+    </form>
+    <p class="subject-note">The name filters the feed on its own words straight
+      away. This story teaches it what else belongs, so it can match things that
+      never use the word.</p>`;
+}
+
 function fillSubject(entry) {
+  if (entry.kind === 'seed') { fillSeed(entry); return; }
+  if (entry.kind === 'lens') { fillLens(entry); return; }
   const stories = subjectStories(entry);
   const unseen = stories.filter((s) => !marks.seen.has(s.story_id)).length;
   const key = subjectKey(entry);
@@ -1863,6 +2228,7 @@ document.addEventListener('click', (event) => {
   if (walk) {
     const into = parseSubject(walk.dataset.seeFeed);
     entity = into.kind === 'entity' ? into.name : '';
+    lensScope = into.kind === 'lens' ? into.id : '';
     topic = into.kind === 'topic' ? into.slug : '';
     store(key('topic'), topic);
     leavePanels();
@@ -1887,9 +2253,45 @@ document.addEventListener('click', (event) => {
 
   const filter = event.target.closest('.filter');
   if (filter) {
+    const pick = filter.dataset.filter;
+    const off = scopeKey() === pick;
     entity = '';
-    topic = topic === filter.dataset.topic ? '' : filter.dataset.topic;
+    lensScope = '';
+    topic = '';
+    if (!off) {
+      const into = parseSubject(pick);
+      if (into.kind === 'entity') entity = into.name;
+      else if (into.kind === 'lens') lensScope = into.id;
+      else topic = into.slug;
+    }
     store(key('topic'), topic);
+    render();
+    return;
+  }
+
+  /* Teaching a lens, from the card the story is on. Before the `.card` handler
+     below, which would otherwise open the story underneath the tap. */
+  const seed = event.target.closest('[data-seed]');
+  if (seed) {
+    event.stopPropagation();
+    openPanel({ kind: 'seed', id: Number(seed.dataset.seed) });
+    return;
+  }
+
+  const teach = event.target.closest('[data-add-seed]');
+  if (teach) {
+    event.stopPropagation();
+    const lens = lensById(teach.dataset.addSeed);
+    if (lens) addSeed(lens, Number(teach.dataset.story));
+    showPanel();
+    return;
+  }
+
+  const dropLens = event.target.closest('[data-drop-lens]');
+  if (dropLens) {
+    event.stopPropagation();
+    removeLens(dropLens.dataset.dropLens);
+    closePanel();
     render();
     return;
   }
@@ -1924,6 +2326,21 @@ document.addEventListener('error', (event) => {
 
 /* Delegated, because the form is rebuilt every time the chooser opens. */
 document.addEventListener('submit', (event) => {
+  const making = event.target.closest('[data-new-lens]');
+  if (making) {
+    event.preventDefault();
+    const input = making.querySelector('.lens-name');
+    const lens = createLens(input.value);
+    if (!lens) return;
+    input.value = '';
+    // Created from a card, so it starts knowing one thing that belongs in it.
+    const from = Number(making.dataset.newLens);
+    if (from) addSeed(lens, from);
+    panels = panels.filter((entry) => entry.kind !== 'seed');
+    openPanel({ kind: 'lens', id: lens.id });
+    render();
+    return;
+  }
   if (event.target.id !== 'new-profile') return;
   event.preventDefault();
   const input = document.getElementById('profile-name');
