@@ -674,6 +674,11 @@ Findings that should not be researched again:
 - **Anthropic has no feed** on either domain or in either page head; it needs
   the HTML-scrape adapter. Its YouTube channel is `UCrDwWp7EBBv4NwvScIpBDOA`.
 - **MarkTechPost's own `/feed/` returns 403**; the FeedBurner mirror works.
+- **An empty 406 from `export.arxiv.org` is its CDN, not the API** — no
+  `google` hop in `Via`, and `cache-control: private, no-store`. It hit httpx
+  on the WSL machine for a few minutes on 2026-09-22 while curl got 200 from
+  the same URL and Actions was unaffected, then cleared by itself. Retry before
+  debugging the adapter: a header change looked like the fix and was not.
 - **YouTube**: channel feeds at `youtube.com/feeds/videos.xml?channel_id=…`
   work — Dwarkesh `UCXl4i9dYBrFOabk0xGmbkRA`, MLST `UCMLtBahI5DMrt0NPvDSoIRQ`,
   Two Minute Papers `UCbfYPyITQ-7l4upoX8nvctg`, AI Explained
@@ -751,10 +756,13 @@ knowing:
   it is the card every social platform renders from their link; a paper, a
   release and a model card are not written that way. Firing a request at all
   ~235 arXiv abstracts a week on the chance one has a picture is a guess, and
-  this repo measures instead. Widening it is a one-line change **after** someone
-  checks what those pages actually carry — arXiv and GitHub release pages are
-  the two worth checking, and GitHub's generated social card would give every
-  release an image if it is there.
+  this repo measures instead. **Measured 2026-09-22, and not widened.** An
+  arXiv abstract's `og:image` is arXiv's own logo, the same on every paper; a
+  GitHub release's is a card GitHub renders from the release's own title and
+  notes — a picture of the headline the card already prints, declined as art on
+  the owner's call. Both are refused wherever they turn up (`_NOT_ART`),
+  because a Hacker News post linking to a repo reaches the same card through
+  its `outbound_url`; five local items had it before the guard.
 
 A picture never re-opens triage. A summary clears `embedded_hash` and the
 verdict because the vector was built without it; art changes nothing a model
@@ -803,10 +811,11 @@ every 15 minutes, 100+ languages; the DOC 2.0 API's `ArtList` mode returns
 this corpus lacks. Two things make it a decision rather than a config line: it
 is query-driven, which is the shape this repo does not have and the same shape
 product search would need, and it is *all* world news, so the per-kind
-popularity gate stops being optional. **None of these endpoints has been probed
-from a machine that can reach them** — the research sandbox's proxy refused
-`api.gdeltproject.org`, `news.google.com` and the live `data.json` alike. Verify
-before building on any of it.
+popularity gate stops being optional. **GDELT refused the one machine that
+could reach it.** The research sandbox's proxy blocked `api.gdeltproject.org`,
+`news.google.com` and the live `data.json`; from the WSL machine on 2026-09-22
+GDELT answered HTTP 429 to every request, the first one included. Google News
+has still not been probed. Verify before building on any of it.
 
 **Beyond AI.** Sources, triage, topics, facets and entities are all config, and
 the pipeline never names a subject; `identity.py`'s arXiv and hub extractors
