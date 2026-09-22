@@ -368,7 +368,7 @@ def test_parked_stories_are_the_gap_suggest_leads_with(conn, story, axes):
 
 
 def test_stats_counts_stories_triage_would_have_dropped(conn, source_id):
-    """Triage no longer gates the corpus, so this is what says following is polluted."""
+    """Short or off-profile stories -- which is not the same as off-topic."""
     from tributary import topics as topics_mod
 
     topic_id = conn.execute(
@@ -396,7 +396,7 @@ def test_stats_counts_stories_triage_would_have_dropped(conn, source_id):
     assert row["below_triage"] == 2
 
 
-def test_stats_does_not_count_an_empty_topic_as_polluted(conn):
+def test_stats_counts_nothing_below_triage_for_an_empty_topic(conn):
     from tributary import topics as topics_mod
 
     conn.execute("INSERT INTO topics (slug, name) VALUES ('quiet', 'Nothing here')")

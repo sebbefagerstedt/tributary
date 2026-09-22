@@ -346,6 +346,18 @@ def test_an_image_that_is_not_a_url_is_dropped():
     assert image("  ") is None
 
 
+def test_a_sites_own_logo_or_generated_card_is_not_art():
+    """Both are the same picture on every page. Seen live 2026-09-22 -- the
+    GitHub one through Hacker News posts linking to repos."""
+    arxiv = ('<head><meta property="og:image" '
+             'content="/static/browse/0.3.4/images/arxiv-logo-fb.png"></head>')
+    assert describe.page_image(arxiv, "https://arxiv.org/abs/1706.03762") is None
+
+    github = ('<head><meta property="og:image" content="https://opengraph.githubassets.com/'
+              'f1d4/ggml-org/llama.cpp/releases/tag/v0.4.1"></head>')
+    assert describe.page_image(github, "https://github.com/ggml-org/llama.cpp") is None
+
+
 def test_a_page_with_no_image_yields_none():
     assert describe.page_image(PAGE) is None
     assert describe.page_image("") is None

@@ -19,9 +19,10 @@ fits together, and the decisions that should not be rediscovered.
   optional and priced, never on by default.
 - **Do not cut arXiv.** A new paper is news whether or not anyone has reacted to
   it. Any popularity gate has to be per-kind, never global.
-- **No Substack sources.** Substack blocks GitHub Actions IPs — Import AI returns
-  403 on every scheduled run and works fine locally. Every source must behave
-  the same wherever `trib` runs.
+- **No Substack sources.** Substack blocks GitHub Actions IPs — Import AI
+  returned 403 on every scheduled run while working fine locally, and was
+  dropped for it on 2026-09-22. Every source must behave the same wherever
+  `trib` runs.
 - **The ranking is not an engagement metric — but that is about mechanics, not
   format.** The project exists partly to replace a social-media habit with "något
   vettigt", so a ranking tuned to keep you scrolling is the thing being avoided.
@@ -186,14 +187,38 @@ fetched becomes a story. Triage still runs, and its score is still `relevance`
 in the ranking — so what the profile dislikes sinks in Trending rather than
 never existing. Trending is marked **beta** in the UI while that is judged.
 
-**The consequence to watch is the topic floor.** Topics have no relevance
-threshold by design — a story goes to its single best leaf — and `floor = 0.55`
-was measured at *1 story in 2239* **on already-triaged material**. On
-everything, that floor is the only thing between a crypto post and whichever AI
-leaf it most resembles, and following is what gets polluted if it fails.
-`trib topics --stats` has a **below triage** column counting stories made
-entirely of items triage would have dropped; a topic filling up with those is
-the signal to re-measure the floor on the new population.
+**The topic floor was re-measured on everything, and stays at 0.55.** Topics
+have no relevance threshold by design — a story goes to its single best leaf —
+and `floor = 0.55` was first measured at *1 story in 2239* **on already-triaged
+material**. Once everything became a story, the floor was the only thing
+between a crypto post and whichever AI leaf it most resembles, so it was
+measured again on 2026-09-22: 30 days of stories, 428 of them labelled by hand
+as about AI or not.
+
+- **There is no gap to cut at.** Short and image-only posts score low whatever
+  they are about — *Anthropic releases Opus 5.5* scored 0.565, *Qwen 4
+  Announced* 0.559 — so raising the floor cuts AI news about as fast as filler:
+  0.58 costs 17 more AI stories their topic for 30 fewer filler, 0.60 costs 44
+  for 56. arXiv papers never score that low; the lowest of 299 was 0.631.
+- **Filler is 9% of stories with a topic** — 102 of 1,167, about three a day
+  spread over every topic, 2–8% in the big ones. It is only a large share of a
+  *thin* topic, where three stray stories can be all there is.
+- **Most of it is one source**, the Hacker News front page: 105 of 139 non-AI
+  stories. A floor of 0.60 for stories made only of its items was the best rule
+  measured — 33 fewer filler, 8 more AI stories without a topic, 6 of them
+  still carrying an entity — and was not taken, because the problem is not big
+  enough to earn a per-source mechanism. Two others did worse: hidden "not
+  about AI" descriptions competing in the argmax lost to a plain floor, since
+  AI news about politics matches a politics description better than any leaf;
+  and triage as a second opinion changed nothing, because it misjudges short
+  posts both ways.
+- **The below-triage column overstates filler.** `trib topics --stats` counts
+  a topic's stories made entirely of items triage would have dropped, and
+  triage drops short AI posts too — *Grok 4.7*, *MiMo v2.6*, *Transformers
+  Explained Visually*. In the same 30 days, 9 of Frontier model releases' 24
+  stories were below triage and 7 of those 9 were real releases. Read the
+  column as "short or off the profile", never as "not AI"; what a topic holds
+  is in its headlines.
 
 **The profile chooser lists what that profile follows.** Asked for 2026-09-21:
 *"In the profiles, I would also like to see the topics i follow"* — and it is
@@ -654,7 +679,8 @@ safety writing and Reddit; about 90 non-paper items a week against arXiv's ~235.
 Findings that should not be researched again:
 
 - **Every added source fetches from Actions too** — checked on the first runs
-  after they landed (2026-09-18). Only Import AI fails there, being Substack.
+  after they landed (2026-09-18). Only Import AI failed there, being Substack,
+  and it was dropped on 2026-09-22.
 - **Reddit needs no API key.** The `.rss` endpoints are public Atom, given three
   things: a descriptive User-Agent (a default one gets 403 HTML before the rate
   limiter), the multireddit form `r/a+b+c/.rss` (one rate-limit token for all of
@@ -674,6 +700,11 @@ Findings that should not be researched again:
 - **Anthropic has no feed** on either domain or in either page head; it needs
   the HTML-scrape adapter. Its YouTube channel is `UCrDwWp7EBBv4NwvScIpBDOA`.
 - **MarkTechPost's own `/feed/` returns 403**; the FeedBurner mirror works.
+- **An empty 406 from `export.arxiv.org` is its CDN, not the API** — no
+  `google` hop in `Via`, and `cache-control: private, no-store`. It hit httpx
+  on the WSL machine for a few minutes on 2026-09-22 while curl got 200 from
+  the same URL and Actions was unaffected, then cleared by itself. Retry before
+  debugging the adapter: a header change looked like the fix and was not.
 - **YouTube**: channel feeds at `youtube.com/feeds/videos.xml?channel_id=…`
   work — Dwarkesh `UCXl4i9dYBrFOabk0xGmbkRA`, MLST `UCMLtBahI5DMrt0NPvDSoIRQ`,
   Two Minute Papers `UCbfYPyITQ-7l4upoX8nvctg`, AI Explained
@@ -751,10 +782,13 @@ knowing:
   it is the card every social platform renders from their link; a paper, a
   release and a model card are not written that way. Firing a request at all
   ~235 arXiv abstracts a week on the chance one has a picture is a guess, and
-  this repo measures instead. Widening it is a one-line change **after** someone
-  checks what those pages actually carry — arXiv and GitHub release pages are
-  the two worth checking, and GitHub's generated social card would give every
-  release an image if it is there.
+  this repo measures instead. **Measured 2026-09-22, and not widened.** An
+  arXiv abstract's `og:image` is arXiv's own logo, the same on every paper; a
+  GitHub release's is a card GitHub renders from the release's own title and
+  notes — a picture of the headline the card already prints, declined as art on
+  the owner's call. Both are refused wherever they turn up (`_NOT_ART`),
+  because a Hacker News post linking to a repo reaches the same card through
+  its `outbound_url`; five local items had it before the guard.
 
 A picture never re-opens triage. A summary clears `embedded_hash` and the
 verdict because the vector was built without it; art changes nothing a model
@@ -803,10 +837,11 @@ every 15 minutes, 100+ languages; the DOC 2.0 API's `ArtList` mode returns
 this corpus lacks. Two things make it a decision rather than a config line: it
 is query-driven, which is the shape this repo does not have and the same shape
 product search would need, and it is *all* world news, so the per-kind
-popularity gate stops being optional. **None of these endpoints has been probed
-from a machine that can reach them** — the research sandbox's proxy refused
-`api.gdeltproject.org`, `news.google.com` and the live `data.json` alike. Verify
-before building on any of it.
+popularity gate stops being optional. **GDELT refused the one machine that
+could reach it.** The research sandbox's proxy blocked `api.gdeltproject.org`,
+`news.google.com` and the live `data.json`; from the WSL machine on 2026-09-22
+GDELT answered HTTP 429 to every request, the first one included. Google News
+has still not been probed. Verify before building on any of it.
 
 **Beyond AI.** Sources, triage, topics, facets and entities are all config, and
 the pipeline never names a subject; `identity.py`'s arXiv and hub extractors
@@ -820,7 +855,7 @@ cluster.AMBIGUOUS_LOW    = 0.86
 cluster.WINDOW_DAYS      = 14
 triage threshold         = 0.66   # no longer a gate; only labels kept/rejected
 store.MAX_ITEM_AGE_DAYS  = 60     # must match `trib prune --days` in the workflow
-topics floor             = 0.55   # 1 in 2239 -- but measured on TRIAGED material
+topics floor             = 0.55   # re-measured on everything: no gap, 9% filler
 topics park_margin       = 0.02   # parks about 13% of stories on a shelf
 ```
 

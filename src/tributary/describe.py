@@ -143,6 +143,12 @@ _DESCRIPTION_KEYS = ("og:description", "twitter:description", "description")
 # purpose, because it is the card every social platform renders.
 _IMAGE_KEYS = ("og:image", "og:image:url", "twitter:image", "twitter:image:src")
 
+# Images a site hands out for every page, which are therefore a picture of none
+# of them. Checked 2026-09-22: every arXiv abstract carries arXiv's logo, and
+# GitHub renders a card of each page's own title -- the headline the card
+# already prints. A Hacker News post linking to either reaches them too.
+_NOT_ART = ("arxiv.org/static/browse/", "opengraph.githubassets.com/")
+
 
 def _attributes(tag: str) -> dict[str, str]:
     return {
@@ -197,15 +203,20 @@ def page_image(html: str | None, base_url: str = "") -> str | None:
     Resolved against the page it came from, because plenty of publishers write
     `og:image` as a path. Anything that does not come out as http(s) is dropped
     rather than guessed at -- a `data:` URI would be inlined into the bundle,
-    and a relative path with no base is a broken `<img>` on the card.
+    and a relative path with no base is a broken `<img>` on the card. So is a
+    site's own logo or generated card (`_NOT_ART`), which is not this page's.
     """
     found = _head_meta(html)
     for key in _IMAGE_KEYS:
         if not (raw := (found.get(key) or "").strip()):
             continue
         resolved = urljoin(base_url, strip_html(raw) or raw)
-        if resolved.lower().startswith(("http://", "https://")):
-            return resolved
+        lowered = resolved.lower()
+        if not lowered.startswith(("http://", "https://")):
+            continue
+        if any(marker in lowered for marker in _NOT_ART):
+            continue
+        return resolved
     return None
 
 
@@ -289,9 +300,9 @@ _YIELDS_MEDIA = frozenset({PAGE})
 # Kinds whose pages reliably carry card art, and are therefore worth a request
 # for the picture alone. A publisher maintains `og:image` because it is what
 # every social platform renders from their link. A paper, a release and a model
-# card are not written that way, and firing a request at all ~235 arXiv
-# abstracts a week on the chance one has a picture is a guess, not a measurement
-# -- widen this once someone has checked, not before.
+# card are not written that way, and checking bore it out (2026-09-22): an arXiv
+# abstract's og:image is arXiv's logo and a GitHub release's is a card of its
+# own title, both `_NOT_ART`. So neither kind is worth a request for art.
 _ILLUSTRATED_KINDS = frozenset({Kind.ARTICLE, Kind.POST})
 
 

@@ -163,8 +163,8 @@ Two things worth knowing:
 - **The database is not committed.** It lives in the Actions cache. A cache
   miss is survivable — the run rebuilds from the sources.
 - **Some sources behave differently there.** Actions runners are cloud IPs.
-  Substack blocks them, which is why Import AI works locally but not on a run,
-  and YouTube would too.
+  Substack blocks them — Import AI worked locally but never on a run, and was
+  dropped for it — and YouTube would too.
 
 ## Development
 

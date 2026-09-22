@@ -46,11 +46,6 @@ url = "https://simonwillison.net/atom/everything/"
 
 [[sources]]
 kind = "rss"
-name = "Import AI"
-url = "https://importai.substack.com/feed"
-
-[[sources]]
-kind = "rss"
 name = "Latent Space"
 url = "https://www.latent.space/feed"
 
@@ -66,8 +61,9 @@ url = "https://thegradient.pub/rss/"
 
 # --- Press -------------------------------------------------------------------
 # Substack is deliberately absent from this list. It blocks GitHub Actions IPs,
-# which is why Import AI 403s on a run and works locally, and adding more of it
-# would mean sources that behave differently depending on where trib runs.
+# which is why Import AI 403'd on every run while working locally and was
+# dropped, and adding more of it would mean sources that behave differently
+# depending on where trib runs.
 
 [[sources]]
 kind = "rss"
@@ -313,8 +309,9 @@ always_drop = []
 
 [topics]
 # Not a tuning knob. A story scoring below this against every leaf is one the
-# spine has no opinion about at all; over the whole corpus that is 1 story in
-# 2239. If you find yourself raising it, the spine is wrong, not this number.
+# spine has no opinion about at all. Raising it to keep filler out of topics was
+# measured on 2026-09-22 and rejected: short AI posts score as low as filler, so
+# it cuts news as fast as noise. CLAUDE.md has the numbers.
 floor = 0.55
 
 # Two leaves on the same shelf within this of each other means the shelf is
@@ -332,7 +329,7 @@ description = "the models themselves, as things that get released and used"
 slug = "frontier"
 parent = "models"
 name = "Frontier model releases"
-description = "a leading lab releases or updates its flagship model, and what changed about it"
+description = "a new flagship model such as GPT, Claude, Gemini or Grok is released or leaked, and what changed from the previous version"
 
 [[topics.spine]]
 slug = "open-weights"
@@ -500,7 +497,13 @@ description = "measuring what models can actually do, and where a benchmark misl
 slug = "behaviour"
 parent = "evals"
 name = "How models behave"
-description = "empirical studies of model behaviour: calibration, confidence, values and bias"
+description = "empirical studies of how models behave: their values, biases, sycophancy and personas"
+
+[[topics.spine]]
+slug = "uncertainty"
+parent = "evals"
+name = "Uncertainty & calibration"
+description = "knowing when a model's answer can be trusted: uncertainty estimates, confidence calibration and conformal prediction"
 
 # --- Safety & security ---
 [[topics.spine]]
@@ -555,6 +558,18 @@ slug = "society"
 parent = "applied"
 name = "Work, education & society"
 description = "how AI lands in workplaces, classrooms and everyday life"
+
+[[topics.spine]]
+slug = "climate"
+parent = "applied"
+name = "Weather, climate & energy"
+description = "AI for weather, climate and energy: forecasting storms and rainfall, modelling the climate, and running power grids"
+
+[[topics.spine]]
+slug = "markets"
+parent = "applied"
+name = "Finance & markets"
+description = "AI applied to money: predicting markets, trading, credit risk and fraud"
 
 # --- Industry & policy ---
 [[topics.spine]]
@@ -650,6 +665,12 @@ kind = "org"
 name = "Google DeepMind"
 aliases = ["DeepMind", "Google Research", "Google AI"]
 
+# The company, not the lab: launch coverage says "Google releases Gemini", which
+# the lab's name never matches.
+[[entities]]
+kind = "org"
+name = "Google"
+
 [[entities]]
 kind = "org"
 name = "Meta AI"
@@ -696,13 +717,22 @@ kind = "org"
 name = "Moonshot AI"
 
 [[entities]]
+kind = "org"
+name = "Apple"
+
+[[entities]]
+kind = "org"
+name = "TypeSafe AI"
+
+[[entities]]
 kind = "model"
 name = "GPT"
-aliases = ["ChatGPT", "GPT-4o", "GPT-5", "GPT-6"]
+aliases = ["ChatGPT", "GPT-4o", "GPT-5", "GPT-6", "Astra"]
 
 [[entities]]
 kind = "model"
 name = "Claude"
+aliases = ["Opus"]
 
 [[entities]]
 kind = "model"
@@ -733,6 +763,14 @@ kind = "model"
 name = "Phi"
 
 [[entities]]
+kind = "model"
+name = "MiMo"
+
+[[entities]]
+kind = "model"
+name = "Jev"
+
+[[entities]]
 kind = "tool"
 name = "llama.cpp"
 
@@ -756,3 +794,7 @@ name = "LangChain"
 [[entities]]
 kind = "tool"
 name = "PyTorch"
+
+[[entities]]
+kind = "tool"
+name = "Codex"
