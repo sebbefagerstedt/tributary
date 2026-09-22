@@ -34,8 +34,64 @@ kind = "rss"
 name = "Hugging Face Blog"
 url = "https://huggingface.co/blog/feed.xml"
 
-# Anthropic publishes no public RSS feed; covered for now via TechCrunch and
-# Simon Willison. Revisit when the HTML-scrape adapter lands.
+[[sources]]
+kind = "rss"
+name = "Microsoft Research"
+url = "https://www.microsoft.com/en-us/research/feed/"
+
+# Google's product blog, where a Gemini launch is announced; Research and
+# DeepMind above carry the papers behind it, not the release.
+[[sources]]
+kind = "rss"
+name = "Google AI"
+url = "https://blog.google/technology/ai/rss/"
+
+[[sources]]
+kind = "rss"
+name = "Amazon Science"
+url = "https://www.amazon.science/index.rss"
+
+[[sources]]
+kind = "rss"
+name = "Qwen"
+url = "https://qwenlm.github.io/blog/index.xml"
+
+# Meta AI's own blog has no feed; its engineering blog's ML category does.
+[[sources]]
+kind = "rss"
+name = "Meta Engineering (ML)"
+url = "https://engineering.fb.com/category/ml-applications/feed/"
+
+[[sources]]
+kind = "rss"
+name = "GitHub Blog (AI & ML)"
+url = "https://github.blog/ai-and-ml/feed/"
+
+[[sources]]
+kind = "rss"
+name = "Cohere"
+url = "https://cohere.com/blog/rss.xml"
+
+# Labs with no feed at all, read from their sitemaps (`sources/sitemap.py`):
+# every URL under `include` that was not listed before is visited once for its
+# title, description, date and picture, at most `limit` a run.
+[[sources]]
+kind = "sitemap"
+name = "Anthropic"
+url = "https://www.anthropic.com/sitemap.xml"
+include = "anthropic\\.com/(news|research|engineering)/[^/?#]+$"
+
+[[sources]]
+kind = "sitemap"
+name = "xAI"
+url = "https://x.ai/sitemap.xml"
+include = "x\\.ai/news/[^/?#]+$"
+
+[[sources]]
+kind = "sitemap"
+name = "DeepSeek"
+url = "https://api-docs.deepseek.com/sitemap.xml"
+include = "/news/news\\d+"
 
 # --- Commentary and analysis -------------------------------------------------
 

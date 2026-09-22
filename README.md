@@ -81,9 +81,9 @@ url = "https://simonwillison.net/atom/everything/"
 ```
 
 Adapters: `rss` (also Atom, and Reddit's public `.rss` endpoints), `hn`
-(Algolia), `arxiv`, `hf` (models, datasets, daily papers) and `github`
-(releases). Unknown keys pass through to the adapter, so each kind takes its own
-options:
+(Algolia), `arxiv`, `hf` (models, datasets, daily papers), `github`
+(releases) and `sitemap`, for a site with no feed at all. Unknown keys pass
+through to the adapter, so each kind takes its own options:
 
 ```toml
 [[sources]]
@@ -92,6 +92,19 @@ name = "GitHub Releases"
 repos = ["vllm-project/vllm", "ggml-org/llama.cpp"]
 prereleases = false   # the default; llama.cpp tags a prerelease per commit
 ```
+
+```toml
+[[sources]]
+kind = "sitemap"
+name = "Anthropic"
+url = "https://www.anthropic.com/sitemap.xml"
+include = "anthropic\\.com/(news|research|engineering)/[^/?#]+$"  # which URLs are posts
+limit = 10            # the default; pages visited per run, newest first
+```
+
+A sitemap lists a site's whole history, so the first run only takes a
+baseline — plus whatever the sitemap itself dates as recent — and after that
+each new URL is visited once for its title, description, date and image.
 
 Removing a source disables it rather than deleting it, so its items survive.
 

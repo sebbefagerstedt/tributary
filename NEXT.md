@@ -11,6 +11,11 @@ this file. "Personal lenses" below is not an alternative to it — a topic only
 its author can see is not the feature — it is the way to build and use every
 part of this one before paying for a host or writing a moderation policy.
 
+**On hold until the owner decides to make the change**, said 2026-09-22 of both
+this and the shared tier of personal lenses below. Nothing in either section
+is to be started before then; the notes are here so the decision can be made
+with them in hand.
+
 **Users need to be able to post and comment directly on a topic.** Asked for
 2026-09-17, and it is what finishes the idea the rest of the app has been
 building toward: a topic you *enter* is a place, and a place is where people
@@ -174,7 +179,7 @@ Three tiers, and the first one — the private lens, the only one that costs
 nothing — is built. Name one on the subjects page and it filters the feed on its
 own words at once; teach it with **More like this** on a card and it starts
 matching stories that never use the word. How it works is in `CLAUDE.md`. The
-two above it:
+two above it, both on hold with the posting entry until the owner decides:
 
 1. **A shared topic.** Visible to other readers, so it needs the server the
    posting entry describes. This is where proposal ranking lives, gated on
@@ -204,6 +209,12 @@ source discovery instead of guessing, and the one way the "I do not want to miss
 events" worry is actually answered by this feature rather than by ingestion.
 
 ## Product launches — a different subject, and a different shape
+
+**Deferred, 2026-09-22:** it takes the project beyond AI-only subjects, which is
+a big change the owner has not decided to make. **Search is the exception** —
+*"a search would be interesting to look into"* — and it is the hard part below
+(fetching in answer to a query), so it can be investigated for AI subjects
+without taking on consumer hardware at all.
 
 **Asked 2026-09-19**, alongside a screenshot of a fitness-tracker review page:
 
@@ -328,9 +339,8 @@ whether the digest or the feed is the front door.
   Propose-then-accept, like topics. It is a stage, never a `Source`, because
   adapters do not touch the database. Google's own Follow button works this way
   — see `CLAUDE.md` under Sources.
-- **TLDR AI and Anthropic** need a two-stage adapter — fetch a listing, then one
-  request per page, emitting one item per story. Needs the HTML parser the repo
-  does not have. Why TLDR cannot be plain RSS is in `CLAUDE.md`.
+- **TLDR AI** needs a two-stage adapter — fetch the issue, then emit one item
+  per story in it. Why it cannot be plain RSS is in `CLAUDE.md`.
 - **Extract linked URLs as join keys**, so a post clusters with the thing it is
   about. The guards it needs are in `CLAUDE.md` under Sources. Touches
   clustering, which is calibrated, so it needs guards and tests rather than a
@@ -350,11 +360,9 @@ whether the digest or the feed is the front door.
 
 ## Needs a decision, or a look
 
-- **Anthropic is not a source**, and should be. It has no feed on `anthropic.com`
-  or `alignment.anthropic.com` under any path, and no `application/rss+xml` in
-  either page head — so it is the HTML-scrape adapter's first real customer.
-  Third-party scrapers republish its news as RSS, though trusting someone
-  else's scraper for a primary source seems worse than the gap.
+**Interview the owner before building any of these.** Said 2026-09-22: they are
+not sure about several and want to be asked about them, one at a time, first.
+
 - **A cyber-misuse story landed under Companies & money.** Seen 2026-09-19:
   *"Gemini Hacked Three Companies in First Known Breakout by Google's AI"* took
   `Industry & policy › Companies & money`. The owner's read: *"I am not sure if
@@ -423,9 +431,6 @@ whether the digest or the feed is the front door.
   every 5 seconds"*, on three requests spaced well apart — the first one
   included, under curl's User-Agent and tributary's. So its shape is still
   unverified, and the rate limit is the first thing an adapter has to survive.
-- **News sitemaps as a second adapter kind.** Covers publishers with no feed,
-  which is the only gap feed autodiscovery leaves. Simple XML, no new
-  dependency, 48-hour window by spec.
 - **Is Trending becoming a Discover-shaped card list?** Big cards are wanted, so
   the density half is settled — and so, now, is the image half: **the corpus
   cannot carry one image per card.** Checked 2026-09-22: an arXiv abstract's

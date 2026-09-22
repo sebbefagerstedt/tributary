@@ -730,8 +730,13 @@ Findings that should not be researched again:
   `trendingScore`; a `base_model:*` tag is the reliable mark of a derivative,
   while "author is an organisation" is not (unsloth is an org and a requant
   shop). `cites_paper` kept zero of 300 newest repos, so that source was removed.
-- **Anthropic has no feed** on either domain or in either page head; it needs
-  the HTML-scrape adapter.
+- **Anthropic has no feed** on either domain or in either page head, so it is
+  read from its sitemap (`kind = "sitemap"`, built 2026-09-22), as are xAI and
+  DeepSeek. The adapter visits each URL under `include` once, for the same
+  `<meta>` tags `describe` reads, and never crawls a back catalogue: its
+  docstring has why, and what it does with a `lastmod` that is only the build
+  date. The same adapter reads a Google news sitemap, dated by
+  `news:publication_date`.
 - **MarkTechPost's own `/feed/` returns 403**; the FeedBurner mirror works.
 - **An empty 406 from `export.arxiv.org` is its CDN, not the API** — no
   `google` hop in `Via`, and `cache-control: private, no-store`. It hit httpx
