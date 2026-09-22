@@ -59,8 +59,8 @@ def run(
     described = describe.run(conn)
     if described["attempted"]:
         console.print(
-            f"[cyan]describe[/] {described['filled']} of {described['attempted']} "
-            f"bare items given a description"
+            f"[cyan]describe[/] {described['filled']} described and "
+            f"{described['illustrated']} illustrated, of {described['attempted']} attempted"
         )
 
     embeddings.check_model(conn)

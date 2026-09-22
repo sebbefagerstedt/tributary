@@ -105,8 +105,10 @@ first, it is the design. What is left here is the work.
 Three tiers, and only the first costs nothing:
 
 1. **A private lens.** Instant, no approval, held in `localStorage` beside
-   follows, unlimited because nobody else sees it. Needs the bundle to carry
-   centroids (below) and a predicate in `visible()`. **This is buildable now.**
+   follows, unlimited because nobody else sees it. **The bundle already carries
+   the vectors** — `story.centroid`, int8 and base64, with `bundle.vectors`
+   declaring the packing — so what is left is picking seed stories, storing the
+   lens, and a predicate in `visible()`.
 2. **A shared topic.** Visible to other readers, so it needs the server the
    posting entry describes. This is where proposal ranking lives, gated on
    cosine-dedupe, yield and coherence.
@@ -118,9 +120,10 @@ And the order is forced — topics cannot be ranked by followers before there ar
 followers, but a personal filter is useful with one reader.
 
 **The ceiling on the client-side version is reach, not comments.** A lens sees
-only the bundle: 120 stories over 30 days. Raising that is cheap in bytes
-(int8 vectors, 500 stories ≈ 190KB) but the JSON around them grows too. That,
-not commenting, is the honest reason a backend eventually wins.
+only the bundle: 120 stories over 30 days. Raising that is affordable on the
+vectors alone — measured at 60KB per 120 stories, so 500 would be 250KB — but
+the JSON around them grows with it. That, not commenting, is the honest reason
+a backend eventually wins.
 
 **A lens that matches nothing is a gap report.** "Your lenses that caught
 nothing" is a reader-generated list of what the sources do not cover — demand-led
@@ -247,25 +250,16 @@ whether the digest or the feed is the front door.
 
 ## Ready to start
 
-- **`og:image` in `describe.py`.** The `<meta>` parse already runs for
-  `og:description` and already has the HTML in hand, so this is a key in
-  `_DESCRIPTION_KEYS`' neighbour and no extra fetch. It is the precondition for
-  any card design with an image in it — measure coverage per kind afterwards,
-  because papers and releases will still have none. See `CLAUDE.md`,
-  *"Google Discover's card is an image contract"*.
-- **Carry story centroids in the bundle.** `topics.centroids` computes them
-  already; `export.build_bundle` passes them the way it passes `spine`. Quantise
-  to int8 — normalised vectors survive it for cosine, and it is 46KB against
-  184KB. This is the precondition for personal lenses *and* for "more like this"
-  working in the page rather than on the server.
 - **`trib sources --suggest`.** Given a domain, find its feed: `<link
   rel="alternate">` first, then the well-known paths, then `sitemap-news.xml`.
   Propose-then-accept, like topics. It is a stage, never a `Source`, because
   adapters do not touch the database. Google's own Follow button works this way
   — see `CLAUDE.md` under Sources.
-- **"More like this" on a story page.** Nearest-neighbour over vectors already on
-  disk, and easy now that a story has a centroid. This is the rest of "I want to
-  keep reading if I find something interesting".
+- **"More like this" on a story page.** Nearest-neighbour over `story.centroid`,
+  which the bundle now carries, so this runs in the page with no server and no
+  second request. This is the rest of "I want to keep reading if I find
+  something interesting", and it is the same cosine a personal lens needs — do
+  them together.
 - **Podcast links.** Podcast feeds are RSS, so this is config plus a check that
   the `rss` adapter reads enclosures sensibly; the feeds are already found and
   verified (see "Sources" in `CLAUDE.md`). Latent Space's podcast feed carries
@@ -371,6 +365,20 @@ whether the digest or the feed is the front door.
   the dense-card-list decision. The image half is blocked on `og:image` above
   and can never cover papers or releases. Decide the density question before
   designing, not after.
+
+- **Nothing already fetched has a picture yet.** `og:image` landed 2026-09-22,
+  but every item in the deployed database is already marked in `described`, so
+  the stage will never revisit it. `trib describe --reset` once, on the database
+  that matters, backfills art for everything still inside the retention window.
+  Expect a few hundred page fetches spread over the runs that follow, capped at
+  `DEFAULT_LIMIT` each.
+- **Does an arXiv abstract or a GitHub release page carry `og:image`?** Nobody
+  has looked, so `_ILLUSTRATED_KINDS` is bounded to `article` and `post` and
+  those two kinds are never visited for art alone. If GitHub serves its
+  generated social card, every release gets a picture for one line of config;
+  if arXiv serves one, so does every paper — and that is most of the feed. It is
+  two `curl`s on a machine that can reach them, and it decides whether a
+  Discover-shaped card is possible at all or only possible for news.
 
 ## Designed, deliberately not built
 

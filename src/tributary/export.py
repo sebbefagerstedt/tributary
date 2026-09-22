@@ -11,13 +11,16 @@ the difference, so there is no second frontend to keep in step.
 
 from __future__ import annotations
 
+import base64
 import json
 import shutil
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
-from tributary import entities, facets, topics, triage
+import numpy as np
+
+from tributary import embeddings, entities, facets, topics, triage
 from tributary import feed as feed_mod
 from tributary.text import truncate
 
@@ -53,6 +56,44 @@ def _engagement(raw: str | None) -> dict | None:
     return found or None
 
 
+# A centroid is packed one byte per dimension. Measured against a bge-shaped
+# spread of cosines over 2000 stories: mean error 0.0026, worst 0.011, the top
+# ten by similarity keeping nine of their places, and one story in two thousand
+# crossing a 0.75 threshold it should not have. Below what a filter can show,
+# and a quarter of what float32 would cost to deliver.
+VECTOR_SCALE = 127
+
+
+def _centroids(conn: sqlite3.Connection, story_ids: list[int]) -> dict[int, str]:
+    """Each story's centroid, quantised to int8 and base64-encoded.
+
+    This is what lets the page answer "like this one" with no server behind it:
+    a personal lens is a cosine against vectors that are already on screen. It
+    is `topics.centroids` rather than a second mean, so the page and the
+    labeller agree about what a story is.
+
+    int8 because the bundle is fetched on a phone: measured at `--limit 120`,
+    the vectors add 60KB raw and 40KB gzipped, where float32 would be four
+    times that. Base64 rather than a JSON array of numbers, which would be
+    three times the characters again. The service worker caches the shell and
+    never the feed, so this is paid on every load -- worth it because the
+    vectors are not a lens-only luxury: "more like this" and a related-topics
+    row want them on every story, for every reader. If that stops being true,
+    the cheap move is a second static file fetched on demand, not float32.
+
+    A story whose items were never embedded is simply absent, and the page has
+    to tolerate a card without a vector.
+    """
+    found, vectors = topics.centroids(conn, story_ids)
+    if not found:
+        return {}
+    packed = np.clip(np.rint(vectors * VECTOR_SCALE), -VECTOR_SCALE, VECTOR_SCALE).astype(np.int8)
+    return {
+        story_id: base64.b64encode(row.tobytes()).decode("ascii")
+        for story_id, row in zip(found, packed, strict=True)
+    }
+
+
 def build_bundle(
     conn: sqlite3.Connection,
     limit: int = DEFAULT_LIMIT,
@@ -73,6 +114,7 @@ def build_bundle(
     labels = topics.for_stories(conn, story_ids)
     marks = facets.for_stories(conn, story_ids)
     named = entities.for_stories(conn, story_ids)
+    vectors = _centroids(conn, story_ids)
 
     stories = []
     for card in cards:
@@ -97,6 +139,10 @@ def build_bundle(
                 "signal": card.signal(),
                 "item_count": card.item_count,
                 "media_url": card.media_url,
+                # What the story *is*, as a number, so the page can compare one
+                # story to another without asking anyone. None when nothing in
+                # the story was embedded.
+                "centroid": vectors.get(card.story_id),
                 "topics": labels.get(card.story_id, []),
                 # Where it lives, what it is, who it is about: three axes, and
                 # only the first is a place you browse to.
@@ -157,6 +203,14 @@ def build_bundle(
         # name. Without this it cannot be listed, so it cannot be unfollowed:
         # an invisible follow that still decides what the feed holds.
         "spine": _spine(spine),
+        # How the centroids above were packed. Declared rather than assumed:
+        # the bundle is the contract, and a page that guessed the scale would
+        # score noise rather than fail. An older page ignores the key.
+        "vectors": {
+            "encoding": "int8",
+            "dimension": embeddings.DIMENSION,
+            "scale": VECTOR_SCALE,
+        },
         "stories": stories,
     }
 

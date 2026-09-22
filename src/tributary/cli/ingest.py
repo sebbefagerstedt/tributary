@@ -104,11 +104,12 @@ def describe_cmd(
 
     result = describe.run(conn, limit=limit)
     if not result["attempted"]:
-        console.print("[green]Nothing missing a description.[/]")
+        console.print("[green]Nothing missing prose or art.[/]")
         return
     console.print(
-        f"[green]{result['filled']} described[/] of {result['attempted']} attempted — "
-        f"those items are re-embedded and re-triaged on the next run"
+        f"[green]{result['filled']} described[/] and [green]{result['illustrated']} "
+        f"illustrated[/] of {result['attempted']} attempted — the described ones are "
+        f"re-embedded and re-triaged on the next run, a picture changes no vector"
     )
 
 

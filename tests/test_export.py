@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import base64
 import json
 
 import numpy as np
 import sqlite_vec
 
-from tributary import cluster, embeddings, export
+from tributary import cluster, embeddings, export, topics
 
 
 def unit(*values) -> bytes:
@@ -288,3 +289,77 @@ def test_a_bundle_built_without_a_spine_still_has_the_key(conn, source_id):
     """The page reads `spine` unconditionally, so it is never absent."""
     seed(conn, source_id)
     assert export.build_bundle(conn)["spine"] == []
+
+
+def decode(packed: str) -> np.ndarray:
+    """What the page does to a centroid: base64 to bytes to signed ints."""
+    return np.frombuffer(base64.b64decode(packed), dtype=np.int8).astype(np.float32)
+
+
+def cosine(a: np.ndarray, b: np.ndarray) -> float:
+    return float(a @ b / (np.linalg.norm(a) * np.linalg.norm(b)))
+
+
+def test_every_embedded_story_carries_a_vector(conn, source_id):
+    """A lens is a cosine in the page, so the page needs the numbers."""
+    seed(conn, source_id)
+    bundle = export.build_bundle(conn)
+
+    assert bundle["stories"]
+    for story in bundle["stories"]:
+        assert story["centroid"], f"{story['title']} has no vector"
+        assert len(decode(story["centroid"])) == embeddings.DIMENSION
+
+
+def test_the_bundle_says_how_its_vectors_are_packed(conn, source_id):
+    """The bundle is the contract: a page that guessed the scale would score
+    noise rather than fail loudly."""
+    seed(conn, source_id)
+    assert export.build_bundle(conn)["vectors"] == {
+        "encoding": "int8",
+        "dimension": embeddings.DIMENSION,
+        "scale": export.VECTOR_SCALE,
+    }
+
+
+def test_a_packed_vector_still_points_where_the_centroid_did(conn, source_id):
+    """Quantisation is only worth it if it survives the comparison it is for."""
+    seed(conn, source_id)
+    bundle = export.build_bundle(conn)
+
+    story_ids = [s["story_id"] for s in bundle["stories"]]
+    found, exact = topics.centroids(conn, story_ids)
+    by_id = {s["story_id"]: decode(s["centroid"]) for s in bundle["stories"]}
+
+    for story_id, exact_vector in zip(found, exact, strict=True):
+        drift = cosine(by_id[story_id], exact_vector)
+        assert drift > 0.9999, f"story {story_id} drifted to {drift}"
+
+
+def test_two_stories_stay_as_far_apart_as_they_were(conn, source_id):
+    """The page compares stories to each other, not to their originals, so the
+    error that matters is the one between a pair -- and it has to stay well
+    under `park_margin`, the smallest gap anything in this repo reads."""
+    seed(conn, source_id)
+    bundle = export.build_bundle(conn)
+    found, exact = topics.centroids(conn, [s["story_id"] for s in bundle["stories"]])
+    true = dict(zip(found, exact, strict=True))
+    packed = {s["story_id"]: decode(s["centroid"]) for s in bundle["stories"]}
+
+    for i, left in enumerate(found):
+        for right in found[i + 1 :]:
+            before = cosine(true[left], true[right])
+            after = cosine(packed[left], packed[right])
+            assert abs(before - after) < 0.02, f"{left} vs {right}: {before} -> {after}"
+
+
+def test_a_story_nobody_embedded_still_makes_a_card(conn, source_id):
+    """Vectors are best-effort. A card without one must not break the bundle,
+    because the feed is the point and the lens is an extra."""
+    seed(conn, source_id)
+    conn.execute("DELETE FROM item_vectors")
+
+    bundle = export.build_bundle(conn)
+    assert bundle["stories"]
+    assert all(story["centroid"] is None for story in bundle["stories"])
+    json.dumps(bundle)
