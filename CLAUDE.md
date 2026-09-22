@@ -359,22 +359,6 @@ for one level, on purpose: without it, back left the site. The panel on top is
 drawn on show rather than on push, so one you return to reflects what changed
 while you were deeper — a follow toggled, a story read.
 
-**A story ends in somewhere to go next, and it is not called "More like
-this".** Built 2026-09-22, the rest of *"I want to continue reading if I find
-something interesting"*. `neighbours()` ranks the bundle by cosine against the
-open story's centroid — the same packed bytes and the same `cosine` the lens
-uses, so it costs nothing new — and `fillStory` prints the top five under the
-wake as **Read next**. The words matter: a card's `+` already says *More like
-this* and means *teach a lens from this*, so reusing them for *open one of
-these* would rebuild exactly the collision the follow button was introduced to
-end. Dismissed stories are excluded, being the one mark that means "not this";
-follows are not applied, because a story you opened is a place you walked into.
-Each row is `data-open`, so it pushes a panel and back climbs out one story at
-a time. `NEIGHBOUR_FLOOR = 0.62` is **not measured** — a guess in the same gap
-as `LENS_FLOOR`, set lower because a ranked row of five can carry a loose member
-where a filter cannot. It only decides whether the row appears at all; it
-cannot reorder what is in it.
-
 **The feed orders by when the news broke, not by the story's clock.** A story's
 clock restarts when its wake grows (see `trib renewal`), and a chronological
 feed where a three-day-old paper jumps the queue because someone commented is

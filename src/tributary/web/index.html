@@ -664,36 +664,6 @@ function lensMatcher(lens) {
     return cosine(vector, decodeVector(story.centroid)) >= LENS_FLOOR;
   };
 }
-/* The other reading of "more like this", and the one the card's button is not:
-   not *teach a subject from this*, just *what do I open next*. Same cosine
-   over the same packed centroids, so it costs nothing the lens has not already
-   paid for, and a story the pipeline has not embedded simply has no
-   neighbours rather than a quietly wrong order.
-
-   The ranking is what does the work here; `NEIGHBOUR_FLOOR` only decides when
-   the row is absent altogether. It is **not measured** -- a guess in the same
-   gap `LENS_FLOOR` is guessed in, and set lower because a ranked row of five
-   can afford a loose member where a filter cannot. Set wrong it makes the row
-   short or slightly generous; it cannot reorder it. */
-const NEIGHBOUR_FLOOR = 0.62;
-const MAX_NEIGHBOURS = 5;
-
-function neighbours(story, pool, limit) {
-  const vector = decodeVector(story && story.centroid);
-  if (!vector) return [];
-  const scored = [];
-  for (const other of pool || []) {
-    if (!other || other.story_id === story.story_id || !other.centroid) continue;
-    const score = cosine(vector, decodeVector(other.centroid));
-    if (score >= NEIGHBOUR_FLOOR) scored.push({ story: other, score });
-  }
-  /* Ties broken by recency, so the row is stable between renders rather than
-     dependent on the bundle's order. */
-  scored.sort((a, b) => b.score - a.score
-    || String(b.story.published_at || '').localeCompare(String(a.story.published_at || '')));
-  return scored.slice(0, limit === undefined ? MAX_NEIGHBOURS : limit);
-}
-
 /* LENS_MATHS_END */
 
 const main = document.getElementById('main');
@@ -2085,13 +2055,6 @@ function fillStory(id) {
   current = id;
   mark('seen', id, true);
 
-  /* The nearest stories by centroid, under the wake. Dismissed ones are out --
-     they are the one mark that means "not this" -- but follows are not applied:
-     a story you opened is a place you walked into, and this is the way deeper
-     into it. Opening one pushes a panel, so back climbs out story by story. */
-  const related = neighbours(s, bundle.stories.filter(
-    (x) => !marks.dismissed.has(x.story_id)));
-
   const groups = {};
   for (const item of s.items) (groups[item.role] ||= []).push(item);
   const order = ['seed', 'paper', 'code', 'video', 'coverage', 'discussion'];
@@ -2130,13 +2093,7 @@ function fillStory(id) {
             drew ? ` · <span class="eng">${drew}</span>` : ''}</div>
         </a>`;
       }).join('')}
-    `).join('')}
-    ${related.length ? `<div class="group-label">Read next</div>
-      ${related.map(({ story }) =>
-        `<button class="headline${marks.seen.has(story.story_id) ? ' seen' : ''}"
-          data-open="${story.story_id}">${esc(story.title)}
-          <span class="when">· ${esc(ago(story.published_at))}</span></button>`).join('')}`
-      : ''}`;
+    `).join('')}`;
 
   document.getElementById('save-detail').innerHTML = marks.saved.has(id) ? '&#9733;' : '&#9734;';
 }
