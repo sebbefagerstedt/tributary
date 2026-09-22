@@ -3,6 +3,54 @@
 Only upcoming work lives here. **When something is built, delete its entry** —
 history is in git, and the reasoning behind how things work is in `CLAUDE.md`.
 
+## On the machine at home — three checks, ten minutes
+
+Everything else in this file can be built from a sandbox. These three cannot:
+the research container's proxy refuses the hosts involved, so nobody has
+actually looked. Each one decides something that is currently a guess.
+
+**1. Does an arXiv abstract page carry `og:image`?**
+
+```bash
+curl -sL https://arxiv.org/abs/1706.03762 | grep -io '<meta[^>]*og:image[^>]*>'
+```
+
+If it prints something, add `Kind.PAPER` to `_ILLUSTRATED_KINDS` in
+`describe.py` and **most of the feed gets a picture** — papers are ~235 items a
+week against ~90 of everything else, and they are the reason a Discover-shaped
+card is currently impossible. If it prints nothing, that is the answer and the
+imageless kinds need a typographic card instead. Either way, write which down.
+
+**2. Does a GitHub release page?**
+
+```bash
+curl -sL https://github.com/ggml-org/llama.cpp/releases/latest \
+  | grep -io '<meta[^>]*og:image[^>]*>'
+```
+
+GitHub generates a social card at `opengraph.githubassets.com`, so this will
+probably print something. The real question is whether you *want* it: it is a
+rendered card with a repo name on it, not a photograph, and a feed full of them
+may look worse than a feed with none. Look at the URL it prints before adding
+`Kind.REPO`.
+
+**3. Is GDELT reachable and shaped the way the docs say?**
+
+```bash
+curl -s 'https://api.gdeltproject.org/api/v2/doc/doc?query=%22language+model%22&mode=ArtList&maxrecords=5&format=json&timespan=24h' | head -c 2000
+```
+
+Look for `url`, `socialimage` and `domain` on each record — those are what make
+it usable here, because a real URL keeps tier-1 clustering working. **Do not
+build on it yet even if it works**: it is all world news, so the per-kind
+popularity gate has to exist first or it floods the feed the way arXiv once did.
+See `CLAUDE.md` under Sources for why Google News RSS is not the alternative.
+
+**And one that is not a home job.** Backfilling `og:image` over everything
+already fetched needs `trib describe --reset` against the *deployed* database,
+which lives in the Actions cache — so it is a one-off workflow step, not
+something to run locally. Without it only newly fetched items get art.
+
 ## Posting and commenting — the next big step, and the one that changes the architecture
 
 **This is the next big step: real accounts, a server, and topics that are shared
@@ -357,34 +405,18 @@ whether the digest or the feed is the front door.
   second seed in old stories. `trib cluster --reset` once, on the database that
   matters, rebuilds them.
 
-- **GDELT as a broad-coverage source — probe before designing.** Open, keyless,
-  15-minute updates, and `ArtList` carries a real `url` plus a `socialimage`.
-  But nothing has been verified from a machine that can reach it, it is
-  query-driven rather than scheduled, and it is all world news, which makes the
-  per-kind popularity gate mandatory. Run the endpoint by hand on the WSL box
-  first. Why Google News RSS is *not* the alternative is in `CLAUDE.md`.
+- **GDELT as a broad-coverage source.** Open, keyless, 15-minute updates, and
+  `ArtList` carries a real `url` plus a `socialimage` — but query-driven rather
+  than scheduled, and all world news, which makes the per-kind popularity gate
+  mandatory before it can land. Probe it first: see the top of this file.
 - **News sitemaps as a second adapter kind.** Covers publishers with no feed,
   which is the only gap feed autodiscovery leaves. Simple XML, no new
   dependency, 48-hour window by spec.
-- **Is Trending becoming a Discover-shaped card list?** The screenshot that
-  asked for it is two stories per phone screen with no summary, which reverses
-  the dense-card-list decision. The image half is blocked on `og:image` above
-  and can never cover papers or releases. Decide the density question before
-  designing, not after.
+- **Is Trending becoming a Discover-shaped card list?** Big cards are wanted, so
+  the density half is settled; what is not is whether the corpus can carry one
+  image per card at all. That is checks 1 and 2 at the top of this file, and
+  until they are run there is nothing to design against.
 
-- **Nothing already fetched has a picture yet.** `og:image` landed 2026-09-22,
-  but every item in the deployed database is already marked in `described`, so
-  the stage will never revisit it. `trib describe --reset` once, on the database
-  that matters, backfills art for everything still inside the retention window.
-  Expect a few hundred page fetches spread over the runs that follow, capped at
-  `DEFAULT_LIMIT` each.
-- **Does an arXiv abstract or a GitHub release page carry `og:image`?** Nobody
-  has looked, so `_ILLUSTRATED_KINDS` is bounded to `article` and `post` and
-  those two kinds are never visited for art alone. If GitHub serves its
-  generated social card, every release gets a picture for one line of config;
-  if arXiv serves one, so does every paper — and that is most of the feed. It is
-  two `curl`s on a machine that can reach them, and it decides whether a
-  Discover-shaped card is possible at all or only possible for news.
 
 - **`LENS_FLOOR = 0.72` is a guess and is the one number in the page that is.**
   It decides when a lens catches a story its words would miss. bge puts
