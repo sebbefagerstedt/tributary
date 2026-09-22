@@ -366,3 +366,30 @@ def test_a_lens_opens_as_a_subject_and_can_be_thrown_away(page_bundle):
     assert out["deletable"], "a subject you made has no way out"
     assert out["before"] == 1 and out["after"] == 0
     assert not out["stillFollowed"], "deleting left the follow behind"
+
+
+@needs_node
+def test_every_card_has_a_cover_and_its_headline_once(page_bundle):
+    """A picture when the story has one, its headline set as the cover when not.
+
+    The typographic cover is what keeps a wall of papers and releases -- which
+    never carry art -- as even as a wall of articles. And the headline is the
+    cover, so it must not be printed a second time underneath.
+    """
+    out = boot(page_bundle, """
+      bundle.stories[0].media_url = 'https://e.test/art.jpg';
+      for (const s of bundle.stories.slice(1)) s.media_url = null;
+      const [art, bare] = bundle.stories.map(cardHTML);
+      const count = (html, needle) => html.split(needle).length - 1;
+      console.log(JSON.stringify({
+        artImage: art.includes('class="cover-img"'),
+        artType: art.includes('cover-type'),
+        bareImage: bare.includes('cover-img'),
+        bareType: bare.includes('cover-type'),
+        bareTitleOnce: count(bare, bundle.stories[1].title) === 1,
+        artTitleOnce: count(art, bundle.stories[0].title) === 1,
+      }));
+    """)
+    assert out["artImage"] and not out["artType"], "a story with art should lead with it"
+    assert out["bareType"] and not out["bareImage"], "a story without art needs a cover"
+    assert out["bareTitleOnce"] and out["artTitleOnce"], "the headline is printed twice"
