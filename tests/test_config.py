@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -260,3 +261,69 @@ def test_changing_a_facet_or_an_entity_changes_the_label_fingerprint(tmp_path):
 
     assert len({base.label_fingerprint(), faceted.label_fingerprint(),
                 named.label_fingerprint()}) == 3
+
+
+def test_a_topic_may_claim_by_headline(tmp_path):
+    path = write(
+        tmp_path,
+        """
+        [[topics.spine]]
+        slug = "models"
+        name = "Models"
+        description = "about models"
+
+        [[topics.spine]]
+        slug = "frontier"
+        parent = "models"
+        name = "Frontier"
+        description = "about frontier"
+        claims = '''
+        ^ grok \\s+ \\d     # verbose: whitespace ignored, comments allowed
+        '''
+        """,
+    )
+    frontier = config_mod.load(path).topics.spine[1]
+    assert frontier.claims is not None
+    assert re.search(frontier.claims, "Grok 4.7", config_mod.CLAIMS_FLAGS)
+
+
+@pytest.mark.parametrize(
+    ("entry", "error"),
+    [
+        ('slug = "leaf"\nparent = "shelf"\nclaims = "(unclosed"', "bad claims pattern"),
+        ('slug = "other"\nparent = "shelf"', "is a shelf and cannot claim"),
+    ],
+)
+def test_a_bad_claim_is_rejected_at_load(tmp_path, entry, error):
+    """A broken pattern, or one on a shelf -- only leaves are homes."""
+    shelf_claims = 'claims = "x"' if "cannot claim" in error else ""
+    path = write(
+        tmp_path,
+        f"""
+        [[topics.spine]]
+        slug = "shelf"
+        name = "Shelf"
+        description = "about the shelf"
+        {shelf_claims}
+
+        [[topics.spine]]
+        name = "Leaf"
+        description = "about the leaf"
+        {entry}
+        """,
+    )
+    with pytest.raises(ValueError, match=error):
+        config_mod.load(path)
+
+
+def test_changing_a_claim_changes_the_label_fingerprint(tmp_path):
+    """So a new claim re-homes the back catalogue, not only what arrives next."""
+    def spine(claims):
+        return config_mod.Config(
+            db_path=tmp_path / "x.db",
+            topics=config_mod.TopicsConfig(
+                spine=[config_mod.TopicConfig("frontier", "F", "about", claims=claims)]
+            ),
+        )
+
+    assert spine(None).label_fingerprint() != spine(r"^grok").label_fingerprint()

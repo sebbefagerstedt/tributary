@@ -73,6 +73,7 @@ def topics_cmd(
         result = topics.run(conn, cfg.topics)
         console.print(
             f"[green]{result.assigned} stories labelled[/] of {result.stories} scored — "
+            f"{result.claimed} claimed by headline, "
             f"{result.parked} parked on a shelf, "
             f"{result.unmatched} matched nothing on the spine"
         )

@@ -535,7 +535,7 @@ matched the way that works for it:
 
 | Axis | Question | Matched by | Per story |
 |---|---|---|---|
-| Topic | where does it live | embedding, argmax over leaves | exactly one |
+| Topic | where does it live | embedding, argmax over leaves — unless the headline claims it | exactly one |
 | Facet | what kind of thing is it | regex over titles and summaries | any number |
 | Entity | who is it about | name and alias | any number |
 
@@ -559,6 +559,39 @@ largest leaf 10% of the corpus, none empty. What it does not fix: 41% of stories
 have a runner-up on a *different* shelf within 0.02, and those pick a side. The
 answer to that is a "related topics" row, not multi-label, which was measured
 worse.
+
+**A leaf can claim a story by its headline, before anything is scored.**
+Built 2026-09-22 for launch posts: in the fortnight before, the spine homed 4 of
+16 launch stories under Frontier model releases — *Introducing GPT-6 Sol and
+Luna* went to Jailbreaks & attacks, *Introducing Claude Opus 5.5* to Chips &
+datacenters. A launch post is benchmarks, pricing and safety, and its centroid
+follows that prose. Six rewordings of the description were measured: naming
+the model lines reached 8–9 of 16 and no further, and naming the labs caught 12
+by taking 21% of every story. Its title, meanwhile, says exactly what it is. So
+a leaf may
+carry `claims`, a regex compiled with `CLAIMS_FLAGS` (case-blind and verbose, so
+it can be laid out and commented in `config.toml`), and a match makes that leaf
+the home outright — no floor, no parking. Three limits keep it from becoming a
+second classifier:
+
+- **Only the headline is read** — the earliest item's title, what `_titles`
+  already calls the headline. Summaries and later coverage name GPT-5 in
+  passing constantly.
+- **Never a paper's.** A paper with a model in its title is a paper *about* that
+  model, which is what scoring is for.
+- **Only leaves claim**, and the loader rejects one on a shelf.
+
+The frontier pattern takes a flagship line *with a version on it* — `Claude
+Code 2.0` and `Gemini CLI` are tools on a model line's name — either after a
+launch verb (`Introducing …`, `OpenAI releases …`) or bare with at most three
+words after it, so *Grok 4.7* is claimed and *Claude Opus 5.5 helped me write a
+compiler* is left to scoring. Open-weight lines (Qwen, Llama, DeepSeek) are not
+in it; they have their own leaf, and nothing has shown that leaf missing them.
+**It was pinned against those 16 titles and hand-written near-misses, not
+measured on the corpus** — the database was unreachable from where it was
+built. `trib run` prints how many stories were homed by headline; if Frontier
+model releases starts collecting things that are not launches, the pattern is
+where to look, and its tests are in `tests/test_topics.py`.
 
 Facets are labelled but not shown: see **There is no kind row** above.
 
