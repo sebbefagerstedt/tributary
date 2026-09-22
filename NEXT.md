@@ -393,18 +393,6 @@ whether the digest or the feed is the front door.
   It is what made the misfiling above look like an absence. Either search should
   ignore the topic filter, or the empty state should say the filter is on.
 
-- **Launch posts do not reach Frontier model releases.** In the fortnight to
-  2026-09-22 the spine homed 4 of 16 launch stories there: *Introducing GPT-6
-  Sol and Luna* went to Jailbreaks & attacks, *Introducing Claude Opus 5.5* to
-  Chips & datacenters, *Grok 4.7* parked on Inference. A launch post is mostly
-  benchmarks, pricing and safety, and its centroid follows the prose. Six
-  descriptions were measured by re-homing the whole corpus: naming the labs
-  caught 12 but took 21% of every story, and naming the model lines reached 8–9
-  and no further — the 8-of-16 wording was accepted the same day. Every one of
-  the 16 carries a model entity, so following GPT, Claude, Gemini or Grok is the
-  route that works; the untried one is lexical, the way facets are, since a
-  launch names itself in its title.
-
 - **A shelf follow and a leaf follow say less in the UI than they do in the
   feed.** `isFollowed` already treats a follow on a shelf as covering every leaf
   under it, but the subject panel draws each leaf's button from its own key, so

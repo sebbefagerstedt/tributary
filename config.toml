@@ -330,6 +330,26 @@ slug = "frontier"
 parent = "models"
 name = "Frontier model releases"
 description = "a new flagship model such as GPT, Claude, Gemini or Grok is released or leaked, and what changed from the previous version"
+# A launch post is benchmarks, pricing and safety, and its prose scores against
+# whatever those resemble -- 4 of 16 launches in a fortnight reached this leaf.
+# Its title says what it is, so the title decides: the lexical question first,
+# the way facets ask it. Read on the headline only, and never a paper's.
+claims = '''
+^ (?: \[ [^\]]* \] \s* )?                  # a Reddit-style tag such as [N]
+(?P<launch>                                # "Introducing ...", "OpenAI releases ..."
+    (?: introducing | announcing | meet
+      | (?: openai | anthropic | google (?: \s+ deepmind )? | deepmind | xai ) \s+
+        (?: releases | launches | announces | unveils | introduces | debuts | ships | rolls \s+ out | drops )
+    ) \s+ (?: the \s+ )? (?: new \s+ )?
+)?
+(?: gpt -? \d                              # a flagship line with a version on it --
+  | claude \s+ (?: (?: opus | sonnet | haiku ) \s+ )? \d   # "Claude Code 2.0" is a tool
+  | (?: opus | sonnet | haiku ) \s+ \d
+  | gemini \s+ \d                          # and "Gemini CLI" is too
+  | grok \s+ \d
+) (?: \. \d+ )? [a-z]? \b                  # GPT-4o yes, GPT4All no
+(?(launch) | (?: \s+ [\w.'’-]+ ){0,3} \s* $ )   # bare, the name is nearly all of it
+'''
 
 [[topics.spine]]
 slug = "open-weights"

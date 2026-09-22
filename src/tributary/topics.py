@@ -13,14 +13,16 @@ arguing about disagreements.
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from dataclasses import dataclass, field
 
 import numpy as np
 
-from tributary.config import TopicsConfig
+from tributary.config import CLAIMS_FLAGS, TopicsConfig
 from tributary.db import transaction
 from tributary.embeddings import DEFAULT_MODEL, embed
+from tributary.models import Kind
 
 
 @dataclass(slots=True)
@@ -29,6 +31,7 @@ class TopicResult:
     assigned: int = 0
     unmatched: int = 0  # scored, but nothing on the spine fitted
     parked: int = 0  # the shelf was clear, the leaf was not
+    claimed: int = 0  # homed by a leaf's `claims` on the headline, not by score
     by_topic: dict[str, int] = field(default_factory=dict)
 
 
@@ -256,20 +259,48 @@ def suggest(
 
 def _titles(conn: sqlite3.Connection, story_ids: list[int]) -> dict[int, str]:
     """One representative headline per story: the earliest item in it."""
+    return {story_id: title for story_id, (title, _) in _headlines(conn, story_ids).items()}
+
+
+def _headlines(conn: sqlite3.Connection, story_ids: list[int]) -> dict[int, tuple[str, str]]:
+    """The earliest item's title per story, with that item's kind."""
+    if not story_ids:
+        return {}
     placeholders = ",".join("?" * len(story_ids))
-    found: dict[int, str] = {}
+    found: dict[int, tuple[str, str]] = {}
     for row in conn.execute(
         f"""
-        SELECT si.story_id, i.title
+        SELECT si.story_id, i.title, i.kind
           FROM story_items si
           JOIN items i ON i.id = si.item_id
          WHERE si.story_id IN ({placeholders})
-         ORDER BY COALESCE(i.published_at, i.fetched_at) ASC
+         ORDER BY COALESCE(i.published_at, i.fetched_at) ASC, i.id ASC
         """,
         story_ids,
     ):
-        found.setdefault(row["story_id"], row["title"])
+        found.setdefault(row["story_id"], (row["title"] or "", row["kind"]))
     return found
+
+
+def _claimed(
+    headline: tuple[str, str] | None, claimants: list[tuple[str, re.Pattern]]
+) -> str | None:
+    """The leaf whose `claims` pattern the story's headline matches, if any.
+
+    Only the headline is read, because that is where an announcement names
+    itself; summaries mention GPT-5 in passing constantly. And never a paper's:
+    a paper that puts a model in its title is a paper *about* that model, which
+    is what scoring is for. The first claimant in spine order wins.
+    """
+    if headline is None:
+        return None
+    title, kind = headline
+    if kind == Kind.PAPER:
+        return None
+    for slug, pattern in claimants:
+        if pattern.search(title):
+            return slug
+    return None
 
 
 def run(
@@ -280,7 +311,13 @@ def run(
 ) -> TopicResult:
     """Give every unassigned story the one home that fits it best.
 
-    Only leaves are scored, and the best one wins outright. There is no
+    A leaf's `claims` pattern is asked first, on the headline alone: a launch
+    post is mostly benchmarks, pricing and safety, and its centroid follows that
+    prose to wherever it resembles -- *Introducing Claude Opus 5.5* went to
+    Chips & datacenters -- while its title says exactly what it is. The lexical
+    question before the semantic one, as the clusterer and facets already ask.
+
+    Otherwise only leaves are scored, and the best one wins outright. There is no
     threshold deciding what counts as a match and no cap on how many topics a
     story may take, because both were answering a question that does not need
     asking: of these topics, which one is this? A comparison needs no scale, so
@@ -305,11 +342,22 @@ def run(
     )
     scores = vectors @ descriptions.T
     parent_of = {topic.slug: topic.parent for topic in profile.spine}
+    claimants = [
+        (topic.slug, re.compile(topic.claims, CLAIMS_FLAGS))
+        for topic in leaves
+        if topic.claims
+    ]
+    headlines = _headlines(conn, story_ids) if claimants else {}
     result.stories = len(story_ids)
 
     with transaction(conn):
         for story_id, row in zip(story_ids, scores, strict=True):
-            home = _home(row, leaves, parent_of, profile)
+            claimed = _claimed(headlines.get(story_id), claimants)
+            if claimed:
+                result.claimed += 1
+                home = (claimed, False)
+            else:
+                home = _home(row, leaves, parent_of, profile)
             if home is None:
                 result.unmatched += 1
             else:

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 import numpy as np
 import pytest
 import sqlite_vec
 
 from tributary import embeddings, topics
-from tributary.config import TopicConfig, TopicsConfig
+from tributary.config import CLAIMS_FLAGS, TopicConfig, TopicsConfig, load
 
 
 def unit(*values) -> bytes:
@@ -52,18 +55,20 @@ def story(conn, source_id):
     """Build a story from items at given angles, returning its id."""
     counter = {"n": 0}
 
-    def _story(*vectors):
+    def _story(*vectors, titles=(), kind="article"):
+        """`titles` name the items in arrival order; the first is the headline."""
         # last_activity is "now" because --suggest works on a recent window.
         story_id = conn.execute(
             "INSERT INTO stories (first_seen, last_activity) "
             "VALUES ('2026-09-15T00:00:00Z', datetime('now'))"
         ).lastrowid
-        for vector in vectors:
+        for n, vector in enumerate(vectors):
             counter["n"] += 1
             item_id = conn.execute(
                 "INSERT INTO items (source_id, external_id, kind, url, title, triage_state) "
-                "VALUES (?, ?, 'article', 'https://e.test/x', 'A title', 'kept')",
-                (source_id, f"e{counter['n']}"),
+                "VALUES (?, ?, ?, 'https://e.test/x', ?, 'kept')",
+                (source_id, f"e{counter['n']}", kind,
+                 titles[n] if n < len(titles) else "A title"),
             ).lastrowid
             conn.execute("INSERT INTO item_vectors (item_id, embedding) VALUES (?, ?)",
                          (item_id, vector))
@@ -403,3 +408,114 @@ def test_stats_counts_nothing_below_triage_for_an_empty_topic(conn):
     row = next(r for r in topics_mod.stats(conn) if r["slug"] == "quiet")
     assert row["stories"] == 0
     assert (row["below_triage"] or 0) == 0
+
+
+# --- claiming by headline ----------------------------------------------------
+
+def claiming(pattern=r"^introducing \s+ claude"):
+    """Agents and frontier, where frontier claims launch headlines."""
+    return TopicsConfig(
+        spine=[
+            TopicConfig("agents", "Agents", "about agents"),
+            TopicConfig("frontier", "Frontier", "about frontier", claims=pattern),
+        ]
+    )
+
+
+def test_a_claimed_headline_beats_a_better_score(conn, story, axes):
+    """A launch post's prose scores wherever benchmarks and pricing resemble.
+
+    *Introducing Claude Opus 5.5* went to Chips & datacenters on similarity; its
+    title says what it is, and the title is asked first.
+    """
+    launch = story(unit(0.0, 1.0), titles=["Introducing Claude Opus 5.5"])
+    result = topics.run(conn, claiming())
+
+    assert slugs_for(conn, launch) == {"frontier"}
+    assert result.claimed == 1
+
+
+def test_a_story_nothing_claims_is_scored_as_before(conn, story, axes):
+    plain = story(unit(0.0, 1.0), titles=["An agent that books flights"])
+    result = topics.run(conn, claiming())
+
+    assert slugs_for(conn, plain) == {"agents"}
+    assert result.claimed == 0
+
+
+def test_a_paper_is_never_claimed(conn, story, axes):
+    """A paper naming a model in its title is about the model, not its launch."""
+    paper = story(unit(0.0, 1.0), titles=["Introducing Claude to theorem proving"],
+                  kind="paper")
+    topics.run(conn, claiming())
+
+    assert slugs_for(conn, paper) == {"agents"}
+
+
+def test_only_the_headline_is_read(conn, story, axes):
+    """Coverage arriving later names the model constantly; the first item decides."""
+    coverage = story(unit(0.0, 1.0), unit(0.0, 1.0),
+                     titles=["An agent that books flights", "Introducing Claude Opus 5.5"])
+    topics.run(conn, claiming())
+
+    assert slugs_for(conn, coverage) == {"agents"}
+
+
+def test_a_claim_needs_no_floor(conn, story, axes):
+    """The floor catches a story the spine has no opinion about; a claim is one."""
+    far = story(unit(0.0, 0.0, 0.0, 1.0), titles=["Introducing Claude Opus 5.5"])
+    topics.run(conn, claiming())
+
+    assert slugs_for(conn, far) == {"frontier"}
+
+
+def shipped_claim() -> re.Pattern:
+    repo_config = Path(__file__).parent.parent / "config.toml"
+    frontier = next(t for t in load(repo_config).topics.spine if t.slug == "frontier")
+    return re.compile(frontier.claims, CLAIMS_FLAGS)
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        # The four launches the spine missed in the fortnight to 2026-09-22.
+        "Introducing GPT-6 Sol and Luna",
+        "Introducing Claude Opus 5.5",
+        "Grok 4.7",
+        "Anthropic releases Opus 5.5",
+        # And the other shapes a launch arrives in.
+        "OpenAI launches GPT-6",
+        "Google releases Gemini 3 with a million-token window",
+        "xAI unveils Grok 5",
+        "Introducing the new GPT-6",
+        "Gemini 2.5 Flash",
+        "GPT-5.5 is here",
+        "GPT-4o",
+        "[N] Claude Sonnet 5 released",
+    ],
+)
+def test_the_frontier_claim_takes_launches(title):
+    assert shipped_claim().search(title)
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "Claude Code 2.0 is out",          # a tool on a model line's name
+        "Introducing Claude Code 2.0",
+        "Gemini CLI now supports MCP",
+        "GPT4All 3.0 released",            # not GPT at all
+        "Grok Imagine",                    # no version, so no release
+        "Qwen 4 Announced",                # open weights has its own leaf
+        "Claude Opus 5.5 helped me write a compiler",
+        "GPT-5.5 is worse at math than GPT-5",
+        "Gemini 3 Pro scores 80% on ARC-AGI-3, beating Opus 5",
+        "Why GPT-6 matters",
+        "Evaluating GPT-5 on medical exams",
+        "Anthropic releases a report on Claude 4 misuse",
+        "OpenAI raises $40B",
+    ],
+)
+def test_the_frontier_claim_leaves_the_rest_to_scoring(title):
+    """A model's name in the title is not enough: it has to be the headline's subject."""
+    assert not shipped_claim().search(title)

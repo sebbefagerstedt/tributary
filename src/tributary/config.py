@@ -73,6 +73,11 @@ DEFAULT_TOPIC_FLOOR = 0.55
 # is not, so the story sits on the shelf instead of being forced onto one of them.
 DEFAULT_PARK_MARGIN = 0.02
 
+# How a topic's `claims` is compiled. Verbose, so a pattern long enough to need
+# it can be laid out and commented in config.toml: whitespace is ignored, and a
+# space that should match is written \s.
+CLAIMS_FLAGS = re.IGNORECASE | re.VERBOSE
+
 
 @dataclass(slots=True)
 class TopicConfig:
@@ -82,6 +87,11 @@ class TopicConfig:
     # The slug this sits under, if any. One level only: browsing wants a shelf
     # and a row, not a tree to get lost in.
     parent: str | None = None
+    # A regex over a story's headline that makes this leaf its home outright,
+    # before anything is scored. For a subject that names itself: a launch post
+    # is mostly benchmarks and pricing, so its prose scores against whatever
+    # those resemble, while its title says exactly what it is.
+    claims: str | None = None
 
 
 @dataclass(slots=True)
@@ -142,7 +152,8 @@ class TopicsConfig:
                 "floor": self.floor,
                 "park_margin": self.park_margin,
                 "spine": sorted(
-                    (t.slug, t.name, t.description, t.parent or "") for t in self.spine
+                    (t.slug, t.name, t.description, t.parent or "", t.claims or "")
+                    for t in self.spine
                 ),
             },
             sort_keys=True,
@@ -260,14 +271,26 @@ def _parse(raw: dict, path: Path) -> Config:
                 name=entry["name"],
                 description=entry["description"],
                 parent=entry.get("parent"),
+                claims=entry.get("claims"),
             )
         )
     known = {topic.slug for topic in spine}
+    shelves = {topic.parent for topic in spine if topic.parent}
     for topic in spine:
         if topic.parent and topic.parent not in known:
             raise ValueError(f"{path}: topic {topic.slug!r} has unknown parent {topic.parent!r}")
         if topic.parent == topic.slug:
             raise ValueError(f"{path}: topic {topic.slug!r} is its own parent")
+        if topic.claims is not None:
+            if topic.slug in shelves:
+                # Only leaves are homes; a shelf is reached through them.
+                raise ValueError(f"{path}: topic {topic.slug!r} is a shelf and cannot claim")
+            try:
+                re.compile(topic.claims, CLAIMS_FLAGS)
+            except re.error as exc:
+                raise ValueError(
+                    f"{path}: topic {topic.slug!r} has a bad claims pattern: {exc}"
+                ) from exc
     topics = TopicsConfig(
         floor=float(raw_topics.get("floor", DEFAULT_TOPIC_FLOOR)),
         park_margin=float(raw_topics.get("park_margin", DEFAULT_PARK_MARGIN)),
