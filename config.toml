@@ -313,8 +313,9 @@ always_drop = []
 
 [topics]
 # Not a tuning knob. A story scoring below this against every leaf is one the
-# spine has no opinion about at all; over the whole corpus that is 1 story in
-# 2239. If you find yourself raising it, the spine is wrong, not this number.
+# spine has no opinion about at all. Raising it to keep filler out of topics was
+# measured on 2026-09-22 and rejected: short AI posts score as low as filler, so
+# it cuts news as fast as noise. CLAUDE.md has the numbers.
 floor = 0.55
 
 # Two leaves on the same shelf within this of each other means the shelf is

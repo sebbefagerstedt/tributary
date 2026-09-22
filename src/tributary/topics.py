@@ -287,8 +287,8 @@ def run(
     nothing here drifts when the embedding model changes or the spine grows.
 
     The floor is not a threshold in that sense -- it catches a story the spine
-    has no opinion about at all, which over the whole corpus is one story in
-    2239. If it starts firing, the spine is missing something.
+    has no opinion about at all. Raising it to keep filler out was measured on
+    2026-09-22 and rejected: short AI posts score as low as the filler does.
     """
     result = TopicResult()
     leaves = profile.leaves()
@@ -393,13 +393,10 @@ def stats(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     than failed, and is a candidate for retiring.
 
     `below_triage` is the number of a topic's stories made entirely of items
-    triage would once have dropped, and it is the number that matters now that
-    triage no longer gates the corpus. Topics have no relevance threshold --
-    a story goes to its single best leaf, and `floor` was measured at 1 story
-    in 2239 *on already-triaged material*. On everything, that floor is the
-    only thing standing between a crypto post and whichever AI leaf it most
-    resembles. A topic filling up with `below_triage` stories is following
-    being polluted, and is the signal to re-measure the floor.
+    triage would once have dropped. It reads as "short or off the profile",
+    not "not AI": triage drops short AI posts too. Measured 2026-09-22, 9 of
+    Frontier model releases' 24 stories in a month were below triage, and 7 of
+    those 9 were real releases.
     """
     return list(
         conn.execute(
