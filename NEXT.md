@@ -90,6 +90,67 @@ deployment assumption in this repo comes from the app being read-only:
 no-API-key constraint holds — worth stating, because "community features" and
 "AI features" tend to get budgeted together and these should not be.
 
+**Hugging Face's paper page is the worked example.** Offered 2026-09-22, as a
+screenshot of `huggingface.co/papers/…`: the abstract, then **Community**, then
+comments — an author, a `Paper submitter` badge, a relative timestamp, prose, an
+overflow menu. *"An example of how the comments could work is actually found on
+huggingface. Here you have a paper and then community with comments."* It
+settles three things and breaks one.
+
+**Where the thread hangs: on the story, not on the topic.** This entry has said
+"post and comment directly on a topic" since 2026-09-17, and the reference sits
+one level below that — a *paper*, which here is a story. It is also the cheaper
+end: `fillStory` already ends with the wake, so Community is a section under it
+and needs no new surface. A topic is still where a *post* belongs, being
+item-shaped and about the subject; a comment belongs to the thing it reacts to.
+So the two halves of the split below get two different homes on screen, which is
+what keeps them visibly separate features rather than one with a mode switch.
+
+**The data model, in favour of the split already sketched.** A HF community
+thread is not part of the paper: it is not indexed with it, not retagged from
+it, and contributes nothing to how the paper ranks or what it is filed under.
+That is precisely the argument made below for a comment table over `Kind.POST`
+— comments are about the story, so they must not reach the centroid or the
+topic argmax that reads it — running in production somewhere else.
+
+**And the table already exists.** `notes` has been in `001_initial.sql` since
+the first commit — `(story_id, body, created_at)` — under a schema comment
+reading *"Your own takes. One user today; the same table becomes posts when
+there are many."* No Python references it. It is the row this wants, one author
+column short.
+
+**What it breaks is the address, and that was not visible before.** A HF thread
+hangs off a paper, and a paper is permanent: the page *is* an arXiv id. A
+Tributary story is not permanent. `story_id` is an autoincrement row from
+`create_story`, and `cluster.reset()` — `trib cluster --reset`, which this file
+recommends running to rebuild stale roles — is `DELETE FROM stories`, which
+`notes.story_id ON DELETE CASCADE` turns into deleting every comment ever
+written. `prune` takes the rest at 60 days, and clustering is free to attach new
+items to the story under a live thread and change the headline above it. Two
+consequences:
+
+- **A comment cannot be addressed by `story_id` alone**, which is what both this
+  entry and the `notes` table currently assume. It wants the story's strongest
+  tier-1 identifier where there is one — arXiv id, DOI, canonical URL — which is
+  exactly what HF addresses by, and a stable key minted once per story where
+  there is not.
+- **`cluster --reset` stops being a safe operation**, or comments have to
+  survive it. Those are the only two options, and the first has a real price:
+  re-clustering is how every calibration change gets applied to the back
+  catalogue.
+
+**What does not carry over is the `Paper submitter` badge.** The opening comment
+in the screenshot is the submitter pasting the abstract, so the thread starts
+with an authority in it. Tributary has no submitters — stories arrive from a
+cron — so its thread opens empty, and the abstract is already printed above it
+as `s.summary`. The nearest analogue would badge a comment written by the
+source's own author, which is rarer than HF's case and not the thing to build
+first.
+
+**And it is a login.** Commenting on HF needs an HF account — the same collision
+giscus has with *"Profiles are a namespace, not a login. No password."* The
+reference does not dodge that question, it just answers it the other way.
+
 Open questions, none decided:
 
 - Is a comment an item (so it joins the wake and gets a role), or its own table?
@@ -99,7 +160,14 @@ Open questions, none decided:
   reactive and about the thread rather than the subject, so they would drag
   story centroids and the topic argmax that reads them; a *post* is genuinely
   item-shaped and belongs in `Kind.POST`. One feature, two data models, divided
-  by whether the text is about the subject or about the story.
+  by whether the text is about the subject or about the story. The Hugging Face
+  reference above is that split already built, so treat this one as decided
+  unless something argues back.
+- **What addresses a comment**, now that `story_id` is known not to survive a
+  re-cluster. See the Hugging Face note above: a tier-1 identifier where the
+  story has one, a minted key where it does not. Nothing is decided, and it has
+  to be, because it is the one part that cannot be changed after people have
+  written things.
 - Does a user post get triaged and embedded like fetched material? If it does,
   it can be clustered and labelled automatically. If it does not, the author
   places it by hand — which is closer to how Reddit works, and to the
