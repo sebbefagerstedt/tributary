@@ -359,6 +359,10 @@ body.digest-view > header .search { display: none; }
   font-family: inherit; background: none; border: 0; padding: 0; cursor: pointer;
 }
 .subject-where::after { content: ' \203a'; }
+/* A lens has no level above it, so the label is a statement rather than a way
+   up: no chevron promising somewhere to go, and nothing to press. */
+.subject-where.as-text { cursor: default; }
+.subject-where.as-text::after { content: none; }
 .subject-title {
   font-size: 26px; font-weight: 700; letter-spacing: -.025em;
   line-height: 1.15; margin: 4px 0 0;
@@ -1898,7 +1902,7 @@ function fillLens(entry) {
 
   document.getElementById('subject-where').textContent = `Your subjects › ${lens.name}`;
   body.innerHTML = `
-    <button class="subject-where as-text">Your own subject</button>
+    <span class="subject-where as-text">Your own subject</span>
     <h1 class="subject-title">${esc(lens.name)}</h1>
     <p class="subject-stat">${stories.length
       ? `${plural(stories.length, 'story')}${unseen ? ` · <strong>${unseen} new</strong>` : ' · all read'}`

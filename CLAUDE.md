@@ -84,9 +84,16 @@ everything in there must stay pure — no DOM, no `localStorage`, no globals.
 That is what lets the page's cosine be checked against the numpy that packed
 the vectors it reads.
 
-Headless Chromium still does not start on the dev machine until
-`sudo .venv/bin/playwright install-deps chromium` has been run, and is only
-needed for anything about *layout*.
+**For layout, screenshot it.** On the dev machine headless Chromium still needs
+`sudo .venv/bin/playwright install-deps chromium` first. In a Claude Code remote
+container it is already there and the note above used to say otherwise: pass
+`executable_path="/opt/pw-browsers/chromium"` and `args=["--no-sandbox"]`,
+because the pinned Playwright asks for a build number the image does not carry
+and otherwise tells you to run `playwright install`, which is wrong. Serve the
+exported site over HTTP rather than `file://` — the page fetches `data.json`,
+and CORS blocks that on a file URL. Screenshot at 390×844, and **not**
+`full_page`: `.sheet` is `position: fixed`, so a full-page capture renders the
+chrome underneath it and invents a bug that is not there.
 
 ## Architecture
 
