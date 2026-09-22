@@ -144,7 +144,7 @@ def test_a_described_item_is_reopened_for_judging(conn, source_id, httpx_mock):
     )
     httpx_mock.add_response(text=CARD)
 
-    assert describe.run(conn) == {"attempted": 1, "filled": 1}
+    assert describe.run(conn) == {"attempted": 1, "filled": 1, "illustrated": 0}
     row = conn.execute("SELECT * FROM items WHERE id = ?", (item,)).fetchone()
     assert row["summary"].startswith("Agnes-3.0-Flash is a 7B model")
     assert row["triage_state"] == "pending"
@@ -155,7 +155,7 @@ def test_an_item_with_no_card_is_not_asked_about_twice(conn, source_id, httpx_mo
     add(conn, source_id, 1, metadata={"hf_id": "org/gone"})
     httpx_mock.add_response(status_code=404)
 
-    assert describe.run(conn) == {"attempted": 1, "filled": 0}
+    assert describe.run(conn) == {"attempted": 1, "filled": 0, "illustrated": 0}
     assert describe.pending(conn) == []  # marked, so the next run skips it
 
 
@@ -164,7 +164,7 @@ def test_a_described_item_is_not_fetched_again(conn, source_id, httpx_mock):
     httpx_mock.add_response(text=CARD)
     describe.run(conn)
 
-    assert describe.run(conn) == {"attempted": 0, "filled": 0}
+    assert describe.run(conn) == {"attempted": 0, "filled": 0, "illustrated": 0}
 
 
 def test_reset_allows_a_second_attempt(conn, source_id, httpx_mock):
@@ -260,7 +260,7 @@ def test_stored_release_notes_are_used_without_a_request(conn, source_id):
     notes += "throughput on batch-one workloads.\n\n## What's Changed\n* a by @b\n"
     add(conn, source_id, 1, kind="repo", body=notes, metadata={"github_repo": "org/thing"})
 
-    assert describe.run(conn) == {"attempted": 1, "filled": 1}
+    assert describe.run(conn) == {"attempted": 1, "filled": 1, "illustrated": 0}
     row = conn.execute("SELECT summary FROM items WHERE external_id = 'e1'").fetchone()
     assert row["summary"].startswith("This release adds speculative decoding")
 
@@ -272,7 +272,7 @@ def test_a_changelog_falls_through_to_the_repo_description(conn, source_id, http
         metadata={"github_repo": "ggml-org/llama.cpp"})
     httpx_mock.add_response(json={"description": "LLM inference in C/C++"})
 
-    assert describe.run(conn) == {"attempted": 1, "filled": 1}
+    assert describe.run(conn) == {"attempted": 1, "filled": 1, "illustrated": 0}
     row = conn.execute("SELECT summary FROM items WHERE external_id = 'e1'").fetchone()
     assert row["summary"] == "LLM inference in C/C++"
 
@@ -290,14 +290,14 @@ def test_a_non_html_link_is_not_parsed_as_one(conn, source_id, httpx_mock):
     add(conn, source_id, 1, kind="discussion", metadata={"outbound_url": "https://e.test/p.pdf"})
     httpx_mock.add_response(content=b"%PDF-1.7 ...", headers={"content-type": "application/pdf"})
 
-    assert describe.run(conn) == {"attempted": 1, "filled": 0}
+    assert describe.run(conn) == {"attempted": 1, "filled": 0, "illustrated": 0}
 
 
 def test_a_dead_link_is_not_an_error(conn, source_id, httpx_mock):
     add(conn, source_id, 1, kind="discussion", metadata={"outbound_url": "https://e.test/gone"})
     httpx_mock.add_response(status_code=403)
 
-    assert describe.run(conn) == {"attempted": 1, "filled": 0}
+    assert describe.run(conn) == {"attempted": 1, "filled": 0, "illustrated": 0}
     assert describe.pending(conn) == []  # and it is not asked about again
 
 
@@ -305,9 +305,108 @@ def test_a_linked_article_is_described_by_its_own_page(conn, source_id, httpx_mo
     add(conn, source_id, 1, kind="discussion", metadata={"outbound_url": "https://e.test/a"})
     httpx_mock.add_response(text=PAGE, headers={"content-type": "text/html; charset=utf-8"})
 
-    assert describe.run(conn) == {"attempted": 1, "filled": 1}
+    assert describe.run(conn) == {"attempted": 1, "filled": 1, "illustrated": 0}
     row = conn.execute(
         "SELECT summary, triage_state FROM items WHERE external_id = 'e1'"
     ).fetchone()
     assert row["summary"].startswith("A new scheduler cuts tail latency")
     assert row["triage_state"] == "pending"
+
+
+# --- taking the picture while the page is open -------------------------------
+
+ART = """<!doctype html>
+<html><head>
+<meta property="og:description" content="A new scheduler cuts tail latency by
+     40% on shared GPUs, by letting short requests overtake long ones.">
+<meta name="twitter:image" content="https://e.test/second-choice.png">
+<meta property="og:image" content="https://cdn.e.test/card.jpg">
+</head><body></body></html>"""
+
+
+def test_the_og_image_is_preferred_over_the_twitter_one():
+    assert describe.page_image(ART) == "https://cdn.e.test/card.jpg"
+
+
+def test_a_relative_image_resolves_against_its_page():
+    """Plenty of publishers write og:image as a path, and a bare path is a
+    broken <img> on the card."""
+    html = '<head><meta property="og:image" content="/media/card.png"></head>'
+    assert describe.page_image(html, "https://e.test/posts/one") == "https://e.test/media/card.png"
+
+
+def test_an_image_that_is_not_a_url_is_dropped():
+    """A data: URI would be inlined into the bundle, and a bare path with no
+    base cannot be resolved -- neither is guessed at."""
+    def image(content):
+        return describe.page_image(f'<head><meta property="og:image" content="{content}"></head>')
+
+    assert image("data:image/png;base64,x") is None
+    assert image("/card.png") is None  # relative, and no page to resolve against
+    assert image("  ") is None
+
+
+def test_a_page_with_no_image_yields_none():
+    assert describe.page_image(PAGE) is None
+    assert describe.page_image("") is None
+    assert describe.page_image(None) is None
+
+
+def test_an_article_with_prose_but_no_picture_is_still_visited(conn, source_id):
+    """Most of the feed arrives with a summary and no image. Asking only about
+    the summary meant art could never reach it."""
+    item = add(conn, source_id, 1, kind="article", summary="Already says something.",
+               url="https://e.test/a")
+
+    found = describe.pending(conn)
+    assert [t.item_id for t in found] == [item]
+    assert found[0].wants_summary is False
+    assert found[0].wants_media is True
+    assert found[0].steps == (describe.Step(describe.PAGE, "https://e.test/a"),)
+
+
+def test_a_paper_that_already_describes_itself_is_left_alone(conn, source_id):
+    """The bound on the widening: a request per arXiv abstract on the chance it
+    has a picture is a guess, and there are ~235 of them a week."""
+    add(conn, source_id, 1, kind="paper", summary="An abstract.", url="https://arxiv.test/1")
+    add(conn, source_id, 2, kind="repo", summary="Release notes.", url="https://gh.test/2")
+    assert describe.pending(conn) == []
+
+
+def test_a_submitted_link_is_worth_a_look_for_its_picture(conn, source_id):
+    """A discussion's own page has no art, but the article it points at does."""
+    add(conn, source_id, 1, kind="discussion", summary="A thread.",
+        metadata={"outbound_url": "https://e.test/a"})
+    found = describe.pending(conn)
+    assert found[0].wants_media is True
+    assert found[0].steps == (describe.Step(describe.PAGE, "https://e.test/a"),)
+
+
+def test_art_is_stored_and_counted(conn, source_id, httpx_mock):
+    item = add(conn, source_id, 1, kind="article", url="https://e.test/a")
+    httpx_mock.add_response(text=ART, headers={"content-type": "text/html"})
+
+    assert describe.run(conn) == {"attempted": 1, "filled": 1, "illustrated": 1}
+    row = conn.execute("SELECT * FROM items WHERE id = ?", (item,)).fetchone()
+    assert row["media_url"] == "https://cdn.e.test/card.jpg"
+    assert row["summary"].startswith("A new scheduler")
+
+
+def test_a_picture_does_not_reopen_the_item_for_judging(conn, source_id, httpx_mock):
+    """A summary changes the vector, so it re-opens triage. Art changes nothing
+    a model ever reads, so it must not throw the verdict away."""
+    item = add(conn, source_id, 1, kind="article", summary="Settled prose.",
+               url="https://e.test/a")
+    conn.execute(
+        "UPDATE items SET triage_state = 'kept', triage_score = 0.9, embedded_hash = 'h' "
+        "WHERE id = ?",
+        (item,),
+    )
+    httpx_mock.add_response(text=ART, headers={"content-type": "text/html"})
+
+    assert describe.run(conn) == {"attempted": 1, "filled": 0, "illustrated": 1}
+    row = conn.execute("SELECT * FROM items WHERE id = ?", (item,)).fetchone()
+    assert row["media_url"] == "https://cdn.e.test/card.jpg"
+    assert row["summary"] == "Settled prose."
+    assert row["triage_state"] == "kept"
+    assert row["embedded_hash"] == "h"

@@ -428,10 +428,10 @@ why every card in it has one. Tributary's `media_url` comes only from RSS
 `media:content`, `media:thumbnail` and image enclosures (`sources/rss.py`) and
 from Hugging Face thumbnails, so arXiv, HN and GitHub releases carry none — and
 at ~235 papers a week against ~90 non-papers, that is most of the feed. The
-cheap half of the fix is `og:image`, which `describe.py` can lift in the same
-`<meta>` parse it already runs for `og:description`, at no extra fetch. The
-other half does not exist: a paper and a release have no image, ever, so either
-imageless kinds get a typographic card or the wall stays uneven. Discover's
+cheap half of the fix is `og:image`, **built 2026-09-22** — see "Describing an
+item" under Sources for what it does and does not cover. The other half does not
+exist: a paper and a release have no image, ever, so either imageless kinds get
+a typographic card or the wall stays uneven. Discover's
 uniformity comes from a uniform corpus — publisher articles and nothing else —
 and "do not cut arXiv" is the rule that makes this corpus the other kind.
 
@@ -693,6 +693,32 @@ hub model card, a repo's one-line description (cached per repo), and a linked
 page's `<meta>` description. It reads meta tags only, never the page body —
 picking prose out of cookie banners is the part of scraping that keeps going
 wrong. For an HN item, describe what was submitted, not the thread.
+
+**And the same parse takes the picture.** Added 2026-09-22, because a card wants
+art and almost nothing here supplies it. `og:image` comes out of the `<meta>`
+pass that was already running, resolved against the page it came from — a bare
+path or a `data:` URI is dropped rather than guessed at. Two consequences worth
+knowing:
+
+- **`pending` now asks for *either* half.** It used to select only items with no
+  summary, which meant art could reach nothing but the few items that arrived
+  with no words at all — and those are hub cards and release notes, which have
+  no picture either. An item with prose and no picture is now worth visiting,
+  and a step that cannot supply the missing half is skipped, so nothing costs a
+  request it did not need.
+- **Only `article`, `post` and anything with an `outbound_url` are visited for
+  art alone** (`_ILLUSTRATED_KINDS`). A publisher maintains `og:image` because
+  it is the card every social platform renders from their link; a paper, a
+  release and a model card are not written that way. Firing a request at all
+  ~235 arXiv abstracts a week on the chance one has a picture is a guess, and
+  this repo measures instead. Widening it is a one-line change **after** someone
+  checks what those pages actually carry — arXiv and GitHub release pages are
+  the two worth checking, and GitHub's generated social card would give every
+  release an image if it is there.
+
+A picture never re-opens triage. A summary clears `embedded_hash` and the
+verdict because the vector was built without it; art changes nothing a model
+reads.
 
 **Google Discover has no ingestion of its own**, checked 2026-09-22 because it
 was proposed as the model for getting *everything*. It is a ranking over the

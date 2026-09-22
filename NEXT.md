@@ -250,12 +250,6 @@ whether the digest or the feed is the front door.
 
 ## Ready to start
 
-- **`og:image` in `describe.py`.** The `<meta>` parse already runs for
-  `og:description` and already has the HTML in hand, so this is a key in
-  `_DESCRIPTION_KEYS`' neighbour and no extra fetch. It is the precondition for
-  any card design with an image in it — measure coverage per kind afterwards,
-  because papers and releases will still have none. See `CLAUDE.md`,
-  *"Google Discover's card is an image contract"*.
 - **`trib sources --suggest`.** Given a domain, find its feed: `<link
   rel="alternate">` first, then the well-known paths, then `sitemap-news.xml`.
   Propose-then-accept, like topics. It is a stage, never a `Source`, because
@@ -371,6 +365,20 @@ whether the digest or the feed is the front door.
   the dense-card-list decision. The image half is blocked on `og:image` above
   and can never cover papers or releases. Decide the density question before
   designing, not after.
+
+- **Nothing already fetched has a picture yet.** `og:image` landed 2026-09-22,
+  but every item in the deployed database is already marked in `described`, so
+  the stage will never revisit it. `trib describe --reset` once, on the database
+  that matters, backfills art for everything still inside the retention window.
+  Expect a few hundred page fetches spread over the runs that follow, capped at
+  `DEFAULT_LIMIT` each.
+- **Does an arXiv abstract or a GitHub release page carry `og:image`?** Nobody
+  has looked, so `_ILLUSTRATED_KINDS` is bounded to `article` and `post` and
+  those two kinds are never visited for art alone. If GitHub serves its
+  generated social card, every release gets a picture for one line of config;
+  if arXiv serves one, so does every paper — and that is most of the feed. It is
+  two `curl`s on a machine that can reach them, and it decides whether a
+  Discover-shaped card is possible at all or only possible for news.
 
 ## Designed, deliberately not built
 
