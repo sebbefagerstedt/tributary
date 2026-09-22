@@ -328,12 +328,6 @@ whether the digest or the feed is the front door.
   Propose-then-accept, like topics. It is a stage, never a `Source`, because
   adapters do not touch the database. Google's own Follow button works this way
   — see `CLAUDE.md` under Sources.
-- **"More like this" as a row on the story page.** The cosine and the vectors
-  are both in place — `cosine` and `decodeVector` ship in the page's lens maths
-  block, and a card already offers **More like this** to *teach a subject*. What
-  does not exist is the simpler reading of it: open a story, see its nearest
-  neighbours, keep going. That is the rest of *"I want to continue reading if I
-  find something interesting"* and it is now a few lines over what is there.
 - **Podcast links.** Podcast feeds are RSS, so this is config plus a check that
   the `rss` adapter reads enclosures sensibly; the feeds are already found and
   verified (see "Sources" in `CLAUDE.md`). Latent Space's podcast feed carries
@@ -507,11 +501,6 @@ whether the digest or the feed is the front door.
 
 Verbatim, because they are the sharpest statement of what is left. Delete each
 one when it is built.
-
-> I want to continue reading if I find something interesting.
-
-Topics, entities and the story page cover most of this. The missing piece is
-**"more like this"** — see "Ready to start".
 
 > I also want links to podcast, and it would be reallt nice with podcast
 > summaries

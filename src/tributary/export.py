@@ -77,9 +77,9 @@ def _centroids(conn: sqlite3.Connection, story_ids: list[int]) -> dict[int, str]
     times that. Base64 rather than a JSON array of numbers, which would be
     three times the characters again. The service worker caches the shell and
     never the feed, so this is paid on every load -- worth it because the
-    vectors are not a lens-only luxury: "more like this" and a related-topics
-    row want them on every story, for every reader. If that stops being true,
-    the cheap move is a second static file fetched on demand, not float32.
+    vectors are not a lens-only luxury: a related-topics row wants them on
+    every story, for every reader. If that stops being true, the cheap move is
+    a second static file fetched on demand, not float32.
 
     A story whose items were never embedded is simply absent, and the page has
     to tolerate a card without a vector.
