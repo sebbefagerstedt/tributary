@@ -22,9 +22,13 @@ fits together, and the decisions that should not be rediscovered.
 - **No Substack sources.** Substack blocks GitHub Actions IPs — Import AI returns
   403 on every scheduled run and works fine locally. Every source must behave
   the same wherever `trib` runs.
-- **The ranking is not an engagement metric.** The project exists partly to
-  replace a social-media habit with "något vettigt"; engagement mechanics that
-  make a feed moreish are the thing being avoided.
+- **The ranking is not an engagement metric — but that is about mechanics, not
+  format.** The project exists partly to replace a social-media habit with "något
+  vettigt", so a ranking tuned to keep you scrolling is the thing being avoided.
+  The *shape* of those apps is not: *"Jag vill absolut inte ersätta formaten av
+  instagram och tiktok, snarare behålla det men att ersätta innehållet"*
+  (2026-09-22). Borrow the form — large, image-led, immersive, fast to scan —
+  and never the hooks.
 - **Naming is a person's call.** Topics and entities are proposed by the
   pipeline and accepted by a human, via the `/suggest-topics` skill. Never
   auto-accept a proposal into `config.toml`.
@@ -431,11 +435,16 @@ imageless kinds get a typographic card or the wall stays uneven. Discover's
 uniformity comes from a uniform corpus — publisher articles and nothing else —
 and "do not cut arXiv" is the rule that makes this corpus the other kind.
 
-**And a Discover card is low density, which reverses a decision already taken.**
-The screenshot holds two stories on a whole phone screen: big headline, no
-summary, source and time underneath. The dense card list is a measured call, so
-adopting that shape is a reversal rather than a refinement — worth doing, but
-deliberately.
+**Big cards are wanted, and the old density rule is withdrawn.** The screenshot
+holds two stories on a whole phone screen, and that was raised as a cost before
+the owner corrected it, 2026-09-22: *"Jag har inga problem med att nyheter tar
+upp för stor plats på sidan, det är snarare bra då det är svårare att missa."* A
+card that fills the screen is harder to skip, which is the point; the earlier
+"dense card list" framing treated size as waste and had it backwards. **What is
+waste is chrome** — a 182px header is rows nobody asked for, while a large card
+is the thing they came for. So the Discover shape is not a reversal to weigh
+against anything, it is the target, and `og:image` is what stands between this
+corpus and it.
 
 **One word per kind.** The badge on a card and the chips counting what else is
 attached to it were two tables, and they drifted: the same kind was badged
@@ -458,8 +467,8 @@ resist volume: arXiv publishes ~150 papers a day where a blog publishes one, and
 recency-times-relevance alone handed it 47 of the first 50 cards. The feed damps
 each *repeat* of a source or kind as it is built (`SOURCE_DECAY`, `KIND_DECAY`),
 which restores a mix with no hard quota. This is what **Trending** now is; the
-default feed is chronological. The page is a dense card list, not full-screen
-snap cards: one headline per screen is the opposite of scannable.
+default feed is chronological. The page is a card list and a card may be large:
+size is not the cost, chrome is — see "Big cards are wanted" above.
 
 ### Tests
 
@@ -556,6 +565,18 @@ still and often better, for the reason facets are regexes. Running the real
 model in the browser (transformers.js, `Xenova/bge-small-en-v1.5`, the same 384
 dimensions) is the only way to accept a *written* description, and costs a
 download not worth paying until the other two prove insufficient.
+
+**But the destination is real accounts and a server, not personal lenses.**
+Stated 2026-09-22: the next big step is proper login and topics that are shared
+rather than private, and the personal version comes first only because it is how
+every part of the feature — creating a topic, commenting, following, ranking a
+proposal — can be exercised before any of it is paid for or moderated. **A
+personal lens is a test harness for a shared one, not a smaller substitute.** So
+build each piece such that the only thing the server changes is where the row is
+stored: a lens is `{name, vector|pattern, created}` whether it lives in
+`localStorage` or in a table, and a comment is addressed by `story_id` either
+way. Anything that would have to be rewritten when the account arrives is the
+wrong shape now.
 
 **Ranking proposed topics by followers is the wrong instrument.** It is an
 engagement metric, it is rich-get-richer — a topic nobody can see collects no

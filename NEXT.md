@@ -3,7 +3,13 @@
 Only upcoming work lives here. **When something is built, delete its entry** —
 history is in git, and the reasoning behind how things work is in `CLAUDE.md`.
 
-## Posting and commenting — the one that changes the architecture
+## Posting and commenting — the next big step, and the one that changes the architecture
+
+**This is the next big step: real accounts, a server, and topics that are shared
+rather than personal.** Confirmed 2026-09-22, and it outranks everything else in
+this file. "Personal lenses" below is not an alternative to it — a topic only
+its author can see is not the feature — it is the way to build and use every
+part of this one before paying for a host or writing a moderation policy.
 
 **Users need to be able to post and comment directly on a topic.** Asked for
 2026-09-17, and it is what finishes the idea the rest of the app has been
@@ -68,7 +74,21 @@ Open questions, none decided:
   technical, so it is less absurd than it sounds — but it is a decision about
   identity, not about hosting.
 
-## Personal lenses — the part of that which needs no backend
+## Personal lenses — how to exercise all of it before the server exists
+
+**The destination is the entry above: real accounts, a server, and topics that
+are shared rather than private.** Stated 2026-09-22, and it is not optional or
+a later maybe — a topic only one person can see is not the feature. What this
+section is for is the order: *"jag vill kunna testa att skapa topics, kommentera
+och alla funktionaliteter innan"*. Everything below exists so that creating a
+topic, commenting, following and ranking a proposal can all be built and used
+before anything is paid for, hosted or moderated.
+
+**So the test is whether a piece survives the account arriving.** A lens is
+`{name, vector|pattern, created}` whether it sits in `localStorage` or in a
+table; a comment is addressed by `story_id` either way. Anything that would need
+rewriting when login lands is the wrong shape now, and that — not the storage —
+is what to review each piece against.
 
 **Asked 2026-09-22**, alongside the posting entry above: readers should be able
 to create their own topics, which arrive as proposals and get ranked before
@@ -166,14 +186,24 @@ four surfaces and what orders each, follows and marks namespaced per profile in
 `localStorage`, and the fact that it has to work as a static file on GitHub
 Pages with no server behind it.
 
-**There is already a design brief for this, one section down** — "A feed you can
-get through at TikTok speed". That entry is the *why*; this is the permission.
-They should be read together rather than answered twice.
+**The brief is "keep the format, replace the content".** The owner's call,
+2026-09-22: *"Jag vill absolut inte ersätta formaten av instagram och tiktok,
+snarare behålla det men att ersätta innehållet."* Read with *"Combo reddit,
+tiktok, youtube … för snabb info"* and *"vill ta bort mitt sociala medier
+beroende"*, that settles what those apps were ever cited for: not a source list
+and not a ranking, but the *shape* — fast, image-led, immersive, mostly not
+prose — pointed at something worth reading. The Google Discover screenshot
+offered the same day is that shape made concrete, and `CLAUDE.md` records what
+it costs: one image per card, which `og:image` half-solves and papers and
+releases never will.
 
-**The measured complaint is chrome.** At 390×844 the header was 182px — 22% of
-the screen — with only three cards fully visible before scrolling, and six rows
-above the first headline: brand and profile, tabs, topics, subtopics, facets,
-and search, with the Trending scope row making a seventh. The subtopics row has
+**The measured complaint is chrome, and only chrome.** At 390×844 the header was
+182px — 22% of the screen — over six rows above the first headline: brand and
+profile, tabs, topics, subtopics, facets, and search, with the Trending scope
+row making a seventh. **How many cards fit is not the complaint**, and was
+briefly written up as though it were: see `CLAUDE.md`, "Big cards are wanted".
+A large card is what the reader came for; a row of chips they did not ask for
+is not. The subtopics row has
 since been deleted, the Feed's remaining rows no longer carry an "All" chip, and
 the kind row has gone too — so **re-measure before designing against that
 number**. The point stands: most
@@ -350,11 +380,6 @@ whether the digest or the feed is the front door.
   independent sources agree" out loud, and knowing when they are not independent
   (a wire rewrite is not confirmation), is a different feature from nudging a
   score.
-- **A feed you can get through at TikTok speed.** "Combo reddit, tiktok, youtube
-  … för snabb info", read with "vill ta bort mitt sociala medier beroende", is
-  not a source list: it is the *format* those apps are good at — fast, scannable,
-  mostly not prose — aimed at something worth reading. Card art and chips are a
-  step. Nothing here has been designed against that target yet.
 - **No time axis.** Items cluster inside a 14-day window, but nothing orders a
   story as announcement → what followed. The shape over time is the interesting
   part and is currently invisible.
