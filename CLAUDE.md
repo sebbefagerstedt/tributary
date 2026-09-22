@@ -22,9 +22,13 @@ fits together, and the decisions that should not be rediscovered.
 - **No Substack sources.** Substack blocks GitHub Actions IPs — Import AI returns
   403 on every scheduled run and works fine locally. Every source must behave
   the same wherever `trib` runs.
-- **The ranking is not an engagement metric.** The project exists partly to
-  replace a social-media habit with "något vettigt"; engagement mechanics that
-  make a feed moreish are the thing being avoided.
+- **The ranking is not an engagement metric — but that is about mechanics, not
+  format.** The project exists partly to replace a social-media habit with "något
+  vettigt", so a ranking tuned to keep you scrolling is the thing being avoided.
+  The *shape* of those apps is not: *"Jag vill absolut inte ersätta formaten av
+  instagram och tiktok, snarare behålla det men att ersätta innehållet"*
+  (2026-09-22). Borrow the form — large, image-led, immersive, fast to scan —
+  and never the hooks.
 - **Naming is a person's call.** Topics and entities are proposed by the
   pipeline and accepted by a human, via the `/suggest-topics` skill. Never
   auto-accept a proposal into `config.toml`.
@@ -417,6 +421,31 @@ home there is exactly one, and a parked story names its shelf, so it is always
 one chip and never a row. It is shown even inside that subject: scoped to a
 shelf, the chip names the *leaf*, which is the thing the banner cannot say.
 
+**Google Discover's card is an image contract, and this corpus cannot sign
+it.** Offered 2026-09-22 as the target for Trending, as a screenshot. Discover
+mandates an image at least 1200px wide plus `max-image-preview:large`, which is
+why every card in it has one. Tributary's `media_url` comes only from RSS
+`media:content`, `media:thumbnail` and image enclosures (`sources/rss.py`) and
+from Hugging Face thumbnails, so arXiv, HN and GitHub releases carry none — and
+at ~235 papers a week against ~90 non-papers, that is most of the feed. The
+cheap half of the fix is `og:image`, which `describe.py` can lift in the same
+`<meta>` parse it already runs for `og:description`, at no extra fetch. The
+other half does not exist: a paper and a release have no image, ever, so either
+imageless kinds get a typographic card or the wall stays uneven. Discover's
+uniformity comes from a uniform corpus — publisher articles and nothing else —
+and "do not cut arXiv" is the rule that makes this corpus the other kind.
+
+**Big cards are wanted, and the old density rule is withdrawn.** The screenshot
+holds two stories on a whole phone screen, and that was raised as a cost before
+the owner corrected it, 2026-09-22: *"Jag har inga problem med att nyheter tar
+upp för stor plats på sidan, det är snarare bra då det är svårare att missa."* A
+card that fills the screen is harder to skip, which is the point; the earlier
+"dense card list" framing treated size as waste and had it backwards. **What is
+waste is chrome** — a 182px header is rows nobody asked for, while a large card
+is the thing they came for. So the Discover shape is not a reversal to weigh
+against anything, it is the target, and `og:image` is what stands between this
+corpus and it.
+
 **One word per kind.** The badge on a card and the chips counting what else is
 attached to it were two tables, and they drifted: the same kind was badged
 `news` while the chip beside it said `1 article`, and `code` against `1 repo`.
@@ -438,8 +467,8 @@ resist volume: arXiv publishes ~150 papers a day where a blog publishes one, and
 recency-times-relevance alone handed it 47 of the first 50 cards. The feed damps
 each *repeat* of a source or kind as it is built (`SOURCE_DECAY`, `KIND_DECAY`),
 which restores a mix with no hard quota. This is what **Trending** now is; the
-default feed is chronological. The page is a dense card list, not full-screen
-snap cards: one headline per screen is the opposite of scannable.
+default feed is chronological. The page is a card list and a card may be large:
+size is not the cost, chrome is — see "Big cards are wanted" above.
 
 ### Tests
 
@@ -511,6 +540,55 @@ browsing wants one, and entities make the whole thing a graph. Reddit's model
 cannot be copied — subreddits are flat, user-created, and a *human* classifies at
 submission time; Tributary has no submitters, so the equivalent is propose, then
 accept.
+
+**A reader's own topic is a lens, not a home, and `_home` is what forces
+that.** Asked 2026-09-22: users should be able to create topics, arriving as
+proposals and ranked before adoption. What the code says about it: `topics.run`
+scores every leaf and `_home` takes the argmax, so a new leaf competes with the
+whole spine for every story and one person's topic changes what everyone else
+sees; and `Config.label_fingerprint` covers topics, so *each* new one re-labels
+the entire corpus. A user topic therefore cannot be a spine topic. It can be the
+other shape the three axes already describe — any number per story, cutting
+across rather than partitioning — which is a facet matched by embedding instead
+of regex. A saved query. Nothing competes, nothing is re-labelled, and
+multi-label is fine precisely because it is not a home.
+
+**Which is why a personal lens needs no server.** It is the shape `isFollowed`
+already has: a `localStorage` predicate over the shared bundle, so per-reader
+filtering happens in the page and never in the pipeline. The bundle has to carry
+story centroids, which `topics.centroids` already computes — at `--limit 120`
+that is 184KB as float32, about 46KB quantised to int8, which normalised vectors
+survive for cosine. The lens vector itself is cheapest as the re-normalised mean
+of two or three stories the reader picks: no model in the browser, and it makes
+"more like this" and a saved filter the same build. A lexical lens is cheaper
+still and often better, for the reason facets are regexes. Running the real
+model in the browser (transformers.js, `Xenova/bge-small-en-v1.5`, the same 384
+dimensions) is the only way to accept a *written* description, and costs a
+download not worth paying until the other two prove insufficient.
+
+**But the destination is real accounts and a server, not personal lenses.**
+Stated 2026-09-22: the next big step is proper login and topics that are shared
+rather than private, and the personal version comes first only because it is how
+every part of the feature — creating a topic, commenting, following, ranking a
+proposal — can be exercised before any of it is paid for or moderated. **A
+personal lens is a test harness for a shared one, not a smaller substitute.** So
+build each piece such that the only thing the server changes is where the row is
+stored: a lens is `{name, vector|pattern, created}` whether it lives in
+`localStorage` or in a table, and a comment is addressed by `story_id` either
+way. Anything that would have to be rewritten when the account arrives is the
+wrong shape now.
+
+**Ranking proposed topics by followers is the wrong instrument.** It is an
+engagement metric, it is rich-get-richer — a topic nobody can see collects no
+followers — and it measures popularity rather than whether the topic works as a
+filter. Three signals need no users at all: **cosine against every existing
+leaf's description**, where above about 0.9 the proposal is a synonym and the
+existing topic should be offered instead — this, not voting, is what keeps the
+spine from bloating; **yield**, how many stories match over a fortnight, where
+too few is dead and too many is a category; and **coherence**, the mean pairwise
+cosine of what it collects, which is what separates a subject from "AI stuff".
+Followers are at most a tiebreaker for promotion into the spine, and promotion
+stays a person's call.
 
 **Topics die by dormancy, not deletion.** The filter row is built from the
 stories loaded, so a quiet topic vanishes on its own and returns if its subject
@@ -610,6 +688,54 @@ hub model card, a repo's one-line description (cached per repo), and a linked
 page's `<meta>` description. It reads meta tags only, never the page body —
 picking prose out of cookie banners is the part of scraping that keeps going
 wrong. For an HN item, describe what was submitted, not the thread.
+
+**Google Discover has no ingestion of its own**, checked 2026-09-22 because it
+was proposed as the model for getting *everything*. It is a ranking over the
+ordinary Search index: content is eligible automatically once crawled, indexed
+and within the content policy, with no submission and no approval — Publisher
+Center is branding, not a way in. So the thing worth copying is not there. What
+is copyable is how Google keeps that index fast, and one of the three is already
+what this repo does:
+
+- **News sitemaps.** `sitemap-news.xml`, named in `robots.txt`, holding only the
+  last 48 hours and under 1000 URLs, crawled at minute-to-hour intervals. It is
+  the only way to get a publisher's whole output when the publisher has no feed,
+  and it is simple XML.
+- **Feed autodiscovery.** Google's own Follow button runs on the RSS or Atom
+  feed found via `<link rel="alternate">`, and where a site has none Google
+  generates one from its crawl. Their answer to "follow a source" is this
+  project's answer. The fallback paths when the `<link>` is missing are well
+  known: `/feed/`, `/rss/`, `/feed.xml`, `/index.xml`, `/rss.xml`, `/atom.xml`
+  (WordPress `/feed`, Ghost `/rss`, Hugo `/index.xml`). Finding a domain's feed
+  is therefore a *stage* that proposes sources, never a `Source` — propose then
+  accept, like topics.
+- **Incremental clustering**, with an age limit of about four hours on arrivals
+  and entity recognition beside it, is what Full Coverage is. That part is built.
+
+Discover's personalisation is Web & App Activity: searches, YouTube history,
+taps versus scroll-pasts, dwell time, saves, dismissals. It is the engagement
+machine the ground rules reject, and the single control it shares with Tributary
+is *follow* — which Google added late and this project started from.
+
+**Google News RSS is a trap for this repo specifically.** Since 2024 every
+article link in `news.google.com/rss/search?q=…` is wrapped in an encoded
+redirect (`/rss/articles/CBMi…`) that resolves only through Google's internal
+`batchexecute` endpoint. Canonical URL is the strongest tier-1 identifier, so an
+undecoded Google link poisons clustering outright — and an undocumented internal
+endpoint that behaves differently on cloud IPs is exactly what the Substack rule
+already forbids.
+
+**GDELT is the firehose that would actually work.** Open data, no key, updated
+every 15 minutes, 100+ languages; the DOC 2.0 API's `ArtList` mode returns
+`url`, `title`, `seendate`, `socialimage`, `domain`, `language` and
+`sourcecountry` — a real URL, so join keys survive, and an image, which most of
+this corpus lacks. Two things make it a decision rather than a config line: it
+is query-driven, which is the shape this repo does not have and the same shape
+product search would need, and it is *all* world news, so the per-kind
+popularity gate stops being optional. **None of these endpoints has been probed
+from a machine that can reach them** — the research sandbox's proxy refused
+`api.gdeltproject.org`, `news.google.com` and the live `data.json` alike. Verify
+before building on any of it.
 
 **Beyond AI.** Sources, triage, topics, facets and entities are all config, and
 the pipeline never names a subject; `identity.py`'s arXiv and hub extractors

@@ -3,7 +3,13 @@
 Only upcoming work lives here. **When something is built, delete its entry** —
 history is in git, and the reasoning behind how things work is in `CLAUDE.md`.
 
-## Posting and commenting — the one that changes the architecture
+## Posting and commenting — the next big step, and the one that changes the architecture
+
+**This is the next big step: real accounts, a server, and topics that are shared
+rather than personal.** Confirmed 2026-09-22, and it outranks everything else in
+this file. "Personal lenses" below is not an alternative to it — a topic only
+its author can see is not the feature — it is the way to build and use every
+part of this one before paying for a host or writing a moderation policy.
 
 **Users need to be able to post and comment directly on a topic.** Asked for
 2026-09-17, and it is what finishes the idea the rest of the app has been
@@ -40,13 +46,86 @@ Open questions, none decided:
 
 - Is a comment an item (so it joins the wake and gets a role), or its own table?
   Item-shaped reuses everything; comment-shaped avoids polluting the corpus that
-  clustering and topic assignment run over.
+  clustering and topic assignment run over. **The split that looks right,
+  2026-09-22:** a *comment* gets its own table, because comments are short,
+  reactive and about the thread rather than the subject, so they would drag
+  story centroids and the topic argmax that reads them; a *post* is genuinely
+  item-shaped and belongs in `Kind.POST`. One feature, two data models, divided
+  by whether the text is about the subject or about the story.
 - Does a user post get triaged and embedded like fetched material? If it does,
   it can be clustered and labelled automatically. If it does not, the author
   places it by hand — which is closer to how Reddit works, and to the
   propose-then-accept model already chosen for topics.
 - Who can post, at what point does that need real accounts, and what happens the
   first time someone abusive arrives.
+- **"GitHub Pages or pay" is a false dichotomy**, and it was framing this whole
+  entry wrongly. Cloudflare Workers' free tier is 100k requests a day and D1's
+  is 5GB with 5M row reads a day — enormous headroom for a personal feed, and
+  enough for real login, real comments and shared topics at no cost until there
+  is real traffic. Two cautions: since 2026-09-01 D1 *hard-fails* queries past
+  the daily limit rather than throttling, and "rows read" counts rows the engine
+  examined, not rows returned, so an unindexed query burns the budget fast. A
+  server also closes the seam `CLAUDE.md` records — `interactions` has no column
+  for a person, so every profile on `trib serve` shares one bucket.
+- **giscus is the zero-build option and it costs the profile model.** Comments
+  live in GitHub Discussions, the site stays static, GitHub handles identity and
+  storage. The price is a GitHub login to comment, which collides head-on with
+  *"Profiles are a namespace, not a login. No password."* The audience is
+  technical, so it is less absurd than it sounds — but it is a decision about
+  identity, not about hosting.
+
+## Personal lenses — how to exercise all of it before the server exists
+
+**The destination is the entry above: real accounts, a server, and topics that
+are shared rather than private.** Stated 2026-09-22, and it is not optional or
+a later maybe — a topic only one person can see is not the feature. What this
+section is for is the order: *"jag vill kunna testa att skapa topics, kommentera
+och alla funktionaliteter innan"*. Everything below exists so that creating a
+topic, commenting, following and ranking a proposal can all be built and used
+before anything is paid for, hosted or moderated.
+
+**So the test is whether a piece survives the account arriving.** A lens is
+`{name, vector|pattern, created}` whether it sits in `localStorage` or in a
+table; a comment is addressed by `story_id` either way. Anything that would need
+rewriting when login lands is the wrong shape now, and that — not the storage —
+is what to review each piece against.
+
+**Asked 2026-09-22**, alongside the posting entry above: readers should be able
+to create their own topics, which arrive as proposals and get ranked before
+adoption, *"och skapa sitt egna filter vilket jag gillar"* — with the doubt that
+making them work for their author from the start would need per-reader
+filtering, which sounded cumbersome.
+
+**It is not cumbersome, and it is the cheaper half of the feature.** Why a user
+topic has to be a lens rather than a home, why a lens runs in the page, and why
+proposals should be ranked by vector rather than by followers are all in
+`CLAUDE.md` under *"A reader's own topic is a lens, not a home"* — read that
+first, it is the design. What is left here is the work.
+
+Three tiers, and only the first costs nothing:
+
+1. **A private lens.** Instant, no approval, held in `localStorage` beside
+   follows, unlimited because nobody else sees it. Needs the bundle to carry
+   centroids (below) and a predicate in `visible()`. **This is buildable now.**
+2. **A shared topic.** Visible to other readers, so it needs the server the
+   posting entry describes. This is where proposal ranking lives, gated on
+   cosine-dedupe, yield and coherence.
+3. **A spine topic.** `config.toml`, an argmax home, re-labels the corpus,
+   human-accepted. Unchanged, and rare.
+
+Tier 1 is not throwaway: tier 2 is "sync tier 1 to a server", which is additive.
+And the order is forced — topics cannot be ranked by followers before there are
+followers, but a personal filter is useful with one reader.
+
+**The ceiling on the client-side version is reach, not comments.** A lens sees
+only the bundle: 120 stories over 30 days. Raising that is cheap in bytes
+(int8 vectors, 500 stories ≈ 190KB) but the JSON around them grows too. That,
+not commenting, is the honest reason a backend eventually wins.
+
+**A lens that matches nothing is a gap report.** "Your lenses that caught
+nothing" is a reader-generated list of what the sources do not cover — demand-led
+source discovery instead of guessing, and the one way the "I do not want to miss
+events" worry is actually answered by this feature rather than by ingestion.
 
 ## Product launches — a different subject, and a different shape
 
@@ -107,14 +186,24 @@ four surfaces and what orders each, follows and marks namespaced per profile in
 `localStorage`, and the fact that it has to work as a static file on GitHub
 Pages with no server behind it.
 
-**There is already a design brief for this, one section down** — "A feed you can
-get through at TikTok speed". That entry is the *why*; this is the permission.
-They should be read together rather than answered twice.
+**The brief is "keep the format, replace the content".** The owner's call,
+2026-09-22: *"Jag vill absolut inte ersätta formaten av instagram och tiktok,
+snarare behålla det men att ersätta innehållet."* Read with *"Combo reddit,
+tiktok, youtube … för snabb info"* and *"vill ta bort mitt sociala medier
+beroende"*, that settles what those apps were ever cited for: not a source list
+and not a ranking, but the *shape* — fast, image-led, immersive, mostly not
+prose — pointed at something worth reading. The Google Discover screenshot
+offered the same day is that shape made concrete, and `CLAUDE.md` records what
+it costs: one image per card, which `og:image` half-solves and papers and
+releases never will.
 
-**The measured complaint is chrome.** At 390×844 the header was 182px — 22% of
-the screen — with only three cards fully visible before scrolling, and six rows
-above the first headline: brand and profile, tabs, topics, subtopics, facets,
-and search, with the Trending scope row making a seventh. The subtopics row has
+**The measured complaint is chrome, and only chrome.** At 390×844 the header was
+182px — 22% of the screen — over six rows above the first headline: brand and
+profile, tabs, topics, subtopics, facets, and search, with the Trending scope
+row making a seventh. **How many cards fit is not the complaint**, and was
+briefly written up as though it were: see `CLAUDE.md`, "Big cards are wanted".
+A large card is what the reader came for; a row of chips they did not ask for
+is not. The subtopics row has
 since been deleted, the Feed's remaining rows no longer carry an "All" chip, and
 the kind row has gone too — so **re-measure before designing against that
 number**. The point stands: most
@@ -158,6 +247,22 @@ whether the digest or the feed is the front door.
 
 ## Ready to start
 
+- **`og:image` in `describe.py`.** The `<meta>` parse already runs for
+  `og:description` and already has the HTML in hand, so this is a key in
+  `_DESCRIPTION_KEYS`' neighbour and no extra fetch. It is the precondition for
+  any card design with an image in it — measure coverage per kind afterwards,
+  because papers and releases will still have none. See `CLAUDE.md`,
+  *"Google Discover's card is an image contract"*.
+- **Carry story centroids in the bundle.** `topics.centroids` computes them
+  already; `export.build_bundle` passes them the way it passes `spine`. Quantise
+  to int8 — normalised vectors survive it for cosine, and it is 46KB against
+  184KB. This is the precondition for personal lenses *and* for "more like this"
+  working in the page rather than on the server.
+- **`trib sources --suggest`.** Given a domain, find its feed: `<link
+  rel="alternate">` first, then the well-known paths, then `sitemap-news.xml`.
+  Propose-then-accept, like topics. It is a stage, never a `Source`, because
+  adapters do not touch the database. Google's own Follow button works this way
+  — see `CLAUDE.md` under Sources.
 - **"More like this" on a story page.** Nearest-neighbour over vectors already on
   disk, and easy now that a story has a centroid. This is the rest of "I want to
   keep reading if I find something interesting".
@@ -252,6 +357,21 @@ whether the digest or the feed is the front door.
   second seed in old stories. `trib cluster --reset` once, on the database that
   matters, rebuilds them.
 
+- **GDELT as a broad-coverage source — probe before designing.** Open, keyless,
+  15-minute updates, and `ArtList` carries a real `url` plus a `socialimage`.
+  But nothing has been verified from a machine that can reach it, it is
+  query-driven rather than scheduled, and it is all world news, which makes the
+  per-kind popularity gate mandatory. Run the endpoint by hand on the WSL box
+  first. Why Google News RSS is *not* the alternative is in `CLAUDE.md`.
+- **News sitemaps as a second adapter kind.** Covers publishers with no feed,
+  which is the only gap feed autodiscovery leaves. Simple XML, no new
+  dependency, 48-hour window by spec.
+- **Is Trending becoming a Discover-shaped card list?** The screenshot that
+  asked for it is two stories per phone screen with no summary, which reverses
+  the dense-card-list decision. The image half is blocked on `og:image` above
+  and can never cover papers or releases. Decide the density question before
+  designing, not after.
+
 ## Designed, deliberately not built
 
 - **"Verifierad (mer trovärdig)".** Corroboration exists as a *ranking* input —
@@ -260,11 +380,6 @@ whether the digest or the feed is the front door.
   independent sources agree" out loud, and knowing when they are not independent
   (a wire rewrite is not confirmation), is a different feature from nudging a
   score.
-- **A feed you can get through at TikTok speed.** "Combo reddit, tiktok, youtube
-  … för snabb info", read with "vill ta bort mitt sociala medier beroende", is
-  not a source list: it is the *format* those apps are good at — fast, scannable,
-  mostly not prose — aimed at something worth reading. Card art and chips are a
-  step. Nothing here has been designed against that target yet.
 - **No time axis.** Items cluster inside a 14-day window, but nothing orders a
   story as announcement → what followed. The shape over time is the interesting
   part and is currently invisible.
