@@ -328,15 +328,6 @@ whether the digest or the feed is the front door.
   Propose-then-accept, like topics. It is a stage, never a `Source`, because
   adapters do not touch the database. Google's own Follow button works this way
   — see `CLAUDE.md` under Sources.
-- **Podcast links.** Podcast feeds are RSS, so this is config plus a check that
-  the `rss` adapter reads enclosures sensibly; the feeds are already found and
-  verified (see "Sources" in `CLAUDE.md`). Latent Space's podcast feed carries
-  full transcripts, which makes it the one podcast that embeds well today.
-  Summaries are the wanted half, and are Phase 4.
-- **YouTube channel feeds.** Plain Atom, so `kind = "rss"` should take them;
-  channel IDs are in `CLAUDE.md`. Untested from Actions, where YouTube is known
-  to block transcript fetching — check that the *feed* endpoint survives a run
-  before relying on it. Use channel feeds, not playlist feeds.
 - **TLDR AI and Anthropic** need a two-stage adapter — fetch a listing, then one
   request per page, emitting one item per story. Needs the HTML parser the repo
   does not have. Why TLDR cannot be plain RSS is in `CLAUDE.md`.
@@ -361,10 +352,9 @@ whether the digest or the feed is the front door.
 
 - **Anthropic is not a source**, and should be. It has no feed on `anthropic.com`
   or `alignment.anthropic.com` under any path, and no `application/rss+xml` in
-  either page head — so it is the HTML-scrape adapter's first real customer. Two
-  half-measures exist: its YouTube channel (`UCrDwWp7EBBv4NwvScIpBDOA`) has a
-  working feed, and third-party scrapers republish its news as RSS, though
-  trusting someone else's scraper for a primary source seems worse than the gap.
+  either page head — so it is the HTML-scrape adapter's first real customer.
+  Third-party scrapers republish its news as RSS, though trusting someone
+  else's scraper for a primary source seems worse than the gap.
 - **A cyber-misuse story landed under Companies & money.** Seen 2026-09-19:
   *"Gemini Hacked Three Companies in First Known Breakout by Google's AI"* took
   `Industry & policy › Companies & money`. The owner's read: *"I am not sure if
@@ -485,10 +475,6 @@ whether the digest or the feed is the front door.
 
 ## Blocked on something external
 
-- **Phase 4 — YouTube/podcast transcripts, claim extraction, timestamp
-  deep-links.** The differentiated feature. **Will not work on GitHub Actions** —
-  runners are cloud IPs and YouTube blocks them. Needs a residential connection:
-  the WSL machine, or a Pi at home pushing to the same repo.
 - **Phase 5** — notes/takes layer, interaction-learned ranking, "catch me up"
   digest.
 - **Phase 6+** — multi-user.
@@ -499,12 +485,6 @@ whether the digest or the feed is the front door.
 
 Verbatim, because they are the sharpest statement of what is left. Delete each
 one when it is built.
-
-> I also want links to podcast, and it would be reallt nice with podcast
-> summaries
-
-Links are config plus a check (see "Ready to start"); summaries are Phase 4, and
-the one place an API key would genuinely buy something.
 
 > I only want the most popular news, not everything. Otherwise it is not really
 > news.

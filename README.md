@@ -164,7 +164,7 @@ Two things worth knowing:
   miss is survivable — the run rebuilds from the sources.
 - **Some sources behave differently there.** Actions runners are cloud IPs.
   Substack blocks them — Import AI worked locally but never on a run, and was
-  dropped for it — and YouTube would too.
+  dropped for it.
 
 ## Development
 

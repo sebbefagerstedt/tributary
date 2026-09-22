@@ -14,9 +14,9 @@ fits together, and the decisions that should not be rediscovered.
 - **No LLM, no API key.** There is no `ANTHROPIC_API_KEY` and the owner does not
   want one yet. When something seems to need a model, check whether the local
   embeddings can do it first — they usually can (dynamic topics turned out to be
-  plain vector clustering). The only genuinely LLM-shaped work is "why this
-  matters" one-liners and YouTube transcript claim extraction: offer those as
-  optional and priced, never on by default.
+  plain vector clustering). The only genuinely LLM-shaped work left is "why
+  this matters" one-liners: offer that as optional and priced, never on by
+  default.
 - **Do not cut arXiv.** A new paper is news whether or not anyone has reacted to
   it. Any popularity gate has to be per-kind, never global.
 - **No Substack sources.** Substack blocks GitHub Actions IPs — Import AI
@@ -698,25 +698,19 @@ Findings that should not be researched again:
   while "author is an organisation" is not (unsloth is an org and a requant
   shop). `cites_paper` kept zero of 300 newest repos, so that source was removed.
 - **Anthropic has no feed** on either domain or in either page head; it needs
-  the HTML-scrape adapter. Its YouTube channel is `UCrDwWp7EBBv4NwvScIpBDOA`.
+  the HTML-scrape adapter.
 - **MarkTechPost's own `/feed/` returns 403**; the FeedBurner mirror works.
 - **An empty 406 from `export.arxiv.org` is its CDN, not the API** — no
   `google` hop in `Via`, and `cache-control: private, no-store`. It hit httpx
   on the WSL machine for a few minutes on 2026-09-22 while curl got 200 from
   the same URL and Actions was unaffected, then cleared by itself. Retry before
   debugging the adapter: a header change looked like the fix and was not.
-- **YouTube**: channel feeds at `youtube.com/feeds/videos.xml?channel_id=…`
-  work — Dwarkesh `UCXl4i9dYBrFOabk0xGmbkRA`, MLST `UCMLtBahI5DMrt0NPvDSoIRQ`,
-  Two Minute Papers `UCbfYPyITQ-7l4upoX8nvctg`, AI Explained
-  `UCNJ1Ymd5yFuUPtn21xtRbbw`, bycloud `UCgfe2ooZD3VJPB6aJAnuQng`, Welch Labs
-  `UConVfxXodg78Tzh5nNu85Ew`, Karpathy `UCXUPKJO5MZQN11PqgIvyuvQ`, Simons
-  Institute `UCW1C2xOfXsIzPgjXyuhkw9g`. **Playlist feeds are ordered by
-  playlist position, not date**, so they look frozen; use channel feeds.
-- **Podcasts**: Latent Space's *podcast* feed
-  `api.substack.com/feed/podcast/1084089.rss` is separate from its blog and
-  carries full transcripts; also Dwarkesh (`…/podcast/69345.rss`), MLST
-  (`anchor.fm/s/1e4a0eac/podcast/rss`), Practical AI, TWIML, Cognitive
-  Revolution, No Priors, Last Week in AI. Hard Fork's feed is effectively dead.
+- **YouTube and podcasts are skipped**, the owner's call on 2026-09-22 — as
+  sources, and with them the transcript and summary work that was their reason
+  to exist. A video or episode still arrives when something else links to it,
+  which is what the `video` role is for. The channel IDs and podcast feeds
+  found for them were verified and are in git history, in this file before
+  the commit that recorded this.
 - **Not worth it**: TikTok has no feed at all (a scraper against a private API);
   X is pay-per-read with no free tier; Discord and Slack need a bot per server;
   Papers with Code redirects to Hugging Face. Bluesky has native per-profile RSS
@@ -876,9 +870,7 @@ git stores every version of a binary in full; a cache miss is survivable, since
 the run rebuilds from the sources. Scheduled workflows are disabled after 60
 days without a push.
 
-Actions runs on cloud IPs, which is why Substack sources fail there and why
-YouTube *transcripts* (Phase 4) need a residential connection — the WSL machine,
-or a Pi at home pushing to the same repo.
+Actions runs on cloud IPs, which is why Substack sources fail there.
 
 **Reading a run's log:** `trib run` prints new, updated, unchanged and too-old
 counts. All-new with nothing unchanged is the shape of churn, not news — on a
