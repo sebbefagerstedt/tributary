@@ -411,6 +411,27 @@ whether the digest or the feed is the front door.
   It is what made the misfiling above look like an absence. Either search should
   ignore the topic filter, or the empty state should say the filter is on.
 
+- **Launch posts do not reach Frontier model releases.** In the fortnight to
+  2026-09-22 the spine homed 4 of 16 launch stories there: *Introducing GPT-6
+  Sol and Luna* went to Jailbreaks & attacks, *Introducing Claude Opus 5.5* to
+  Chips & datacenters, *Grok 4.7* parked on Inference. A launch post is mostly
+  benchmarks, pricing and safety, and its centroid follows the prose. Six
+  descriptions were measured by re-homing the whole corpus: naming the labs
+  caught 12 but took 21% of every story, and naming the model lines reached 8–9
+  and no further — the 8-of-16 wording was accepted the same day. Every one of
+  the 16 carries a model entity, so following GPT, Claude, Gemini or Grok is the
+  route that works; the untried one is lexical, the way facets are, since a
+  launch names itself in its title.
+- **The topic floor is letting non-AI stories into followed topics.** `trib
+  topics --stats` on a local database refreshed 2026-09-22: 1,043 of 3,822
+  stories are made only of items triage would have dropped, and they are the
+  majority in Frontier model releases (32 of 47), Prompting & context (24 of
+  37), Vision-language models (49 of 80) and Open-weight models (51 of 86).
+  *Motor oil rationing at Costco* and TechCrunch Disrupt ticket offers clear
+  0.55. This is the signal `CLAUDE.md` says to watch for under the topic floor:
+  re-measure it on the untriaged population. A triage `exclude` line would not
+  fix it — triage only ranks now, and the Feed filters by follows, not score.
+
 - **A shelf follow and a leaf follow say less in the UI than they do in the
   feed.** `isFollowed` already treats a follow on a shelf as covering every leaf
   under it, but the subject panel draws each leaf's button from its own key, so
