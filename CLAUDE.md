@@ -555,10 +555,15 @@ multi-label is fine precisely because it is not a home.
 
 **Which is why a personal lens needs no server.** It is the shape `isFollowed`
 already has: a `localStorage` predicate over the shared bundle, so per-reader
-filtering happens in the page and never in the pipeline. The bundle has to carry
-story centroids, which `topics.centroids` already computes — at `--limit 120`
-that is 184KB as float32, about 46KB quantised to int8, which normalised vectors
-survive for cosine. The lens vector itself is cheapest as the re-normalised mean
+filtering happens in the page and never in the pipeline. The bundle carries
+story centroids as of 2026-09-22, quantised to int8 and base64-encoded
+(`export._centroids`): measured at `--limit 120` that is **+60KB raw, +40KB
+gzipped**, against four times that for float32. The error it costs, over a
+bge-shaped spread of 2000 cosines: mean 0.0026, worst 0.011, nine of the top
+ten by similarity keeping their places, one story in two thousand crossing a
+0.75 threshold it should not have — the same order as `park_margin`, so this is
+fine for ranking and filtering and is *not* precise enough to re-derive a
+topic's home from. The lens vector itself is cheapest as the re-normalised mean
 of two or three stories the reader picks: no model in the browser, and it makes
 "more like this" and a saved filter the same build. A lexical lens is cheaper
 still and often better, for the reason facets are regexes. Running the real

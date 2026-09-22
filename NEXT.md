@@ -105,8 +105,10 @@ first, it is the design. What is left here is the work.
 Three tiers, and only the first costs nothing:
 
 1. **A private lens.** Instant, no approval, held in `localStorage` beside
-   follows, unlimited because nobody else sees it. Needs the bundle to carry
-   centroids (below) and a predicate in `visible()`. **This is buildable now.**
+   follows, unlimited because nobody else sees it. **The bundle already carries
+   the vectors** — `story.centroid`, int8 and base64, with `bundle.vectors`
+   declaring the packing — so what is left is picking seed stories, storing the
+   lens, and a predicate in `visible()`.
 2. **A shared topic.** Visible to other readers, so it needs the server the
    posting entry describes. This is where proposal ranking lives, gated on
    cosine-dedupe, yield and coherence.
@@ -118,9 +120,10 @@ And the order is forced — topics cannot be ranked by followers before there ar
 followers, but a personal filter is useful with one reader.
 
 **The ceiling on the client-side version is reach, not comments.** A lens sees
-only the bundle: 120 stories over 30 days. Raising that is cheap in bytes
-(int8 vectors, 500 stories ≈ 190KB) but the JSON around them grows too. That,
-not commenting, is the honest reason a backend eventually wins.
+only the bundle: 120 stories over 30 days. Raising that is affordable on the
+vectors alone — measured at 60KB per 120 stories, so 500 would be 250KB — but
+the JSON around them grows with it. That, not commenting, is the honest reason
+a backend eventually wins.
 
 **A lens that matches nothing is a gap report.** "Your lenses that caught
 nothing" is a reader-generated list of what the sources do not cover — demand-led
@@ -253,19 +256,16 @@ whether the digest or the feed is the front door.
   any card design with an image in it — measure coverage per kind afterwards,
   because papers and releases will still have none. See `CLAUDE.md`,
   *"Google Discover's card is an image contract"*.
-- **Carry story centroids in the bundle.** `topics.centroids` computes them
-  already; `export.build_bundle` passes them the way it passes `spine`. Quantise
-  to int8 — normalised vectors survive it for cosine, and it is 46KB against
-  184KB. This is the precondition for personal lenses *and* for "more like this"
-  working in the page rather than on the server.
 - **`trib sources --suggest`.** Given a domain, find its feed: `<link
   rel="alternate">` first, then the well-known paths, then `sitemap-news.xml`.
   Propose-then-accept, like topics. It is a stage, never a `Source`, because
   adapters do not touch the database. Google's own Follow button works this way
   — see `CLAUDE.md` under Sources.
-- **"More like this" on a story page.** Nearest-neighbour over vectors already on
-  disk, and easy now that a story has a centroid. This is the rest of "I want to
-  keep reading if I find something interesting".
+- **"More like this" on a story page.** Nearest-neighbour over `story.centroid`,
+  which the bundle now carries, so this runs in the page with no server and no
+  second request. This is the rest of "I want to keep reading if I find
+  something interesting", and it is the same cosine a personal lens needs — do
+  them together.
 - **Podcast links.** Podcast feeds are RSS, so this is config plus a check that
   the `rss` adapter reads enclosures sensibly; the feeds are already found and
   verified (see "Sources" in `CLAUDE.md`). Latent Space's podcast feed carries
