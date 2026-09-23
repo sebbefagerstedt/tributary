@@ -594,6 +594,13 @@ which restores a mix with no hard quota. This is what **Trending** now is; the
 default feed is chronological. The page is a card list and a card may be large:
 size is not the cost, chrome is — see "Big cards are wanted" above.
 
+**The ranking does not learn from what you do.** Ruled out 2026-09-23, in the
+review of `NEXT.md`; it was the last of an old "Phase 5", which would have let
+your saves and dismissals reorder the feed. Learning from behaviour is how a
+ranking turns into the engagement metric the ground rules keep out. If it is
+ever reopened, only explicit signals — a save, a dismissal — and never time
+spent, dwell or scroll-past.
+
 ### Tests
 
 - `tests/conftest.py` provides `conn`, a freshly migrated database in
@@ -883,6 +890,9 @@ items, so `MAX_FANOUT` does not catch it); and let consecutive issues merge as
 near-identical titles. It needs a two-stage adapter shaped like
 `sources/github.py`, emitting one item per story with an id like
 `f"{issue_id}#{n}"`. Its value is the hand-written blurbs, not the coverage.
+**Dropped 2026-09-23**, in the review of `NEXT.md`: the labs its issues link to
+are read directly now, and the blurbs alone do not earn a two-stage adapter.
+This stays so it is not researched again.
 
 **Commentary can arrive without the thing it comments on.** `identity.py` treats
 a URL as a strong identifier but only finds one in the item's own `url`,
@@ -1049,5 +1059,5 @@ story page, and the funnel is the clusterer.
 **"Community" means the ripple, not a chat room**: what happened *because of* a
 story — the projects started after it, the arguments, the write-ups and video
 takes. A story is the announcement plus its wake, which is what item roles are
-for. Posting and commenting on a topic is a separate, open requirement, and the
-one item in `NEXT.md` that changes the architecture.
+for. Posting and commenting on a topic is a separate, open requirement, under
+**Multiple users** in `NEXT.md`.
