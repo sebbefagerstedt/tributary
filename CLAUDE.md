@@ -711,7 +711,9 @@ the Llama *model* does not match `llama.cpp`. Seeded ones live in config;
 `trib entities --suggest` proposes more from summaries (Title Case headlines
 make every word look like a name), dropping words also written in lower case
 elsewhere. About half its output is eponyms like `Gaussian`; a person rejects
-those.
+those. A word that mostly follows the same name is proposed with it — `Gemini
+Flash`, never a bare `Flash` (2026-09-23) — unless that name is an ordinary word
+opening a sentence.
 
 **Topics are an ontology, and the tree is only its browsing skeleton.** Category
 (hand-made spine), entity (extracted, human-accepted), event (a story). The

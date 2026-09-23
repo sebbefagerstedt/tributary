@@ -284,10 +284,6 @@ Small, self-contained jobs. None of them waits on either direction above.
   about. The guards it needs are in `CLAUDE.md` under Sources. Touches
   clustering, which is calibrated, so it needs guards and tests rather than a
   one-line regex.
-- **Qualified entity names.** `trib entities --suggest` proposes bare model
-  suffixes like `Flash` and `Sol`, which would be ambiguous as entities (`Flash`
-  claims every flash-attention paper). Reading the word before would let it
-  propose `Gemini Flash` instead.
 
 ## Designed, deliberately not built
 

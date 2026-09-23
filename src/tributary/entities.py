@@ -152,6 +152,25 @@ def _is_concept(word: str) -> bool:
     return base.isupper() and not any(ch.isdigit() for ch in base)
 
 
+def _qualified(word: str, count: int, before: dict[str, int], lower: dict[str, int]) -> str:
+    """`Gemini Flash` rather than `Flash`, when the word mostly follows one name.
+
+    A model suffix -- `Flash`, `Sol`, `Sonnet` -- is ambiguous alone, and
+    CLAUDE.md already records what a bare `Flash` alias does. When at least half
+    of a word's capitalised appearances follow the same capitalised word, and
+    that word is a name rather than an ordinary word at a sentence's start, the
+    pair is the proposal. Otherwise the word stands alone, as before.
+    """
+    if not before:
+        return word
+    prefix, times = max(before.items(), key=lambda pair: (pair[1], pair[0]))
+    if times * 2 < count or prefix.lower() in _NOT_NAMES or prefix.endswith(("'s", "’s")):
+        return word
+    if lower.get(prefix.lower(), 0) > times / 4:
+        return word
+    return f"{prefix} {word}"
+
+
 def suggest(
     conn: sqlite3.Connection,
     seeded: list[EntityConfig],
@@ -174,6 +193,10 @@ def suggest(
     known = [_pattern(entity) for entity in seeded]
     capital: dict[str, int] = {}
     lower: dict[str, int] = {}
+    # The capitalised word written just before each one, so a bare model suffix
+    # can be proposed with the line it belongs to: `Flash` alone would claim
+    # every flash-attention paper as an entity, `Gemini Flash` would not.
+    before: dict[str, dict[str, int]] = {}
     found: dict[str, set[int]] = {}
     titles: dict[str, list[str]] = {}
 
@@ -190,15 +213,22 @@ def suggest(
         title = row["title"] or ""
         here = set(_PROPER.findall(title))
         for sentence in _SENTENCE.split(row["summary"] or ""):
+            previous = ""
             for position, raw in enumerate(sentence.split()):
                 word = raw.strip(_EDGES)
                 if not word:
+                    previous = ""
                     continue
                 if position > 0 and _PROPER.fullmatch(word):
                     capital[word] = capital.get(word, 0) + 1
                     here.add(word)
+                    if previous and _PROPER.fullmatch(previous):
+                        counts = before.setdefault(word, {})
+                        counts[previous] = counts.get(previous, 0) + 1
                 elif word.islower():
                     lower[word] = lower.get(word, 0) + 1
+                # Punctuation between two words breaks the pair: "Google, Flash".
+                previous = word if raw.rstrip(_EDGES) == raw else ""
         for word in here:
             found.setdefault(word, set()).add(row["story_id"])
             examples = titles.setdefault(word, [])
@@ -217,7 +247,10 @@ def suggest(
             continue
         if any(pattern.search(word) for pattern in known):
             continue
-        candidates.append(Candidate(name=word, stories=stories, titles=titles.get(word, [])))
+        name = _qualified(word, count, before.get(word, {}), lower)
+        if name != word and any(pattern.fullmatch(name) for pattern in known):
+            continue
+        candidates.append(Candidate(name=name, stories=stories, titles=titles.get(word, [])))
 
     candidates.sort(key=lambda c: (-c.stories, c.name))
     return candidates[:limit]

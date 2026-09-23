@@ -221,3 +221,34 @@ def test_arxiv_boilerplate_is_not_a_name(conn, told):
         told(f"Paper {n}", "arXiv:2609.1 Announce Type: new Abstract: we study things.")
 
     assert proposed(conn) == []
+
+
+def test_a_model_suffix_is_proposed_with_the_line_it_belongs_to(conn, told):
+    """A bare `Flash` would claim every flash-attention paper."""
+    for n in range(3):
+        told(f"Release {n}", "Google shipped Gemini Flash today. Gemini Flash is fast.")
+
+    names = proposed(conn)
+    assert "Gemini Flash" in names and "Flash" not in names, names
+
+
+def test_a_suffix_after_a_seeded_line_is_still_proposed_whole(conn, told):
+    gemini = EntityConfig(name="Gemini", kind="model")
+    for n in range(3):
+        told(f"Release {n}", "Google shipped Gemini Flash today.")
+
+    assert proposed(conn, seeded=[gemini]) == ["Gemini Flash"]
+
+
+def test_a_word_after_an_ordinary_sentence_opener_stays_bare(conn, told):
+    for n in range(3):
+        told(f"News {n}", "Today Astra shipped. today was busy. today again.")
+
+    assert proposed(conn) == ["Astra"]
+
+
+def test_punctuation_between_two_names_does_not_pair_them(conn, told):
+    for n in range(3):
+        told(f"News {n}", "The labs were Google, Astra and others.")
+
+    assert "Google Astra" not in proposed(conn)
