@@ -288,10 +288,6 @@ Small, self-contained jobs. None of them waits on either direction above.
   suffixes like `Flash` and `Sol`, which would be ambiguous as entities (`Flash`
   claims every flash-attention paper). Reading the word before would let it
   propose `Gemini Flash` instead.
-- **Patch-release chatter.** `transformers v5.15.1`, `ollama v0.33.3` and
-  LangChain's per-package tags (`langchain-core==1.6.3`) are real releases, so
-  they pass the prerelease filter, but few are news. A rule like "minor versions
-  and up" would need care: projects version very differently.
 - **Ask why a story landed where it did.** Nothing prints a story's scores
   against the spine — `trib topics` has `--stats`, `--suggest` and `--reset` —
   and it is a few lines over `topics.centroids`: the top leaves and their

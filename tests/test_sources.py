@@ -312,10 +312,24 @@ def test_github_skips_a_build_that_forgot_to_set_the_flag(httpx_mock):
 
 def test_github_keeps_an_ordinary_version_that_merely_contains_letters(httpx_mock):
     """The string test must not eat real releases."""
-    tags = ["v4.57.0", "v0.11.0", "sdk-v2.1.3", "release-2026.09", "v1.0.0+cuda12"]
+    tags = ["v4.57.0", "v0.11.0", "sdk-v2.1.0", "release-2026.09", "v1.0.0+cuda12"]
     httpx_mock.add_response(json=[release(tag) for tag in tags])
     items, _ = GitHubSource(cfg("github", repos=["o/r"])).fetch({})
     assert [i.external_id for i in items] == [f"o/r@{tag}" for tag in tags]
+
+
+def test_github_skips_patch_releases_by_default(httpx_mock):
+    """Real releases, rarely news: these three were in the feed on 2026-09-22."""
+    tags = ["v5.15.1", "v0.33.3", "langchain-core==1.6.3", "v5.16.0", "v1.0", "2026.09.22"]
+    httpx_mock.add_response(json=[release(tag) for tag in tags])
+    items, _ = GitHubSource(cfg("github", repos=["o/r"])).fetch({})
+    assert [i.external_id for i in items] == ["o/r@v5.16.0", "o/r@v1.0", "o/r@2026.09.22"]
+
+
+def test_github_keeps_patch_releases_when_asked(httpx_mock):
+    httpx_mock.add_response(json=[release("v5.15.1"), release("v5.16.0")])
+    items, _ = GitHubSource(cfg("github", repos=["o/r"], patches=True)).fetch({})
+    assert [i.external_id for i in items] == ["o/r@v5.15.1", "o/r@v5.16.0"]
 
 
 def test_github_keeps_prereleases_when_asked(httpx_mock):

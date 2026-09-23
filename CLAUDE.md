@@ -849,7 +849,11 @@ Findings that should not be researched again:
   builds (`b11020`) and LangChain's per-package alphas
   (`langchain-typesafe==0.0.1a1`) both arrive with it set to false, and both led
   the feed on 2026-09-19. `github._is_prerelease` reads the tag string as well.
-  Set `prereleases = true` on a source that wants them.
+  Set `prereleases = true` on a source that wants them. **Patch releases are
+  skipped too** (2026-09-23): `transformers v5.15.1` and `langchain-core==1.6.3`
+  are real releases and rarely news, so a third version number above zero is
+  dropped at fetch (`github._is_patch`; calendar versions are exempt).
+  `patches = true` keeps them.
 - **Hugging Face models are already the popular ones** (minimum 90 likes, median
   964). For future filtering: there is no server-side min-likes filter
   (`min_likes` is silently ignored); `sort=trending` errors, and `likes7d` equals
