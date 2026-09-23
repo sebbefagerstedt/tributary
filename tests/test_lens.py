@@ -546,3 +546,32 @@ def test_a_circle_plays_its_new_stories_then_moves_on(page_bundle):
     assert out["first"] and out["seenFirst"] and out["second"], out
     assert out["movedOn"] and out["third"], out
     assert out["noTimer"], "the viewer must not advance on its own"
+
+
+@needs_node
+def test_the_page_opens_on_topics_and_the_feed_row_is_the_circles_small(page_bundle):
+    """Topics is home (2026-09-23), and the Feed's filter row carries every
+    subject you follow -- names included, which it used to leave out -- each
+    with its picture, lit while something in it is new."""
+    out = boot(page_bundle, """
+      const opened = view;
+      localStorage.setItem(key('view'), 'saved');   // a tab left open last time
+      loadProfileState();
+      const reopened = view;
+      const [a] = bundle.stories;
+      a.entities = [{ kind: 'org', name: 'NVIDIA' }];
+      a.media_url = 'https://e.test/art.jpg';
+      follows.clear(); follows.add('entity:NVIDIA');
+      marks.seen.clear();
+      view = 'feed';
+      render();
+      const row = document.getElementById('filters').innerHTML;
+      console.log(JSON.stringify({
+        opened, reopened,
+        name: row.includes('data-filter="entity:NVIDIA"'),
+        picture: row.includes('https://e.test/art.jpg'),
+        lit: row.includes('class="filter new"'),
+      }));
+    """)
+    assert out["opened"] == "topics" and out["reopened"] == "topics", out
+    assert out["name"] and out["picture"] and out["lit"], out

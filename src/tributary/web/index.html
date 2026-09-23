@@ -107,14 +107,35 @@ body.searching .head-icon#search-toggle { color: var(--accent); }
 .filters::-webkit-scrollbar { display: none; }
 .filters:empty { display: none; }
 .filter {
-  flex: none; font: inherit; font-size: 12.5px; font-weight: 550; cursor: pointer;
-  padding: 5px 11px; border-radius: 999px; white-space: nowrap;
-  border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+  flex: none; display: flex; align-items: center; gap: 7px; cursor: pointer;
+  font: inherit; font-size: 13.5px; font-weight: 650; white-space: nowrap;
+  padding: 3px 11px 3px 3px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--text);
+  box-shadow: var(--shadow);
 }
-.filter[aria-pressed="true"] {
-  background: var(--accent); border-color: var(--accent); color: #fff;
+.filter .n {
+  font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--faint);
 }
-.filter .n { opacity: .6; margin-left: 5px; font-variant-numeric: tabular-nums; }
+.filter.new .n {
+  color: #fff; background: var(--accent); border-radius: 999px;
+  min-width: 20px; height: 20px; line-height: 20px; padding: 0 6px; text-align: center;
+}
+/* A small ring, lit the way the circles on the Topics page are. */
+.f-av {
+  flex: none; width: 32px; height: 32px; border-radius: 50%; padding: 2px;
+  background: var(--line);
+}
+.filter.new .f-av {
+  background: conic-gradient(from 210deg, var(--accent), #8b5cf6, #ec4899, #f59e0b, var(--accent));
+}
+.f-face {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 100%; border-radius: 50%; overflow: hidden;
+  border: 2px solid var(--surface); background: var(--tile);
+  color: #fff; font-size: 12px; font-weight: 750;
+}
+.f-face img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 /* Shown only when something is on, in the slot the old "All" chip held. A
    chip that means "nothing is filtered" is just a statement of the row's own
    state; one that undoes a choice is a control. */
@@ -721,9 +742,9 @@ body.digest-view #search-toggle { display: none; }
 <main id="main"><div class="spinner"></div></main>
 
 <nav class="tabbar" role="tablist">
-  <button class="tab" role="tab" data-view="feed" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg><span>Feed</span></button>
+  <button class="tab" role="tab" data-view="topics" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Topics</span></button>
+  <button class="tab" role="tab" data-view="feed" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="7" rx="1.5"/><rect x="4" y="14" width="16" height="7" rx="1.5"/></svg><span>Feed</span></button>
   <button class="tab" role="tab" data-view="trending" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg><span>Trending<span class="beta">beta</span></span></button>
-  <button class="tab" role="tab" data-view="topics" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Topics</span></button>
   <button class="tab" role="tab" data-view="saved" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4.5L5 21V4a1 1 0 0 1 1-1z"/></svg><span>Saved</span></button>
 </nav>
 
@@ -915,7 +936,7 @@ let profile = localStorage.getItem('profile') || '';
 // Namespaced per profile, so switching swaps every mark at once.
 const key = (name) => (profile ? `p:${profile}:${name}` : name);
 
-let view = 'feed';
+let view = 'topics';
 let topic = '';
 /* Trending is the old ranking, kept off the default feed. Its scope is not
    persisted: which half of it you were last in is not worth remembering. */
@@ -962,7 +983,10 @@ function loadProfileState() {
   follows = readSet('follows');
   lenses = readLenses();
   forgetLenses();
-  view = localStorage.getItem(key('view')) || 'feed';
+  /* Always the front door, never the tab you left: decided 2026-09-23 --
+     *"I agree that the topic is more of a better home"*. The overview is
+     where a visit starts; the feed is where you go to read everything. */
+  view = 'topics';
   topic = localStorage.getItem(key('topic')) || '';
   trendScope = 'all';
   entity = '';
@@ -1425,9 +1449,20 @@ function topicIndex(live) {
 /* The subjects you follow, as ways into them. It cannot show a *lit* chip any
    more, because the row is gone the moment you are inside a subject -- so it
    carries no pressed state and no `Clear`: leaving is the banner's job now. */
-const chipRow = (ranked) => ranked.map(([subject, { name, n }]) =>
-  `<button class="filter" data-filter="${esc(subject)}"
-    >${esc(name)}<span class="n">${n}</span></button>`).join('');
+/* The Feed's filter row, as the Topics page's circles made small: the same
+   subjects in the same order, each with its picture in a ring that is lit
+   while something in it is new, and the new count where there is one. Asked
+   2026-09-23 that the filter *"could look cooler"* -- it was a row of grey
+   text pills counting totals, and it left out the names you follow. */
+const chipRow = (rows) => rows.map((r) => `
+  <button class="filter${r.unseen ? ' new' : ''}" data-filter="${esc(r.key)}">
+    <span class="f-av"><span class="f-face" style="${swatch(r.key)}">${
+      esc(r.name.slice(0, 1).toUpperCase())}${r.art
+      ? `<img src="${esc(r.art)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''
+    }</span></span>
+    <span class="f-name">${esc(r.name)}</span>
+    <span class="n">${r.unseen || r.n}</span>
+  </button>`).join('');
 
 /* The place you are standing in, as one key. Three variables hold it because
    they filter differently; everything that only needs to *name* it wants this. */
@@ -1436,32 +1471,6 @@ const scopeKey = () => (entity ? `entity:${entity}`
   : topic ? `topic:${topic}` : '');
 
 const narrowed = () => Boolean(topic || entity || lensScope);
-
-/* The subjects you follow, counted in the feed, in the order the digest ranks
-   them. Flat, with no shelf-then-leaf step: you picked these individually, so
-   nesting them again would be filing your own choices for you. */
-function followedRow(live) {
-  const counts = new Map();
-  for (const story of live) {
-    for (const label of story.topics || []) {
-      for (const slug of [label.slug, label.parent]) {
-        if (!slug || !follows.has(`topic:${slug}`)) continue;
-        const name = slug === label.slug ? label.name : label.parent_name;
-        const seen = counts.get(`topic:${slug}`) || { name, n: 0 };
-        seen.n += 1;
-        counts.set(`topic:${slug}`, seen);
-      }
-    }
-  }
-  /* Your own subjects sit in the same row as the spine's. The feed does not
-     distinguish them -- `isFollowed` asks both the same question -- so neither
-     does the way back into them. */
-  for (const { lens, hit } of activeLenses()) {
-    const n = live.filter(hit).length;
-    if (n) counts.set(lensKey(lens), { name: lens.name, n });
-  }
-  return [...counts.entries()].sort((a, b) => b[1].n - a[1].n);
-}
 
 /* One row: the subjects you follow, because that is all the feed holds. There
    used to be a second row -- the whole spine, shelf then leaf -- for the case
@@ -1476,9 +1485,9 @@ function followedRow(live) {
    missing from the row because you do not follow it. Tapping one would not
    narrow the place, it would leave it for a different one. A place carries its
    own chrome, which is the banner. */
-function renderFilters(live) {
+function renderFilters() {
   const row = document.getElementById('filters');
-  const mine = narrowed() || !follows.size ? [] : followedRow(live);
+  const mine = narrowed() || !follows.size ? [] : ringRows().filter((r) => r.n);
   row.innerHTML = mine.length ? chipRow(mine) : '';
 }
 
@@ -1649,9 +1658,7 @@ function digestHTML(live) {
   }).join('');
 
   return `
-    <h2 class="dsec">Following<span class="dsec-sub">${follows.size
-      ? `your feed is these ${follows.size}` : ''}</span></h2>
-    ${rings ? `<div class="rings">${rings}</div>`
+    ${rings ? `<div class="rings" aria-label="Following">${rings}</div>`
       : `<p class="digest-note">Your feed is empty until you follow something.
           Tap <strong>+</strong> on a subject below, or open one to look inside.</p>`}
     <h2 class="dsec">Explore</h2>
@@ -1893,7 +1900,7 @@ function render() {
   }
   // Trending's row lives in its sheet, so the header keeps only the summary.
   if (view === 'trending') document.getElementById('filters').innerHTML = '';
-  else renderFilters(live);
+  else renderFilters();
   renderScope();
   const stories = visible();
   const status = bundle.status;
@@ -2486,7 +2493,6 @@ function toggleSave(id) {
 function selectView(next) {
   view = next;
   document.body.classList.remove('head-hidden');
-  store(key('view'), view);
   document.querySelectorAll('.tab').forEach((t) =>
     t.setAttribute('aria-selected', String(t.dataset.view === view)));
   render();
