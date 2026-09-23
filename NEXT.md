@@ -13,6 +13,22 @@ a time, and delete what is built, stale or no longer wanted. Much of it predates
 the redesign (the frontend section, the filter and search notes, several "needs
 a decision" items) and was written against a page that no longer exists.
 
+**The review has been prepared; it now needs the owner.** On 2026-09-23 every
+entry below was checked against the code, config and workflow, and nine
+questions came out of it, saved in the doc *Tributary — NEXT.md review
+questions*: https://claude.ai/code/artifact/29ff7267-6825-4aa1-b3ea-5ddb9acfacaf
+(it also lists what would be removed or moved without a question, for a veto).
+**Go through those questions with the owner first**, then rewrite this file in
+one pass and show it before merging. The owner's instruction stands until then:
+nothing here is removed without their confirmation.
+
+In short, the questions are: one "Multiple users" heading; one "Subjects
+outside AI" heading; keep or drop TLDR AI; whether search inside a topic should
+say so or search everything; how a subtopic under a followed topic should look;
+names on a subject's page; ranking that learns from saves and dismissals;
+whether "Verifierad" is still wanted; and dropping the items that resolve
+themselves.
+
 The two big directions, in the owner's words, are:
 
 - **Multiple users** — real accounts and a server. The posting and commenting
