@@ -270,19 +270,3 @@ seconds"*, on three requests spaced well apart — the first one included, under
 curl's User-Agent and tributary's. So its shape is still unverified, and the
 rate limit is the first thing an adapter has to survive. More in `CLAUDE.md`
 under Sources.
-
-## Designed, deliberately not built
-
-- **"Verifierad (mer trovärdig)".** Corroboration exists as a *ranking* input —
-  `SOURCE_BONUS` lifts a story several sources covered, and the card shows a
-  "4 sources" chip — but the app never makes the claim. Saying "three
-  independent sources agree" out loud, and knowing when they are not independent
-  (a wire rewrite is not confirmation), is a different feature from nudging a
-  score.
-- **No time axis.** Items cluster inside a 14-day window, but nothing orders a
-  story as announcement → what followed. The shape over time is the interesting
-  part and is currently invisible.
-- **Nothing discovers reactions.** `sources/github.py` polls a fixed list of
-  repos for *releases* and cannot find a new project built on a story. Hugging
-  Face's `arxiv:` tags partly cover artefacts, and Reddit now covers some of the
-  argument; nothing finds the new project.
