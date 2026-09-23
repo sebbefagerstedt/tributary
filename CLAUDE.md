@@ -169,15 +169,23 @@ not recomputed, so changing `role_for` needs `trib cluster --reset`.
 
 ### Four surfaces, and what orders each
 
-The page is **Feed, Trending, Topics, Saved**. What separates them is only the
+The page is **Topics, Feed, Trending, Saved**. What separates them is only the
 order and the scope; all four read the same bundle.
 
 | Surface | Order | Scope |
 |---|---|---|
+| Topics | most unread first | every subject in the bundle |
 | Feed | newest first, by the date on the card | what you follow, and nothing else |
 | Trending *(beta)* | the ranking below | everything, or what you follow |
-| Topics | most unread first | every subject in the bundle |
 | Saved | newest first | what you starred |
+
+**Topics is the front door.** Decided 2026-09-23, once it had circles and
+tiles: *"I agree that the topic is more of a better home."* The page always
+opens there rather than on the tab you left (`view` is no longer stored), and
+it is first in the tab bar. It is the overview — what is new, where — and the
+Feed is where you go to read everything you follow. The circles sit directly
+under the top bar with no heading, as Instagram's do: a "Following" title under
+"Tributary" was two titles stacked, reported the same day.
 
 **Triage scores; it does not gate.** Changed 2026-09-19, on the owner's call:
 *"I have solved filtering with following instead. It is a much more basic and
@@ -420,7 +428,11 @@ to first.
 **Each surface filters the way its own size allows.** The Feed's chip row shows
 only the subjects you follow — the feed already holds nothing else, so offering
 the other forty topics is offering forty empty filters — and only while you are
-not inside a place (above). There used to be a second row — the whole spine,
+not inside a place (above). **The chips are the Topics page's circles made
+small** (2026-09-23, *"could look cooler"*): the same `ringRows`, so the same
+subjects in the same order, each with its picture in a ring lit while
+something in it is new, and the new count where there is one. They had been
+grey pills counting totals, and they left out followed names entirely. There used to be a second row — the whole spine,
 shelf then leaf — for the case where you followed nothing and the feed was
 therefore everything; that case no longer exists, so neither does the row. Trending is everything, where the same rows are forty-odd
 chips over four lines before a headline, so it collapses to one bar reading its
