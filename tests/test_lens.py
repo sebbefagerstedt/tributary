@@ -575,3 +575,25 @@ def test_the_page_opens_on_topics_and_the_feed_row_is_the_circles_small(page_bun
     """)
     assert out["opened"] == "topics" and out["reopened"] == "topics", out
     assert out["name"] and out["picture"] and out["lit"], out
+
+
+@needs_node
+def test_back_to_feed_leaves_every_kind_of_place(page_bundle):
+    """Inside your own subject, "Back to feed" redrew the same place and there
+    was no way out (reported 2026-09-23): leaving cleared the topic and the
+    name, never the lens."""
+    out = boot(page_bundle, """
+      const lens = createLens('paper');
+      const left = {};
+      for (const [kind, set] of [
+        ['lens', () => { lensScope = lens.id; }],
+        ['topic', () => { topic = 'chips'; }],
+        ['entity', () => { entity = 'NVIDIA'; }],
+      ]) {
+        set();
+        leavePlace();
+        left[kind] = !narrowed();
+      }
+      console.log(JSON.stringify(left));
+    """)
+    assert out == {"lens": True, "topic": True, "entity": True}, out
