@@ -222,12 +222,16 @@ global.fetch = () => Promise.resolve({ ok: true, json: () => Promise.resolve(BUN
 """
 
 
+# For scripts: how many feed cards a piece of HTML holds.
+HELPERS = "const cardsIn = (html) => (html.match(/<article class=\"card/g) || []).length;"
+
+
 def boot(bundle: dict, script: str) -> dict:
     """Evaluate the page against a bundle, then run `script` once it has loaded."""
     page = PAGE.read_text()
     body = page[page.index("<script>") + len("<script>") : page.rindex("</script>")]
     source = (
-        f"const BUNDLE = {json.dumps(bundle)};\n{DOM_STUB}\n{body}\n"
+        f"const BUNDLE = {json.dumps(bundle)};\n{DOM_STUB}\n{body}\n{HELPERS}\n"
         "setTimeout(() => { try {\n" + script + "\n} catch (e) {"
         " console.error(e && e.stack || e); process.exit(1); } }, 50);"
     )
@@ -357,6 +361,7 @@ def test_a_lens_opens_as_a_subject_and_can_be_thrown_away(page_bundle):
         named: panel.includes('Paper'),
         follow: panel.includes('data-follow="lens:' + lens.id + '"'),
         cards: (panel.match(/<article class="card/g) || []).length,
+        seeFeed: panel.includes('data-see-feed="lens:' + lens.id + '"'),
         matching,
         deletable: panel.includes('data-drop-lens='),
         before,
@@ -365,8 +370,9 @@ def test_a_lens_opens_as_a_subject_and_can_be_thrown_away(page_bundle):
       }));
     """)
     assert out["named"] and out["follow"], out
-    assert out["matching"] > 0 and out["cards"] == out["matching"], (
-        "the panel should show its stories as the feed's own cards", out)
+    assert out["matching"] > 0 and out["cards"] == 0, (
+        "a subject's page is the map: its stories are in the feed, not here", out)
+    assert out["seeFeed"], out
     assert out["deletable"], "a subject you made has no way out"
     assert out["before"] == 1 and out["after"] == 0
     assert not out["stillFollowed"], "deleting left the follow behind"
@@ -400,30 +406,81 @@ def test_every_card_has_a_cover_and_its_headline_once(page_bundle):
 
 
 @needs_node
-def test_a_subject_is_the_place_itself(page_bundle):
-    """Its stories are the feed's cards, and nothing sends you off to the feed.
-
-    Asked 2026-09-23: *"It should not need to route to the feed"* -- and the
-    parked-story row, which explained arithmetic nobody asked about, is gone.
-    """
+def test_a_subject_page_is_the_map_and_the_feed_is_the_reader(page_bundle):
+    """Decided 2026-09-23: *"The feed should be the only place a feed like design
+    pops up"*. A shelf's page shows the level below as tiles and offers the feed
+    and the viewer; it lists no stories itself. The parked row stays gone."""
     out = boot(page_bundle, """
-      const agents = { slug: 'coding', name: 'Coding agents', parent: 'agents',
+      const coding = { slug: 'coding', name: 'Coding agents', parent: 'agents',
                        parent_name: 'AI agents' };
-      bundle.stories[0].topics = [agents];
+      bundle.stories[0].topics = [coding];
       bundle.stories[1].topics = [{ slug: 'agents', name: 'AI agents' }];  // parked
       fillSubject({ kind: 'topic', slug: 'agents' });
       const panel = document.getElementById('subject-body').innerHTML;
       console.log(JSON.stringify({
         cards: (panel.match(/<article class="card/g) || []).length,
-        seeFeed: panel.includes('data-see-feed'),
+        seeFeed: panel.includes('data-see-feed="topic:agents"'),
+        play: panel.includes('data-play="topic:agents"'),
+        leafTile: /<article class="tile" data-subject="topic:coding"/.test(panel),
         parkedRow: panel.includes('Not under a subtopic'),
-        leaf: panel.includes('data-subject="topic:coding"'),
       }));
     """)
-    assert out["cards"] == 2, out
-    assert not out["seeFeed"], "the panel still routes to the feed"
+    assert out["cards"] == 0, out
+    assert out["seeFeed"] and out["play"], out
+    assert out["leafTile"], "the level below should be tiles, as on the Topics page"
     assert not out["parkedRow"], out
-    assert out["leaf"], "the subtopic should still be listed under its shelf"
+
+
+@needs_node
+def test_in_the_feed_a_topic_goes_deeper_and_back_up(page_bundle):
+    """Reported 2026-09-23: *"in the feed when I click Language models, I cannot
+    go any deeper right now or even see the subtopics"*."""
+    out = boot(page_bundle, """
+      const coding = { slug: 'coding', name: 'Coding agents', parent: 'agents',
+                       parent_name: 'AI agents' };
+      bundle.stories[0].topics = [coding];
+      follows.clear(); follows.add('topic:agents');
+      view = 'feed';
+      enterPlace('topic:agents');
+      render();
+      const shelf = document.getElementById('main').innerHTML;
+      enterPlace('topic:coding');
+      render();
+      const leaf = document.getElementById('main').innerHTML;
+      console.log(JSON.stringify({
+        down: shelf.includes('data-filter="topic:coding"'),
+        up: leaf.includes('data-filter="topic:agents"'),
+        inLeaf: topic === 'coding' && !lensScope && !entity,
+        cardsInLeaf: (leaf.match(/<article class="card/g) || []).length,
+      }));
+    """)
+    assert out["down"], "the shelf's banner should offer its subtopics"
+    assert out["up"], "the leaf's breadcrumb should go back up, in the feed"
+    assert out["inLeaf"] and out["cardsInLeaf"] == 1, out
+
+
+@needs_node
+def test_see_in_feed_and_play_from_a_subject_page(page_bundle):
+    """The two ways a subject's page shows its news: the feed scoped to it, and
+    its stories full screen -- just that subject, even one you do not follow."""
+    out = boot(page_bundle, """
+      bundle.stories[0].topics = [{ slug: 'chips', name: 'Chips' }];
+      follows.clear();
+      openPanel({ kind: 'topic', slug: 'chips' });
+      openViewer('topic:chips', true);
+      const played = viewer && viewer.queue.length === 1
+        && viewer.queue[0].key === 'topic:chips';
+      hideViewer();
+      enterPlace('topic:chips');
+      view = 'feed';
+      render();
+      console.log(JSON.stringify({
+        played,
+        place: scopeKey(),
+        shown: cardsIn(document.getElementById('main').innerHTML),
+      }));
+    """)
+    assert out == {"played": True, "place": "topic:chips", "shown": 1}, out
 
 
 @needs_node
@@ -507,13 +564,18 @@ def test_stories_in_no_topic_have_a_tile_and_a_panel(page_bundle):
       const page = document.getElementById('main').innerHTML;
       fillSubject(parseSubject('unsorted:'));
       const panel = document.getElementById('subject-body').innerHTML;
+      enterPlace('unsorted:');
+      view = 'feed';
+      render();
       console.log(JSON.stringify({
         tile: page.includes('data-subject="unsorted:"'),
         cards: (panel.match(/<article class="card/g) || []).length,
+        seeFeed: panel.includes('data-see-feed="unsorted:"'),
         form: panel.includes('data-new-lens'),
+        inFeed: cardsIn(document.getElementById('main').innerHTML),
       }));
     """)
-    assert out == {"tile": True, "cards": 1, "form": True}, out
+    assert out == {"tile": True, "cards": 0, "seeFeed": True, "form": True, "inFeed": 1}, out
 
 
 @needs_node
