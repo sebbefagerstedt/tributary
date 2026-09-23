@@ -659,3 +659,73 @@ def test_back_to_feed_leaves_every_kind_of_place(page_bundle):
       console.log(JSON.stringify(left));
     """)
     assert out == {"lens": True, "topic": True, "entity": True}, out
+
+
+@needs_node
+def test_search_inside_a_place_says_which_place_found_nothing(page_bundle):
+    """Search runs inside the place you are in, so an empty result names it --
+    naming only the query made a story one shelf away look absent (2026-09-19)."""
+    out = boot(page_bundle, """
+      bundle.stories[0].topics = [{ slug: 'safety', name: 'Safety & security' }];
+      view = 'feed';
+      enterPlace('topic:safety');
+      query = 'zzzqqq';
+      render();
+      const inside = document.getElementById('main').innerHTML;
+      leavePlace();
+      render();
+      const outside = document.getElementById('main').innerHTML;
+      console.log(JSON.stringify({ inside, outside }));
+    """)
+    assert "in <strong>Safety &amp; security</strong>" in out["inside"], out["inside"]
+    assert "Nothing matches <code>zzzqqq</code>." in out["outside"], out["outside"]
+
+
+@needs_node
+def test_a_leaf_under_a_followed_shelf_reads_as_covered_and_can_still_be_followed(page_bundle):
+    """Asked 2026-09-23: show it is covered, but keep following it possible --
+    *"I might be specially interested in some subtopic"*."""
+    out = boot(page_bundle, """
+      bundle.stories[0].topics = [{ slug: 'coding', name: 'Coding agents',
+                                    parent: 'agents', parent_name: 'AI agents' }];
+      follows.clear(); follows.add('topic:agents');
+      fillSubject({ kind: 'topic', slug: 'agents' });
+      const shelf = document.getElementById('subject-body').innerHTML;
+      fillSubject({ kind: 'topic', slug: 'coding' });
+      const leaf = document.getElementById('subject-body').innerHTML;
+      toggleFollow('topic:coding');
+      fillSubject({ kind: 'topic', slug: 'coding' });
+      const own = document.getElementById('subject-body').innerHTML;
+      console.log(JSON.stringify({
+        tile: shelf.includes('class="tile-follow covered" data-follow="topic:coding"'),
+        page: leaf.includes('Covered<span class="follow-sub">by AI agents'),
+        followedOwn: follows.has('topic:coding'),
+        ownPage: own.includes('>Following<') && !own.includes('Covered<'),
+        rings: ringRows().map((r) => r.key),
+      }));
+    """)
+    assert out["tile"], "a covered leaf's tile still offered a plain +"
+    assert out["page"], "the leaf's page did not say it is covered"
+    assert out["followedOwn"] and out["ownPage"], out
+    assert "topic:coding" in out["rings"], "a leaf followed on its own gets its own circle"
+
+
+@needs_node
+def test_a_subjects_page_names_who_keeps_appearing_in_it(page_bundle):
+    out = boot(page_bundle, """
+      const agents = { slug: 'agents', name: 'AI agents' };
+      bundle.stories[0].topics = [agents];
+      bundle.stories[1].topics = [agents];
+      bundle.stories[0].entities = [{ name: 'OpenAI', kind: 'lab' }];
+      bundle.stories[1].entities = [{ name: 'OpenAI', kind: 'lab' },
+                                    { name: 'NVIDIA', kind: 'company' }];
+      fillSubject({ kind: 'topic', slug: 'agents' });
+      const html = document.getElementById('subject-body').innerHTML;
+      console.log(JSON.stringify({
+        label: html.includes('Names in it'),
+        openai: html.indexOf('data-subject="entity:OpenAI"'),
+        nvidia: html.indexOf('data-subject="entity:NVIDIA"'),
+      }));
+    """)
+    assert out["label"], out
+    assert 0 <= out["openai"] < out["nvidia"], "most frequent name first"

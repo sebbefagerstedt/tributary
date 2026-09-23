@@ -305,30 +305,6 @@ Small, self-contained jobs. None of them waits on either direction above.
   like — the known runner-up problem (`CLAUDE.md`: 41% of stories have a
   runner-up on another shelf within 0.02), not a spine defect. Build this, then
   check the margin: 0.01 and 0.15 are different faults.
-- **Search inside a place says where it looked.** `visible()` scopes before it
-  searches, on purpose, but the empty state reads only *"Nothing matches
-  google."* — on 2026-09-19 that made the Gemini story above, one shelf away,
-  look like an absence. Decided 2026-09-23: name the place (*"Nothing matches
-  google in Safety & security"*) rather than search everything, because it keeps
-  the place you chose. That holds for all four kinds of place: a topic, a name,
-  one of yours, and Not in any topic.
-- **A leaf under a followed shelf reads as covered, and can still be
-  followed.** `isFollowed` treats a shelf follow as covering every leaf under
-  it, but each leaf draws its button from its own key, so a covered leaf still
-  offers `+` on its tile and `Follow` on its page and in its banner, as if it
-  were not in the feed. Decided 2026-09-23: say it is covered, since the feed
-  already works that way — and keep following it possible, because a subtopic
-  can matter more than the shelf around it: *"I might be specially interested
-  in some subtopic so I do not want to miss news there."* A leaf followed in
-  its own right gets its own circle in the Following row, with its own new
-  count, instead of being folded into the shelf's, and it stays followed if the
-  shelf is unfollowed. So the button needs a third state between `+` and `✓`:
-  covered by the shelf, and still tappable.
-- **Names on a subject's page.** Who keeps appearing in a subject — OpenAI,
-  Claude, NVIDIA — as a row of name chips under **Under this**, the same chips
-  as the Topics page's **Names in play**. `namesInPlay` already counts them over
-  the whole bundle; this is the same over the subject's stories. It is the last
-  idea left from the "tabs across one subject" survey.
 
 ## Designed, deliberately not built
 

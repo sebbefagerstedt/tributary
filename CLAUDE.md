@@ -287,6 +287,21 @@ An old bundle without the key falls back to the slug.
 `entityHead` carry a follow button. It used to live only in the digest, so the
 subject you were actually reading was the one subject you could not act on.
 
+**A leaf under a followed shelf says it is covered, and stays followable.**
+`isFollowed` counts a shelf follow for every leaf under it, but each button was
+drawn from its own key, so a covered leaf offered `Follow` as if it were not in
+the feed. `coveringShelf` gives it a third state — a hollow tick on its tile,
+`Covered` on its page and in its banner — that is still a button, on the
+owner's call 2026-09-23: *"it should still be possible to follow a subtopic. I
+might be specially interested in some subtopic so I do not want to miss news
+there."* A leaf followed on its own gets its own circle and new count, and
+survives unfollowing the shelf.
+
+**Search inside a place names the place when it finds nothing.** `visible()`
+scopes before it searches, deliberately, and *"Nothing matches google"* once
+made a story one shelf away look absent. Decided 2026-09-23 to say where it
+looked rather than widen the search, since that keeps the place you chose.
+
 **Follows gate the feed; they do not gate a place you walked into.** A topic or
 an entity reached deliberately — from a story's chip — shows what is in it
 whether or not you follow it. Requiring both emptied every subject you had not

@@ -251,6 +251,9 @@ body.digest-view #search-toggle { display: none; }
   font: inherit; font-size: 19px; font-weight: 700; line-height: 1;
 }
 .tile-follow.on { background: var(--accent); }
+/* Covered by a followed shelf: a tick, but hollow, so it reads as "already in
+   your feed" and still invites a tap to follow the leaf on its own. */
+.tile-follow.covered { background: rgba(0,0,0,.38); box-shadow: inset 0 0 0 2px var(--accent); }
 
 .name-row {
   display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
@@ -268,6 +271,9 @@ body.digest-view #search-toggle { display: none; }
   background: var(--surface-2); color: var(--muted); border: 1px solid transparent;
 }
 .follow.on { background: var(--accent); color: #fff; }
+.follow.covered { color: var(--accent); border-color: var(--accent); background: transparent; }
+.follow.wide.covered { white-space: normal; line-height: 1.2; padding: 6px 10px; }
+.follow-sub { display: block; font-size: 11px; font-weight: 500; opacity: .8; }
 
 /* A leaf, a name, a quiet follow: each of these opens its subject, and the
    tint says whether you follow it. Following moved into the panel that opens,
@@ -1558,6 +1564,13 @@ function digestRows(live) {
   return [...shelves.values()].sort((a, b) => b.unseen - a.unseen || b.n - a.n);
 }
 
+/* A name as a chip that opens it, lit when you follow it. */
+function nameChip(entity) {
+  const on = followed(`entity:${entity.name}`);
+  return `<button class="leaf${on ? ' on' : ''}" data-subject="entity:${esc(entity.name)}"
+    >${esc(entity.name)}<span class="n">${entity.n}</span></button>`;
+}
+
 function namesInPlay(live) {
   const counts = new Map();
   for (const story of live) {
@@ -1570,9 +1583,26 @@ function namesInPlay(live) {
   return [...counts.values()].sort((a, b) => b.n - a.n).slice(0, 24);
 }
 
-const followButton = (key, on) =>
-  `<button class="follow${on ? ' on' : ''}" data-follow="${esc(key)}"
-    aria-pressed="${on}">${on ? 'Following' : 'Follow'}</button>`;
+/* The shelf whose follow already brings this leaf into the feed, or ''. A leaf
+   draws its button from its own key, so without this a covered leaf offered
+   `Follow` as if it were not in the feed. It stays a button: following a
+   subtopic on its own is still wanted -- *"I might be specially interested in
+   some subtopic so I do not want to miss news there"* (2026-09-23) -- and it
+   gives the leaf its own circle and survives unfollowing the shelf. */
+function coveringShelf(key) {
+  const entry = parseSubject(key);
+  if (entry.kind !== 'topic' || followed(key)) return '';
+  const label = subjectLabel(entry.slug);
+  return label.parent && followed(`topic:${label.parent}`)
+    ? (label.parent_name || topicName(label.parent)) : '';
+}
+
+const followButton = (key, on) => {
+  const shelf = on ? '' : coveringShelf(key);
+  return `<button class="follow${on ? ' on' : shelf ? ' covered' : ''}" data-follow="${esc(key)}"
+    aria-pressed="${on}"${shelf ? ` title="In your feed through ${esc(shelf)}. Tap to follow it on its own too."` : ''}
+    >${on ? 'Following' : shelf ? 'Covered · Follow' : 'Follow'}</button>`;
+};
 
 /* What to call a topic slug. The stories carry their own labels, so anything on
    screen can name itself; the spine is here for the ones that cannot -- a
@@ -1611,12 +1641,18 @@ const artOf = (stories) => (stories.find((s) => s.media_url) || {}).media_url ||
    the corpus, so one with nothing in the bundle still needs a control. */
 /* Any subject by its key -- a topic, a name, one of yours, or the stories no
    topic caught -- with what the circles, tiles and chips all draw from it. */
-function subjectRow(key) {
+/* What a subject is called, for any of the four kinds of place. */
+function subjectName(key) {
   const entry = parseSubject(key);
-  const name = entry.kind === 'entity' ? entry.name
+  return entry.kind === 'entity' ? entry.name
     : entry.kind === 'lens' ? (lensById(entry.id) || {}).name
     : entry.kind === 'unsorted' ? 'Not in any topic'
     : topicName(entry.slug);
+}
+
+function subjectRow(key) {
+  const entry = parseSubject(key);
+  const name = subjectName(key);
   if (!name) return null;
   const stories = subjectStories(entry);
   const unseen = stories.filter((s) => !marks.seen.has(s.story_id)).length;
@@ -1655,13 +1691,16 @@ function followRings() {
    button follows it without leaving. */
 function subjectTile(r, caption = '') {
   const on = followed(r.key);
+  const shelf = on ? '' : coveringShelf(r.key);
   const followable = r.key !== 'unsorted:';
   return `
   <article class="tile" data-subject="${esc(r.key)}" style="${swatch(r.key)}">
     ${r.art ? `<img src="${esc(r.art)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}
-    ${followable ? `<button class="tile-follow${on ? ' on' : ''}" data-follow="${esc(r.key)}"
-      aria-pressed="${on}" aria-label="${on ? 'Following' : 'Follow'} ${esc(r.name)}"
-      >${on ? '&#10003;' : '&#43;'}</button>` : ''}
+    ${followable ? `<button class="tile-follow${on ? ' on' : shelf ? ' covered' : ''}" data-follow="${esc(r.key)}"
+      aria-pressed="${on}" aria-label="${on ? `Following ${esc(r.name)}`
+        : shelf ? `${esc(r.name)} is in your feed through ${esc(shelf)}. Follow it on its own too`
+        : `Follow ${esc(r.name)}`}"
+      >${on || shelf ? '&#10003;' : '&#43;'}</button>` : ''}
     <div class="tile-text">
       <div class="tile-count">${r.unseen ? `<strong>${r.unseen} new</strong>`
         : r.n ? 'All read' : 'Quiet'}${r.n ? ` · ${plural(r.n, 'story')}` : ''}</div>
@@ -1682,11 +1721,7 @@ function digestHTML(live) {
   const tiles = rows.map((row) => subjectTile(subjectRow(`topic:${row.slug}`))).join('')
     + (unsorted.n ? subjectTile({ ...unsorted, art: '' }, 'Name what they are about') : '');
 
-  const names = namesInPlay(live).map((entity) => {
-    const on = followed(`entity:${entity.name}`);
-    return `<button class="leaf${on ? ' on' : ''}" data-subject="entity:${esc(entity.name)}"
-      >${esc(entity.name)}<span class="n">${entity.n}</span></button>`;
-  }).join('');
+  const names = namesInPlay(live).map(nameChip).join('');
 
   /* A lens is listed even when it is matching nothing -- unlike a spine topic
      it cannot come back on its own, and a thing you wrote that has silently
@@ -1973,7 +2008,11 @@ function render() {
   }
   if (!stories.length) {
     html += `<div class="empty">${
-      query ? `Nothing matches <code>${esc(query)}</code>.`
+      /* Search runs inside the place you are in, on purpose -- so the empty
+         state says which place. Naming only the query once made a story one
+         shelf away look like it did not exist (2026-09-19). */
+      query ? `Nothing matches <code>${esc(query)}</code>${narrowed()
+        ? ` in <strong>${esc(subjectName(scopeKey()))}</strong>` : ''}.`
       : view === 'saved' ? 'Nothing saved yet.'
       : !live.length ? 'Nothing here. Run <code>trib run</code> to fetch.'
       : !follows.size ? `Your feed is what you follow, and you are not
@@ -2451,6 +2490,7 @@ function fillSubject(entry) {
   const unseen = stories.filter((s) => !marks.seen.has(s.story_id)).length;
   const key = subjectKey(entry);
   const on = followed(key);
+  const covered = on ? '' : coveringShelf(key);
   const label = entry.kind === 'topic' ? subjectLabel(entry.slug) : null;
   const name = entry.kind === 'entity' ? entry.name : label.name;
   const leaves = entry.kind === 'entity' ? [] : subjectLeaves(entry.slug, stories);
@@ -2460,6 +2500,10 @@ function fillSubject(entry) {
     ...leaves.map((leaf) => subjectRow(`topic:${leaf.slug}`)),
     ...lenses.filter((l) => l.parent === entry.slug).map((l) => subjectRow(lensKey(l))),
   ].filter(Boolean) : [];
+
+  /* Who keeps appearing in it -- the last idea left from the "tabs across one
+     subject" survey, and the same chips as the Topics page's Names in play. */
+  const names = entry.kind === 'topic' ? namesInPlay(stories).slice(0, 12) : [];
 
   /* A leaf names its shelf, and the name climbs: reached from a story chip,
      the shelf is the level above and there is otherwise no way up to it. */
@@ -2490,14 +2534,18 @@ function fillSubject(entry) {
       ? `${plural(stories.length, 'story')}${unseen ? ` · <strong>${unseen} new</strong>` : ' · all read'}`
       : 'Nothing in the feed right now'}</p>
     <div class="subject-actions">
-      <button class="follow wide${on ? ' on' : ''}" data-follow="${esc(key)}"
-        aria-pressed="${on}">${on ? 'Following' : 'Follow'}</button>
+      <button class="follow wide${on ? ' on' : covered ? ' covered' : ''}" data-follow="${esc(key)}"
+        aria-pressed="${on}">${on ? 'Following'
+          : covered ? `Covered<span class="follow-sub">by ${esc(covered)} · follow too</span>`
+          : 'Follow'}</button>
       ${subjectGo(key, stories.length)}
     </div>
     ${stories.length ? '' : `<p class="subject-none">Nothing carries this subject in
         the current bundle. It still counts as something you follow.</p>`}
     ${under.length ? `<div class="group-label">Under this</div>
       <div class="tiles">${under.map((r) => subjectTile(r)).join('')}</div>` : ''}
+    ${names.length ? `<div class="group-label">Names in it</div>
+      <div class="name-row">${names.map(nameChip).join('')}</div>` : ''}
     ${entry.kind === 'topic' ? `<div class="group-label">Make your own here</div>
       ${lensForm(entry.slug, name)}` : ''}`;
 }
