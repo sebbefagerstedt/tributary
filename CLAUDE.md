@@ -309,13 +309,14 @@ banner is the place's own chrome.
 *"I also want to be able to click on e.g Ai agent-> coding agents to browse
 other topics deeper and to go back to ai agents"*. `AI agents › Coding agents`
 was plain text, so a leaf was a dead end: the only moves were back to the feed
-or into a story. Both segments are now `data-subject` buttons, which is the
-rule the rest of the page already follows rather than a fourth behaviour for
-names. Going up and browsing sideways are the same gesture because they land on
-the same surface: the shelf's panel lists every leaf under it with a count and
-a follow each, and its stories below them. The current segment opens its own
-subject too — from a shelf, that is how you reach the leaves without leaving
-the feed first.
+or into a story. **Since 2026-09-23 the banner moves you within the feed**:
+the parent segment is a `data-filter` crumb that goes up a level and stays in
+the feed, and below the follow button the banner shows the level beneath as
+the same round chips as the filter row (`placeChildren`: the leaves, then any
+subject you made inside this topic) — reported that day: *"in the feed when I
+click Language models, I cannot go any deeper right now or even see the
+subtopics"*. The current segment is plain text: you are already there. Opening
+a subject's page, the map, is what its name does everywhere else.
 
 **Which is why `topicHead` carries `Back to feed`.** `entityHead` always had
 one; a topic's only exit was the `Clear` chip in that row, which renders only
@@ -345,15 +346,18 @@ lists its leaves with a follow each, so the two levels are visibly separate
 choices; a leaf you follow is listed even when the bundle is quiet about it,
 for the reason quiet follows stay in the Following row.
 
-**The panel is the place itself.** Changed 2026-09-23, on the owner's call:
-*"I want it to look the same under latest as in the normal feed and trending.
-It should not need to route to the feed."* Its stories were twelve headlines
-and a "See all in the feed" button — a table of contents for a page somewhere
-else. They are now every story in the subject as the feed's own cards
-(`subjectCards`), with the same save, dismiss and More like this, and the
-button and its handler are gone. Walking into a subject *in the feed* is still
-possible from the Feed's chip row and Trending's filter sheet, for anyone who
-wants the chrome of a place rather than a panel.
+**Topics is the map and the Feed is the reader.** Decided 2026-09-23, on the
+owner's call: *"The feed should be the only place a feed like design pops up …
+On the topics page, I want the current design to follow all layers down"*. So
+a subject's page lists no stories. It has the banner, the name, **Follow**,
+**See in feed** (into the feed, scoped to it, which works for a topic, a name,
+one of yours and the stories no topic caught) and **▶**, which plays its
+stories in the full-screen viewer (`openViewer(key, true)`: that subject only,
+followed or not). Below that, the level beneath as the same tiles as Explore —
+leaves, then subjects you made there, tagged *yours* — and a field to make one
+here. For a morning the page listed its stories as the feed's own cards
+(*"It should not need to route to the feed"*); that made two surfaces with one
+job, and it was reversed the same day in favour of this split.
 
 **A shelf's leaves need not add up to its total, and the panel does not say
 why.** A shelf saying 24 stories over leaves adding to 21 is **parking** — a
@@ -722,12 +726,16 @@ in every lens it matches — not a home for the stories without one. Asked
 2026-09-23 that a subject can be made *"under a topic in all layers it may
 have"*: every topic's panel, shelf or leaf, now has a create field, and a lens
 made there records the topic as `parent` and filters only that topic's stories
-(`lensHit` wraps the pure `lensMatcher` in `hasTopic`), listed under it with a
-`yours` tag beside the spine's leaves. `parent` is also what a shared version
+(`lensHit` wraps the pure `lensMatcher` in `hasTopic`), listed under it as a
+tile tagged *yours* beside the spine's leaves, and in the feed as a chip in
+that topic's banner. `parent` is also what a shared version
 will need: several readers naming the same thing in the same place is the
 signal the spine is missing a leaf. **Stories no topic caught** (below the
 floor, ~2% of the corpus) were unreachable by browsing; the Topics page now has
-a **Not in any topic** tile whose panel lists them with a create field.
+a **Not in any topic** tile, whose page has a create field and See in feed —
+the fourth kind of place in the feed (`unsortedScope`), beside a topic, a name
+and a lens. `enterPlace` and `leavePlace` are the only ways in and out of all
+four, which is what fixed a lens you could not leave.
 
 **Words first, then the vector.** `lensMatcher` asks the lexical question before
 the semantic one, the order and for the reason the clusterer uses. **The words

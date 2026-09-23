@@ -567,15 +567,22 @@ body.digest-view #search-toggle { display: none; }
 .subject-leaf .n { color: var(--faint); font-weight: 400; margin-left: 6px;
   font-variant-numeric: tabular-nums; }
 .subject-leaf .new { color: var(--accent); font-weight: 650; }
-/* A subject you made, among the spine's own: the only difference on screen. */
-.yours {
-  margin-left: 7px; padding: 1px 6px; border-radius: 5px; vertical-align: 1px;
-  font-size: 10px; font-weight: 750; text-transform: uppercase; letter-spacing: .06em;
-  color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
 .profile-new.here { margin: 12px 0 4px; }
-.subject-cards { margin-top: 4px; }
-.subject-drop {
+.subject-go {
+  flex: 1; font: inherit; font-size: 14px; font-weight: 650; cursor: pointer;
+  padding: 11px 14px; border-radius: 12px;
+  background: var(--surface-2); color: var(--text); border: 1px solid var(--line);
+}
+.subject-play {
+  flex: none; width: 46px; border-radius: 12px; cursor: pointer; font-size: 15px;
+  background: var(--text); color: var(--bg); border: 0;
+}
+.tile-yours {
+  margin-left: 6px; padding: 1px 6px; border-radius: 5px; vertical-align: 3px;
+  font-size: 9.5px; font-weight: 750; text-transform: uppercase; letter-spacing: .06em;
+  background: rgba(255,255,255,.22);
+}
+.topic-head .filters.sub { margin: 12px -4px 0; }.subject-drop {
   margin-top: 10px; width: 100%; padding: 11px; border-radius: 10px;
   /* --video is the page's only red, and a delete is the one destructive
      control here; a token of its own would be a palette entry used once. */
@@ -645,11 +652,11 @@ body.digest-view #search-toggle { display: none; }
 }
 
 /* --- The circles, played -----------------------------------------------------
-   Full screen and one story at a time, the way a ring on Instagram opens. Under
-   the sheets (z 40), so reading a story from here stacks above it and back
-   returns to where you were. */
+   Full screen and one story at a time, the way a ring on Instagram opens. Above
+   the sheets, because it can open from a subject's page; a panel opened from it
+   hides it until you come back (`showPanel`). */
 .viewer {
-  position: fixed; inset: 0; z-index: 35; display: none;
+  position: fixed; inset: 0; z-index: 45; display: none;
   background: #000; color: #fff; touch-action: none; user-select: none;
   -webkit-user-select: none; overflow: hidden;
 }
@@ -946,6 +953,7 @@ let query = '';   // deliberately not persisted: a stale search on open is a bug
    landing back in it days later would be disorienting. */
 let entity = '';
 let lensScope = '';   // a lens you walked into, the third kind of place
+let unsortedScope = false;   // the stories no topic caught, the fourth
 /* Which shelf is open in Trending's filter sheet. One at a time, and set from
    the current selection every time the sheet opens, so it is a view of where
    you are rather than a preference of its own. */
@@ -1415,6 +1423,7 @@ const hasEntity = (s, name) => (s.entities || []).some((e) => e.name === name);
    both -- "everything about OpenAI" is supposed to cut across topics. */
 function scoped(stories) {
   if (entity) return stories.filter((s) => hasEntity(s, entity));
+  if (unsortedScope) return stories.filter((s) => !(s.topics || []).length);
   if (lensScope) {
     const lens = lensById(lensScope);
     return lens ? stories.filter(lensHit(lens)) : stories;
@@ -1467,10 +1476,11 @@ const chipRow = (rows) => rows.map((r) => `
 /* The place you are standing in, as one key. Three variables hold it because
    they filter differently; everything that only needs to *name* it wants this. */
 const scopeKey = () => (entity ? `entity:${entity}`
+  : unsortedScope ? 'unsorted:'
   : lensScope ? `lens:${lensScope}`
   : topic ? `topic:${topic}` : '');
 
-const narrowed = () => Boolean(topic || entity || lensScope);
+const narrowed = () => Boolean(topic || entity || lensScope || unsortedScope);
 
 /* Out of whichever place you are in. Three variables hold a place, so leaving
    one has to clear all three: "Back to feed" once cleared only the topic and
@@ -1480,7 +1490,20 @@ function leavePlace() {
   topic = '';
   entity = '';
   lensScope = '';
+  unsortedScope = false;
   store(key('topic'), '');
+}
+
+/* Into a place in the feed, from any key a subject goes by: a chip, a
+   breadcrumb, or "See in feed" on a subject's page. */
+function enterPlace(value) {
+  leavePlace();
+  const into = parseSubject(value);
+  if (into.kind === 'entity') entity = into.name;
+  else if (into.kind === 'lens') lensScope = into.id;
+  else if (into.kind === 'unsorted') unsortedScope = true;
+  else topic = into.slug;
+  store(key('topic'), topic);
 }
 
 /* One row: the subjects you follow, because that is all the feed holds. There
@@ -1586,17 +1609,26 @@ const artOf = (stories) => (stories.find((s) => s.media_url) || {}).media_url ||
 /* Every follow, quiet ones included: this row is what "Followed, but quiet"
    used to be a separate section for. A follow is a preference, not a view of
    the corpus, so one with nothing in the bundle still needs a control. */
+/* Any subject by its key -- a topic, a name, one of yours, or the stories no
+   topic caught -- with what the circles, tiles and chips all draw from it. */
+function subjectRow(key) {
+  const entry = parseSubject(key);
+  const name = entry.kind === 'entity' ? entry.name
+    : entry.kind === 'lens' ? (lensById(entry.id) || {}).name
+    : entry.kind === 'unsorted' ? 'Not in any topic'
+    : topicName(entry.slug);
+  if (!name) return null;
+  const stories = subjectStories(entry);
+  const unseen = stories.filter((s) => !marks.seen.has(s.story_id)).length;
+  return {
+    key, name, stories, n: stories.length, unseen,
+    art: artOf(stories), lead: stories[0] || null,
+    mine: entry.kind === 'lens',
+  };
+}
+
 function ringRows() {
-  const rows = [...follows].map((key) => {
-    const entry = parseSubject(key);
-    const name = entry.kind === 'entity' ? entry.name
-      : entry.kind === 'lens' ? (lensById(entry.id) || {}).name
-      : topicName(entry.slug);
-    if (!name) return null;
-    const stories = subjectStories(entry);
-    const unseen = stories.filter((s) => !marks.seen.has(s.story_id)).length;
-    return { key, name, n: stories.length, unseen, art: artOf(stories), stories };
-  }).filter(Boolean);
+  const rows = [...follows].map(subjectRow).filter(Boolean);
   // New first, then read, then quiet: the row says where to look next.
   return rows.sort((a, b) => (b.unseen > 0) - (a.unseen > 0) || (b.n > 0) - (a.n > 0)
     || a.name.localeCompare(b.name));
@@ -1618,20 +1650,24 @@ function followRings() {
     </button>`).join('');
 }
 
-function tileHTML(row, live) {
-  const key = `topic:${row.slug}`;
-  const on = followed(key);
-  const art = artOf(byDate(live.filter((s) => hasTopic(s, row.slug))));
+/* A subject as a tile, at every level: a shelf on the Topics page, a leaf or
+   one of yours on a shelf's page. Tapping it opens that subject; the corner
+   button follows it without leaving. */
+function subjectTile(r, caption = '') {
+  const on = followed(r.key);
+  const followable = r.key !== 'unsorted:';
   return `
-  <article class="tile" data-subject="${esc(key)}" style="${swatch(key)}">
-    ${art ? `<img src="${esc(art)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}
-    <button class="tile-follow${on ? ' on' : ''}" data-follow="${esc(key)}" aria-pressed="${on}"
-      aria-label="${on ? 'Following' : 'Follow'} ${esc(row.name)}">${on ? '&#10003;' : '&#43;'}</button>
+  <article class="tile" data-subject="${esc(r.key)}" style="${swatch(r.key)}">
+    ${r.art ? `<img src="${esc(r.art)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}
+    ${followable ? `<button class="tile-follow${on ? ' on' : ''}" data-follow="${esc(r.key)}"
+      aria-pressed="${on}" aria-label="${on ? 'Following' : 'Follow'} ${esc(r.name)}"
+      >${on ? '&#10003;' : '&#43;'}</button>` : ''}
     <div class="tile-text">
-      <div class="tile-count">${row.unseen ? `<strong>${row.unseen} new</strong>` : 'All read'}
-        · ${plural(row.n, 'story')}</div>
-      <h3 class="tile-name">${esc(row.name)}</h3>
-      ${row.lead ? `<p class="tile-lead">${esc(row.lead.title)}</p>` : ''}
+      <div class="tile-count">${r.unseen ? `<strong>${r.unseen} new</strong>`
+        : r.n ? 'All read' : 'Quiet'}${r.n ? ` · ${plural(r.n, 'story')}` : ''}</div>
+      <h3 class="tile-name">${esc(r.name)}${r.mine ? '<span class="tile-yours">yours</span>' : ''}</h3>
+      ${caption ? `<p class="tile-lead">${esc(caption)}</p>`
+        : r.lead ? `<p class="tile-lead">${esc(r.lead.title)}</p>` : ''}
     </div>
   </article>`;
 }
@@ -1642,15 +1678,9 @@ function digestHTML(live) {
      a quiet day, a fresh database -- with no way to make one. */
   const rows = digestRows(live);
   const rings = followRings();
-  const unsorted = live.filter((s) => !(s.topics || []).length);
-  const tiles = rows.map((row) => tileHTML(row, live)).join('') + (unsorted.length ? `
-  <article class="tile unsorted" data-subject="unsorted:" style="${swatch('unsorted:')}">
-    <div class="tile-text">
-      <div class="tile-count">${plural(unsorted.length, 'story')}</div>
-      <h3 class="tile-name">Not in any topic</h3>
-      <p class="tile-lead">Name what they are about</p>
-    </div>
-  </article>` : '');
+  const unsorted = subjectRow('unsorted:');
+  const tiles = rows.map((row) => subjectTile(subjectRow(`topic:${row.slug}`))).join('')
+    + (unsorted.n ? subjectTile({ ...unsorted, art: '' }, 'Name what they are about') : '');
 
   const names = namesInPlay(live).map((entity) => {
     const on = followed(`entity:${entity.name}`);
@@ -1691,8 +1721,11 @@ function lensHead(lens, count) {
   const key = `lens:${lens.id}`;
   const taught = lens.seeds.length
     ? ` · taught by ${plural(lens.seeds.length, 'story')}` : '';
+  // Made inside a topic, the way up is that topic, in the feed.
+  const up = lens.parent ? `<button class="crumb" data-filter="topic:${esc(lens.parent)}"
+      >${esc(topicName(lens.parent))}</button><span class="crumb-sep"> › </span>` : '';
   return `<div class="topic-head"><div class="head-row"><div>
-    <div class="topic-name">${esc(lens.name)}</div>
+    <div class="topic-name">${up}<span class="crumb here">${esc(lens.name)}</span></div>
     <div class="topic-meta">Your own subject · ${plural(count, 'story')}${taught}</div>
     </div><button class="clear" data-leave>Back to feed</button></div>
     <div class="head-follow">${followButton(key, followed(key))}</div>
@@ -1717,33 +1750,41 @@ function entityHead(name, count) {
    since you are standing in it, the obvious place to decide whether it belongs
    in your feed. Following used to be reachable only from the digest, so the
    subject you were reading was the one subject you could not act on. */
-/* The banner names where you are, and every part of that name is a way
-   somewhere. Asked for 2026-09-21: *"I also want to be able to click on e.g
-   Ai agent-> coding agents to browse other topics deeper and to go back to ai
-   agents"* -- the breadcrumb was plain text, so a leaf was a dead end. Both
-   segments open their subject, which is the one rule the rest of the page
-   already follows: the shelf's panel lists every leaf under it with a count
-   and a follow each, so going up is also how you browse sideways, and its
-   "See all in the feed" is what lands you back in the shelf itself. */
+/* The banner is how you move *within the feed*: up through its breadcrumb,
+   and down through the level below it, drawn as the same chips as the row it
+   replaces. Reported 2026-09-23: *"now in the feed when I click Language
+   models, I cannot go any deeper right now or even see the subtopics"*. So the
+   crumb above goes up a level and stays in the feed, and the chips go down to
+   a leaf -- or to a subject you made inside this topic. Opening a subject's
+   page (the map) is what its name does everywhere else. */
+function placeChildren(slug) {
+  const leaves = subjectLeaves(slug, subjectStories({ kind: 'topic', slug }));
+  return [
+    ...leaves.map((leaf) => subjectRow(`topic:${leaf.slug}`)),
+    ...lenses.filter((l) => l.parent === slug).map((l) => subjectRow(lensKey(l))),
+  ].filter((r) => r && r.n);
+}
+
 function topicHead(label, count) {
   if (!label) return '';
   const key = `topic:${label.slug}`;
   const where = label.parent
-    ? `<button class="crumb" data-subject="topic:${esc(label.parent)}"
+    ? `<button class="crumb" data-filter="topic:${esc(label.parent)}"
         >${esc(label.parent_name || topicName(label.parent))}</button
         ><span class="crumb-sep"> › </span>`
     : '';
+  const below = placeChildren(label.slug);
   /* The way out lives here, as it always has for an entity. It used to be the
      `Clear` chip in the filter row above -- which only rendered when you
      followed something, so following nothing and walking into a topic left no
      way back to the feed at all. */
   return `<div class="topic-head">
     <div class="head-row"><div>
-      <div class="topic-name">${where}<button class="crumb here"
-        data-subject="${esc(key)}">${esc(label.name)}</button></div>
+      <div class="topic-name">${where}<span class="crumb here">${esc(label.name)}</span></div>
       <div class="topic-meta">${plural(count, 'story')}</div>
     </div><button class="clear" data-leave>Back to feed</button></div>
     <div class="head-follow">${followButton(key, followed(key))}</div>
+    ${below.length ? `<div class="filters sub">${chipRow(below)}</div>` : ''}
   </div>`;
 }
 
@@ -1920,6 +1961,10 @@ function render() {
   renderWho();
 
   let html = entity ? entityHead(entity, stories.length)
+    : unsortedScope ? `<div class="topic-head"><div class="head-row"><div>
+        <div class="topic-name">Not in any topic</div>
+        <div class="topic-meta">${plural(stories.length, 'story')} the topics did not catch</div>
+        </div><button class="clear" data-leave>Back to feed</button></div></div>`
     : lensScope && lensById(lensScope) ? lensHead(lensById(lensScope), stories.length)
     : topic ? topicHead(index.get(topic), stories.length) : '';
   if (view === 'trending') {
@@ -2020,6 +2065,15 @@ function openPanel(entry) {
   showPanel();
 }
 
+/* Out of all of them at once, for the one move that lands you somewhere else:
+   "See in feed". */
+function leavePanels() {
+  const depth = panels.length;
+  panels = [];
+  showPanel();
+  if (depth) history.go(-depth);
+}
+
 /* Back, however it was asked for -- always through history, so the entry goes
    with the panel. */
 function closePanel() {
@@ -2027,8 +2081,8 @@ function closePanel() {
 }
 
 window.addEventListener('popstate', () => {
+  if (viewer && panels.length === viewer.depth) { hideViewer(); return; }
   if (panels.length) panels.pop();
-  else if (viewer) { hideViewer(); return; }
   showPanel();
 });
 
@@ -2043,6 +2097,8 @@ function showPanel() {
   sheet.classList.toggle('open', story);
   document.getElementById('subject-sheet').classList.toggle('open', Boolean(top) && !story);
   document.body.style.overflow = top || viewer ? 'hidden' : '';
+  // The viewer shows only while nothing has been opened above it.
+  if (viewer) viewerEl.classList.toggle('open', panels.length === viewer.depth);
   if (!top) settle();
 }
 
@@ -2080,14 +2136,19 @@ function playlist(row) {
   return unseen.length ? [...unseen].reverse() : row.stories.slice(0, 10);
 }
 
-function openViewer(key) {
+/* From a circle it plays on through the circles after it; from a subject's
+   page (`alone`) it plays that subject and stops. It sits above whatever
+   panel it was opened from, and a panel opened from it -- reading a story --
+   sits above it in turn: `depth` is where in the stack it lives. */
+function openViewer(key, alone = false) {
   const rows = ringRows().filter((r) => r.n);
-  const at = rows.findIndex((r) => r.key === key);
-  if (at < 0) return;
-  // The circle tapped, then every later one with something new.
-  const queue = [rows[at], ...rows.slice(at + 1).filter((r) => r.unseen)]
-    .map((r) => ({ ...r, play: playlist(r) }));
-  viewer = { queue, s: 0, i: 0 };
+  const at = alone ? -1 : rows.findIndex((r) => r.key === key);
+  const own = subjectRow(key);
+  const picked = at >= 0 ? [rows[at], ...rows.slice(at + 1).filter((r) => r.unseen)]
+    : own && own.n ? [own] : [];
+  if (!picked.length) return;
+  const queue = picked.map((r) => ({ ...r, play: playlist(r) }));
+  viewer = { queue, s: 0, i: 0, depth: panels.length };
   history.pushState({ viewer: true }, '');
   viewerEl.classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -2160,8 +2221,9 @@ function hideViewer() {
   viewer = null;
   viewerEl.classList.remove('open');
   viewerEl.innerHTML = '';
-  document.body.style.overflow = '';
+  document.body.style.overflow = panels.length ? 'hidden' : '';
   render();   // the circles it played have been read
+  if (panels.length) showPanel();   // and so have the counts on the page below it
 }
 
 /* Taps and swipes. Buttons inside it are clicks, handled with the rest. */
@@ -2241,16 +2303,16 @@ function subjectLeaves(slug, stories) {
   return [...rows.values()].sort((a, b) => b.unseen - a.unseen || b.n - a.n);
 }
 
-/* A subject's stories are the same cards as the feed and Trending, all of them,
-   so the panel is the place itself. Asked 2026-09-23: *"I want it to look the
-   same under latest as in the normal feed and trending. It should not need to
-   route to the feed."* It had been a list of twelve headlines and a "See all in
-   the feed" button -- a table of contents for a page somewhere else. */
-const countOf = (stories) => ({
-  n: stories.length, unseen: stories.filter((s) => !marks.seen.has(s.story_id)).length,
-});
-const subjectCards = (stories) =>
-  `<div class="subject-cards">${stories.map(cardHTML).join('')}</div>`;
+/* What a subject's page offers besides following: the feed, scoped to it, and
+   its stories played full screen. A subject's page is the map, not the
+   reader -- decided 2026-09-23: *"The feed should be the only place a feed
+   like design pops up"*. So its stories are not listed here as cards (they
+   were, for a morning); "See in feed" takes you to them, and Play gives the
+   quick look the circles give. */
+const subjectGo = (key, n) => (n ? `
+  <button class="subject-go" data-see-feed="${esc(key)}">See in feed</button>
+  <button class="subject-play" data-play="${esc(key)}" aria-label="Play its stories"
+    >&#9654;</button>` : '');
 
 /* One number unless two say something: a row where everything is unread does
    not need to say the same figure twice. Shared with the profile chooser's
@@ -2297,6 +2359,7 @@ function fillLens(entry) {
     <div class="subject-actions">
       <button class="follow wide${on ? ' on' : ''}" data-follow="${esc(key)}"
         aria-pressed="${on}">${on ? 'Following' : 'Follow'}</button>
+      ${subjectGo(key, stories.length)}
     </div>
     <div class="group-label">What it matches</div>
     <p class="subject-note">${home ? `Stories in <strong>${esc(home.name)}</strong>`
@@ -2307,9 +2370,8 @@ function fillLens(entry) {
              with. Tap <strong>+</strong> on any card to teach it another.`
           : `. Tap <strong>+</strong> on any card to teach it by example: after
              that it also catches stories that never use the word.`}</p>
-    ${stories.length ? `<div class="group-label">Latest</div>${subjectCards(stories)}`
-      : `<p class="subject-none">Nothing matches it in the current bundle. It
-          still counts as something you follow.</p>`}
+    ${stories.length ? '' : `<p class="subject-none">Nothing matches it in the current
+        bundle. It still counts as something you follow.</p>`}
     <div class="group-label">Yours to change</div>
     <button class="subject-drop" data-drop-lens="${esc(lens.id)}">Delete this subject</button>`;
 }
@@ -2374,11 +2436,11 @@ function fillUnsorted() {
     <div class="subject-banner plain"></div>
     <h1 class="subject-title">Not in any topic</h1>
     <p class="subject-stat">${plural(stories.length, 'story')} the topics did not catch</p>
+    <div class="subject-actions">${subjectGo('unsorted:', stories.length)}</div>
     <div class="group-label">Name what they are about</div>
     <p class="subject-note">A subject you name collects these, and anything else
       that mentions it. Tap <strong>+</strong> on a card to teach it by example.</p>
-    ${lensForm(null, '')}
-    ${stories.length ? `<div class="group-label">Latest</div>${subjectCards(stories)}` : ''}`;
+    ${lensForm(null, '')}`;
 }
 
 function fillSubject(entry) {
@@ -2392,8 +2454,12 @@ function fillSubject(entry) {
   const label = entry.kind === 'topic' ? subjectLabel(entry.slug) : null;
   const name = entry.kind === 'entity' ? entry.name : label.name;
   const leaves = entry.kind === 'entity' ? [] : subjectLeaves(entry.slug, stories);
-  // Subjects you made inside this topic sit beside the ones the spine has.
-  const mineHere = entry.kind === 'topic' ? lenses.filter((l) => l.parent === entry.slug) : [];
+  /* The level below, as tiles: the spine's leaves, then subjects you made
+     inside this topic, which sit beside them. */
+  const under = entry.kind === 'topic' ? [
+    ...leaves.map((leaf) => subjectRow(`topic:${leaf.slug}`)),
+    ...lenses.filter((l) => l.parent === entry.slug).map((l) => subjectRow(lensKey(l))),
+  ].filter(Boolean) : [];
 
   /* A leaf names its shelf, and the name climbs: reached from a story chip,
      the shelf is the level above and there is otherwise no way up to it. */
@@ -2426,24 +2492,14 @@ function fillSubject(entry) {
     <div class="subject-actions">
       <button class="follow wide${on ? ' on' : ''}" data-follow="${esc(key)}"
         aria-pressed="${on}">${on ? 'Following' : 'Follow'}</button>
+      ${subjectGo(key, stories.length)}
     </div>
-    ${entry.kind === 'topic' || leaves.length ? `<div class="group-label">Under this</div>
-      ${[...leaves.map((leaf) => ({ lk: `topic:${leaf.slug}`, name: leaf.name, row: leaf })),
-         ...mineHere.map((lens) => ({ lk: lensKey(lens), name: lens.name, mine: true,
-           row: countOf(stories.filter(lensHit(lens))) }))].map(({ lk, name: rowName, row, mine }) => {
-        const lon = followed(lk);
-        return `<div class="subject-row">
-          <button class="subject-leaf" data-subject="${esc(lk)}">${esc(rowName)}${
-            mine ? '<span class="yours">yours</span>' : ''}<span
-            class="n">${leafCount(row)}</span></button>
-          <button class="follow${lon ? ' on' : ''}" data-follow="${esc(lk)}"
-            aria-pressed="${lon}">${lon ? 'Following' : 'Follow'}</button>
-        </div>`;
-      }).join('')}
-      ${entry.kind === 'topic' ? lensForm(entry.slug, name) : ''}` : ''}
-    ${stories.length ? `<div class="group-label">Latest</div>${subjectCards(stories)}`
-      : `<p class="subject-none">Nothing carries this subject in the current
-          bundle. It still counts as something you follow.</p>`}`;
+    ${stories.length ? '' : `<p class="subject-none">Nothing carries this subject in
+        the current bundle. It still counts as something you follow.</p>`}
+    ${under.length ? `<div class="group-label">Under this</div>
+      <div class="tiles">${under.map((r) => subjectTile(r)).join('')}</div>` : ''}
+    ${entry.kind === 'topic' ? `<div class="group-label">Make your own here</div>
+      ${lensForm(entry.slug, name)}` : ''}`;
 }
 
 function fillStory(id) {
@@ -2631,6 +2687,18 @@ document.addEventListener('click', (event) => {
     return;
   }
 
+  // From a subject's page into the feed, scoped to it.
+  const walk = event.target.closest('[data-see-feed]');
+  if (walk) {
+    enterPlace(walk.dataset.seeFeed);
+    leavePanels();
+    if (view === 'feed') { render(); window.scrollTo({ top: 0 }); } else selectView('feed');
+    return;
+  }
+
+  const play = event.target.closest('[data-play]');
+  if (play) { openViewer(play.dataset.play, true); return; }
+
   const jump = event.target.closest('[data-view-jump]');
   if (jump) {
     if (profile) closeProfiles();
@@ -2646,21 +2714,13 @@ document.addEventListener('click', (event) => {
     return;
   }
 
-  const filter = event.target.closest('.filter');
+  // A chip, or a breadcrumb: somewhere else in the feed, or out if it is here.
+  const filter = event.target.closest('[data-filter]');
   if (filter) {
     const pick = filter.dataset.filter;
-    const off = scopeKey() === pick;
-    entity = '';
-    lensScope = '';
-    topic = '';
-    if (!off) {
-      const into = parseSubject(pick);
-      if (into.kind === 'entity') entity = into.name;
-      else if (into.kind === 'lens') lensScope = into.id;
-      else topic = into.slug;
-    }
-    store(key('topic'), topic);
+    if (scopeKey() === pick) leavePlace(); else enterPlace(pick);
     render();
+    window.scrollTo({ top: 0 });
     return;
   }
 
@@ -2788,7 +2848,7 @@ document.getElementById('save-detail').addEventListener('click', (event) => {
   if (current !== null) event.currentTarget.innerHTML = toggleSave(current) ? '&#9733;' : '&#9734;';
 });
 document.addEventListener('keydown', (event) => {
-  if (viewer && !panels.length) {
+  if (viewer && panels.length === viewer.depth) {
     if (event.key === 'Escape') closeViewer();
     else if (event.key === 'ArrowRight') viewerStep(1);
     else if (event.key === 'ArrowLeft') viewerStep(-1);

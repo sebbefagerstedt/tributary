@@ -114,8 +114,9 @@ def test_the_page_opens_a_subject_and_offers_no_kind_row(conn, source_id, tmp_pa
 
     assert 'id="subject-sheet"' in page
     assert "data-subject=" in page
-    # A subject's panel is the place itself (2026-09-23): no route to the feed.
-    assert "data-see-feed=" not in page
+    # A subject's page is the map and the feed is the reader (2026-09-23), so
+    # the page offers a way into the feed rather than listing stories itself.
+    assert "data-see-feed=" in page
     # The chooser is the surface a follow belongs to, so it lists them.
     assert "followsHTML" in page
     # The digest hid the chooser's name field until this rule was scoped.
