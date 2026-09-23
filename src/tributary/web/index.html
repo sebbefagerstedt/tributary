@@ -1472,6 +1472,17 @@ const scopeKey = () => (entity ? `entity:${entity}`
 
 const narrowed = () => Boolean(topic || entity || lensScope);
 
+/* Out of whichever place you are in. Three variables hold a place, so leaving
+   one has to clear all three: "Back to feed" once cleared only the topic and
+   the name, and inside your own subject it redrew the same place -- a banner
+   whose one way out went nowhere (reported 2026-09-23). */
+function leavePlace() {
+  topic = '';
+  entity = '';
+  lensScope = '';
+  store(key('topic'), '');
+}
+
 /* One row: the subjects you follow, because that is all the feed holds. There
    used to be a second row -- the whole spine, shelf then leaf -- for the case
    where you followed nothing and the feed was therefore everything. The feed
@@ -2542,9 +2553,7 @@ document.addEventListener('click', (event) => {
 
   // Out of a place, whichever kind it was, and back to the feed itself.
   if (event.target.closest('[data-leave]')) {
-    entity = '';
-    topic = '';
-    store(key('topic'), '');
+    leavePlace();
     render();
     window.scrollTo({ top: 0 });
     return;
@@ -2571,10 +2580,8 @@ document.addEventListener('click', (event) => {
   if (event.target.closest('#open-filters')) { openFilters(); return; }
   if (event.target.closest('#close-filters')) { closeFilters(); return; }
   if (event.target.closest('[data-clear-filters]')) {
-    topic = '';
-    entity = '';
+    leavePlace();
     trendScope = 'all';
-    store(key('topic'), '');
     render();
     // Tapped inside the sheet, the sheet is what has to show it worked.
     if (document.getElementById('filter-sheet').classList.contains('open')) drawFilters();
@@ -2604,6 +2611,7 @@ document.addEventListener('click', (event) => {
   const pick = event.target.closest('[data-pick]');
   if (pick) {
     entity = '';
+    lensScope = '';
     topic = topic === pick.dataset.pick ? '' : pick.dataset.pick;
     store(key('topic'), topic);
     closeFilters();
