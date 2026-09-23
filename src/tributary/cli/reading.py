@@ -7,10 +7,11 @@ from typing import Annotated
 import typer
 from rich.table import Table
 
-from tributary import feed as feed_mod
 from tributary import (
+    discover,
     store,
 )
+from tributary import feed as feed_mod
 from tributary.cli.common import ConfigOpt, app, console, err, open_config
 from tributary.text import truncate
 
@@ -58,8 +59,20 @@ def list_items(
 
 
 @app.command(rich_help_panel=PANEL)
-def sources(config: ConfigOpt = None) -> None:
+def sources(
+    config: ConfigOpt = None,
+    suggest: Annotated[
+        str | None,
+        typer.Option(
+            "--suggest",
+            help="Find a site's feed: a domain or URL. Prints config to paste; writes nothing.",
+        ),
+    ] = None,
+) -> None:
     """Show per-source health: item counts, last fetch, last error."""
+    if suggest is not None:
+        _suggest_source(config, suggest)
+        return
     _, conn = open_config(config)
     rows = store.source_health(conn)
     if not rows:
@@ -234,3 +247,27 @@ def story(
             byline += f" · {member['published_at'][:10]}"
         console.print(byline + "[/]")
         console.print(f"             [blue]{member['url']}[/]")
+
+
+def _suggest_source(config, target: str) -> None:
+    """Propose a source for a site; a person pastes it into config.toml."""
+    cfg, _ = open_config(config)
+    try:
+        found = discover.find(target)
+    except discover.FetchError as exc:
+        err.print(f"[red]{exc}[/]")
+        raise typer.Exit(1) from exc
+    if not found:
+        err.print(
+            f"[yellow]No feed found for {target}[/] — no <link rel=\"alternate\">, "
+            "none at the usual paths, and no news sitemap."
+        )
+        raise typer.Exit(1)
+    have = {source.url for source in cfg.sources}
+    for feed in found:
+        how = {"link": "announced by the page", "path": "at a well-known path",
+               "sitemap": "a news sitemap"}[feed.how]
+        state = " [dim](already configured)[/]" if feed.url in have else ""
+        console.print(f"[green]{feed.title}[/] — {how}, {feed.entries} entries{state}")
+        console.print(discover.snippet(feed), markup=False, highlight=False)
+        console.print()

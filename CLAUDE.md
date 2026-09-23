@@ -60,6 +60,7 @@ uv run trib topics --stats     # stories per topic
 uv run trib topics --suggest   # recent clusters, sorted by stories parked on a shelf
 uv run trib topics --why "…"   # a story's scores against every leaf: id or title words
 uv run trib entities --suggest # recurring names nobody has seeded
+uv run trib sources --suggest example.com  # find a site's feed; prints config, writes nothing
 uv run trib renewal            # what late arrivals do to the feed's order
 uv run trib serve              # web app on :8808; --host 0.0.0.0 for a phone
 uv run trib export site        # the static site the workflow publishes
@@ -993,8 +994,11 @@ what this repo does:
   project's answer. The fallback paths when the `<link>` is missing are well
   known: `/feed/`, `/rss/`, `/feed.xml`, `/index.xml`, `/rss.xml`, `/atom.xml`
   (WordPress `/feed`, Ghost `/rss`, Hugo `/index.xml`). Finding a domain's feed
-  is therefore a *stage* that proposes sources, never a `Source` — propose then
-  accept, like topics.
+  proposes sources and is never a `Source` — propose then accept, like topics.
+  **Built 2026-09-23 as `trib sources --suggest`** (`discover.py`): the page's
+  `<link>` first, then those paths, then a news sitemap from `robots.txt`, each
+  parsed before it is offered. A site that refuses to answer is reported as
+  unreachable, never as having no feed.
 - **Incremental clustering**, with an age limit of about four hours on arrivals
   and entity recognition beside it, is what Full Coverage is. That part is built.
 

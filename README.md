@@ -61,7 +61,7 @@ command, for when you are working on that stage.
 | `trib feed` | the ranked feed; `--days N`, `--unseen`, `--mark` |
 | `trib story <id>` | every item attached to one story |
 | `trib list` | recent items; `--state kept\|rejected\|pending`, `--ids` |
-| `trib sources` | per-source health: counts, last fetch, last error |
+| `trib sources` | per-source health: counts, last fetch, last error; `--suggest <site>` finds a site's feed and prints the config to paste |
 | **Publishing** | |
 | `trib serve` | the web app; `--host 0.0.0.0` to reach it from a phone |
 | `trib export <dir>` | a static site that needs no server |
