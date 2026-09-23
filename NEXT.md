@@ -138,6 +138,14 @@ the bundle — on Pages, 120 stories over 30 days (`trib export site --days 30
 60KB per 120 stories, so 500 would be 250KB — but the JSON around them grows
 with it. That, not commenting, is the honest reason a backend eventually wins.
 
+**A subject nobody's news fills is a gap report.** Your own subjects already
+read `quiet` when they match nothing, which says little to one reader. Across
+many, the subjects that stay empty are a reader-written list of what the
+sources do not cover — demand-led source discovery instead of guessing, and the
+one way the "I do not want to miss events" worry is answered by this feature
+rather than by ingestion. Moved here 2026-09-23: not useful until topics are
+shared.
+
 ### Hosting and identity
 
 - **"GitHub Pages or pay" is a false choice.** Cloudflare Workers' free tier is
@@ -298,20 +306,6 @@ Small, self-contained jobs. None of them waits on either direction above.
   as the Topics page's **Names in play**. `namesInPlay` already counts them over
   the whole bundle; this is the same over the subject's stories. It is the last
   idea left from the "tabs across one subject" survey.
-- **Your subjects that caught nothing, as a list of what the sources miss.** A
-  lens matching nothing already reads `quiet` under **Your own subjects**.
-  Gathered together they are a reader-written list of what the sources do not
-  cover — demand-led source discovery instead of guessing, and the one way the
-  "I do not want to miss events" worry is answered by this feature rather than
-  by ingestion. It needs only the page.
-- **Measure `LENS_FLOOR = 0.72`**, the one number in the page that is a guess.
-  It decides when a lens catches a story its words would miss. bge puts
-  unrelated text near 0.5 and a story's own members merge at 0.92, so it sits in
-  the gap between them and nothing more. Take a handful of subjects, seed each
-  with two or three stories by hand, and look at where the cosines to the rest
-  actually fall — the exercise `topics floor` had. It needs a real corpus: the
-  deployed database, or a local one with weeks in it. Until then the words carry
-  a lens, which is why `lensMatcher` asks them first.
 
 ## Designed, deliberately not built
 
