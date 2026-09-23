@@ -3,6 +3,23 @@
 Only upcoming work lives here. **When something is built, delete its entry** —
 history is in git, and the reasoning behind how things work is in `CLAUDE.md`.
 
+## Start here: review this file with the owner
+
+**Said 2026-09-23, after the redesign landed:** *"The big things I see now is
+multiple users, more data from topics outside AI (big change). So we really
+need to go through NEXT.md later to see what is left and what to remove."* So
+before building anything else, walk the owner through every entry below, one at
+a time, and delete what is built, stale or no longer wanted. Much of it predates
+the redesign (the frontend section, the filter and search notes, several "needs
+a decision" items) and was written against a page that no longer exists.
+
+The two big directions, in the owner's words, are:
+
+- **Multiple users** — real accounts and a server. The posting and commenting
+  section below is most of what is known about it.
+- **Subjects outside AI** — more data, and the move beyond an AI-only feed
+  that the product-launches section below first ran into.
+
 ## Posting and commenting — the next big step, and the one that changes the architecture
 
 **This is the next big step: real accounts, a server, and topics that are shared
