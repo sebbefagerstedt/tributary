@@ -533,6 +533,17 @@ decision is one piece that can be reverted alone:
   read) with its new count, latest headline and a follow toggle in the corner;
   then **Names in play** as one sideways row and **Your own subjects** last.
   Leaf chips left the page: a tile opens the shelf's panel, which lists them.
+- **A circle plays its subject full screen** (`openViewer`), asked 2026-09-23:
+  *"I was expecting the new stories to popup full screen and I can swipe like on
+  instagram to see the next"*. One story at a time over its picture or its
+  kind's colour, a bar per story, tap right/left for next/previous, swipe
+  sideways for the next subject, swipe down or back to close, "Read the story"
+  opening the sheet above it. It plays unread stories oldest first, marks each
+  seen as it is shown, and after the last moves to the next circle with
+  something new. **It has no timer** — Instagram advances on its own, which
+  paces the reader instead of letting them read, and that is the hook the
+  ground rules keep out. A quiet circle has nothing to play, so it opens the
+  subject's panel instead.
 
 Measured at 390×844 against the page before it, with five follows: the first
 card starts at 108px instead of 159. **While reading down the chrome is 63px
@@ -686,15 +697,35 @@ multi-label is fine precisely because it is not a home.
 **Which is why a personal lens needs no server — and it is built, 2026-09-22.**
 It is the shape `isFollowed` already has: a `localStorage` predicate over the
 shared bundle, so per-reader filtering happens in the page and never in the
-pipeline. A lens is `{id, name, terms, vector, seeds, created}` under the
+pipeline. A lens is `{id, name, terms, vector, seeds, parent, created}` under the
 profile's `lenses` key, followed as `lens:<id>` in the same set as
 `topic:<slug>` and `entity:<name>`, and **it is a subject like any other**: it
 fills the feed through `isFollowed`, sits in the chip row, opens as a panel, and
 is a place you can walk into. Nothing in the UI knows it is yours except the
 panel, which says so and offers to delete it.
 
+**A lens filters everything, unless it was made inside a topic.** It is an
+extra filter across the whole bundle — a story keeps its topic and also shows
+in every lens it matches — not a home for the stories without one. Asked
+2026-09-23 that a subject can be made *"under a topic in all layers it may
+have"*: every topic's panel, shelf or leaf, now has a create field, and a lens
+made there records the topic as `parent` and filters only that topic's stories
+(`lensHit` wraps the pure `lensMatcher` in `hasTopic`), listed under it with a
+`yours` tag beside the spine's leaves. `parent` is also what a shared version
+will need: several readers naming the same thing in the same place is the
+signal the spine is missing a leaf. **Stories no topic caught** (below the
+floor, ~2% of the corpus) were unreachable by browsing; the Topics page now has
+a **Not in any topic** tile whose panel lists them with a create field.
+
 **Words first, then the vector.** `lensMatcher` asks the lexical question before
-the semantic one, the order and for the reason the clusterer uses. That is what
+the semantic one, the order and for the reason the clusterer uses. **The words
+are whole words** (`matchesWord`), with the plural either way round — a lens
+called "test" filled up with *testimony* while it was a substring match
+(reported 2026-09-23). Search keeps the substring test, which is right while
+you are still typing. They are looked for in the title, summary, source, topic
+and entity names, and the titles of every item in the story. The vector half is
+what **+** on a card (More like this) teaches, and is what lets a lens catch
+stories that never use its word. That is what
 makes `LENS_FLOOR = 0.72` safe to ship **unmeasured** — bge puts unrelated text
 near 0.5 and a story's own members merge at 0.92, so it is a guess in the gap
 between them, and a lens always matches its own name whatever the floor does. A

@@ -451,3 +451,98 @@ def test_the_topics_page_has_a_tile_per_shelf_and_a_ring_per_follow(page_bundle)
     assert out["tiles"] == 2, out
     assert out["rings"] == 2 and out["quiet"], "a quiet follow lost its control"
     assert out["followFromTile"], out
+
+
+@needs_node
+def test_a_lens_matches_whole_words_with_either_plural():
+    """A lens called "test" filled up with *testimony* (reported 2026-09-23)."""
+    cases = [
+        ("test", "Congressional testimony", False),
+        ("test", "A new test for agents", True),
+        ("dog", "Dogs can read", True),
+        ("dogs", "A dog story", True),
+        ("news", "Newsom signs a bill", False),
+        ("claude", "Claude's memory", True),
+        ("gpt-5", "GPT-5 is out", True),
+    ]
+    got = run_in_node(
+        "console.log(JSON.stringify(input.cases.map(([term, title]) => matchesWord("
+        "{ title, summary: '', source: '', topics: [], entities: [], items: [] }, term))));",
+        {"cases": cases},
+    )
+    assert got == [want for _, _, want in cases]
+
+
+@needs_node
+def test_a_lens_made_inside_a_topic_only_filters_that_topic(page_bundle):
+    out = boot(page_bundle, """
+      const [a, b] = bundle.stories;
+      a.title = 'A paper about coding'; a.topics = [{ slug: 'coding', name: 'Coding agents',
+        parent: 'agents', parent_name: 'AI agents' }];
+      b.title = 'A paper about chips'; b.topics = [{ slug: 'chips', name: 'Chips' }];
+      const anywhere = createLens('paper');
+      const inside = createLens('paper', 'agents');
+      fillSubject({ kind: 'topic', slug: 'agents' });
+      const panel = document.getElementById('subject-body').innerHTML;
+      console.log(JSON.stringify({
+        anywhere: subjectStories({ kind: 'lens', id: anywhere.id }).map((s) => s.story_id),
+        inside: subjectStories({ kind: 'lens', id: inside.id }).map((s) => s.story_id),
+        a: a.story_id, b: b.story_id,
+        listedHere: panel.includes('data-subject="lens:' + inside.id + '"'),
+        otherNotHere: !panel.includes('data-subject="lens:' + anywhere.id + '"'),
+        formHere: panel.includes('data-parent="agents"'),
+      }));
+    """)
+    assert out["a"] in out["anywhere"] and out["b"] in out["anywhere"]
+    assert out["inside"] == [out["a"]], out
+    assert out["listedHere"] and out["otherNotHere"] and out["formHere"], out
+
+
+@needs_node
+def test_stories_in_no_topic_have_a_tile_and_a_panel(page_bundle):
+    out = boot(page_bundle, """
+      bundle.stories.forEach((s, n) => { s.topics = n ? [{ slug: 'chips', name: 'Chips' }] : []; });
+      view = 'topics';
+      render();
+      const page = document.getElementById('main').innerHTML;
+      fillSubject(parseSubject('unsorted:'));
+      const panel = document.getElementById('subject-body').innerHTML;
+      console.log(JSON.stringify({
+        tile: page.includes('data-subject="unsorted:"'),
+        cards: (panel.match(/<article class="card/g) || []).length,
+        form: panel.includes('data-new-lens'),
+      }));
+    """)
+    assert out == {"tile": True, "cards": 1, "form": True}, out
+
+
+@needs_node
+def test_a_circle_plays_its_new_stories_then_moves_on(page_bundle):
+    """Oldest unread first, one at a time, each marked seen as it is shown, and
+    past the last one on to the next circle with something new."""
+    out = boot(page_bundle, """
+      const [a, b] = bundle.stories;
+      const c = { ...b, story_id: 999, title: 'A third story, elsewhere', items: [] };
+      bundle.stories.push(c);
+      a.topics = [{ slug: 'chips', name: 'Chips' }];
+      b.topics = [{ slug: 'chips', name: 'Chips' }];
+      c.topics = [{ slug: 'rag', name: 'RAG' }];
+      a.published_at = '2026-09-20T10:00:00Z'; b.published_at = '2026-09-21T10:00:00Z';
+      follows.clear(); follows.add('topic:chips'); follows.add('topic:rag');
+      marks.seen.clear();
+      openViewer('topic:chips');
+      const first = document.getElementById('viewer').innerHTML.includes(a.title);
+      const seenFirst = marks.seen.has(a.story_id);
+      viewerStep(1);
+      const second = document.getElementById('viewer').innerHTML.includes(b.title);
+      viewerStep(1);
+      console.log(JSON.stringify({
+        first, seenFirst, second,
+        movedOn: viewer && viewer.queue[viewer.s].key === 'topic:rag',
+        third: document.getElementById('viewer').innerHTML.includes(c.title),
+        noTimer: !/setTimeout|setInterval/.test(drawViewer.toString()),
+      }));
+    """)
+    assert out["first"] and out["seenFirst"] and out["second"], out
+    assert out["movedOn"] and out["third"], out
+    assert out["noTimer"], "the viewer must not advance on its own"
