@@ -148,30 +148,95 @@ body.digest-view > header .filters,
 body.digest-view > header .search,
 body.digest-view #search-toggle { display: none; }
 
-/* A subject, what is unread in it, and the one control that matters. Framed
-   rather than carded: these are shelves, and a shelf that looks like a story
-   invites you to read it instead of choosing it. */
-.digest {
-  border-top: 1px solid var(--line); padding: 14px 2px 16px;
+/* --- The Topics page: a row of circles, then a grid of tiles ------------------ */
+.dsec {
+  display: flex; align-items: baseline; gap: 8px;
+  font-size: 21px; font-weight: 750; letter-spacing: -.025em; margin: 18px 2px 12px;
 }
-.digest.on { border-left: 2px solid var(--accent); padding-left: 12px; }
-.digest-head { display: flex; align-items: baseline; gap: 10px; }
-.digest-name {
-  font: inherit; font-size: 17px; font-weight: 650; letter-spacing: -.015em;
-  color: var(--text); background: none; border: 0; padding: 0; text-align: left;
-  cursor: pointer; flex: 1;
+.dsec:first-child { margin-top: 6px; }
+.dsec-sub { font-size: 12.5px; font-weight: 500; letter-spacing: 0; color: var(--faint); }
+.digest-leaves { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.digest-note { color: var(--faint); font-size: 13px; margin: 0 2px 4px; line-height: 1.5; }
+
+/* The subjects you follow, as circles in one sideways row. A gradient ring means
+   something in it is new, the plain ring that it is read, a faded one that the
+   bundle has nothing for it -- which is still a control, because a follow is
+   still counted when it is quiet. */
+.rings {
+  display: flex; gap: 12px; overflow-x: auto; scrollbar-width: none;
+  margin: 0 -12px; padding: 2px 12px 6px;
 }
-.digest-name.as-text { cursor: default; color: var(--muted); font-size: 14px; }
-.digest-count { color: var(--faint); font-size: 12.5px; margin-top: 3px; }
-.digest-count strong { color: var(--accent); font-weight: 650; }
-.digest-lead {
-  display: block; margin-top: 8px; font: inherit; font-size: 14px; line-height: 1.4;
-  color: var(--muted); background: none; border: 0; padding: 0; text-align: left;
-  cursor: pointer;
+.rings::-webkit-scrollbar { display: none; }
+.ring {
+  flex: none; width: 76px; display: flex; flex-direction: column; align-items: center;
+  gap: 3px; background: none; border: 0; padding: 0; cursor: pointer;
+  font: inherit; color: var(--text);
 }
-.digest-leaves { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.digest-intro { color: var(--muted); font-size: 13.5px; margin: 2px 2px 4px; }
-.digest-note { color: var(--faint); font-size: 12.5px; margin: 4px 0 0; line-height: 1.45; }
+.ring-img {
+  width: 72px; height: 72px; border-radius: 50%; padding: 3px;
+  background: var(--line);
+}
+.ring.new .ring-img {
+  background: conic-gradient(from 210deg, var(--accent), #8b5cf6, #ec4899, #f59e0b, var(--accent));
+}
+.ring-face {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 100%; border-radius: 50%; overflow: hidden;
+  border: 3px solid var(--bg); background: var(--tile);
+  color: #fff; font-size: 24px; font-weight: 750;
+}
+.ring-face img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ring-name {
+  max-width: 76px; font-size: 12px; font-weight: 600; margin-top: 3px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ring-n { font-size: 11px; color: var(--faint); }
+.ring.new .ring-n { color: var(--accent); font-weight: 650; }
+.ring.quiet { opacity: .55; }
+
+/* Every subject area as a tile wearing its newest picture -- the explore grid.
+   Tapping the tile opens it; the corner button follows without leaving. */
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tile {
+  position: relative; aspect-ratio: 4 / 5; border-radius: 18px; overflow: hidden;
+  cursor: pointer; color: #fff; background:
+    radial-gradient(120% 80% at 100% 0%, color-mix(in srgb, var(--tile) 55%, #fff) 0%, transparent 60%),
+    var(--tile);
+  display: flex; flex-direction: column; justify-content: flex-end;
+  transition: transform .12s ease;
+}
+.tile:active { transform: scale(.98); }
+.tile img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.tile::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,.82) 0%, rgba(0,0,0,.35) 55%, rgba(0,0,0,0) 80%);
+}
+.tile-text { position: relative; z-index: 1; padding: 12px 12px 13px; }
+.tile-name {
+  margin: 3px 0 0; font-size: 18px; font-weight: 750; line-height: 1.15; letter-spacing: -.02em;
+}
+.tile-count { font-size: 11.5px; opacity: .92; }
+.tile-count strong {
+  background: var(--accent); color: #fff; border-radius: 999px; padding: 1px 7px; font-weight: 700;
+}
+.tile-lead {
+  margin: 6px 0 0; font-size: 12px; line-height: 1.32; opacity: .82;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.tile-follow {
+  position: absolute; top: 9px; right: 9px; z-index: 2;
+  width: 34px; height: 34px; border-radius: 50%; border: 0; cursor: pointer;
+  background: rgba(0,0,0,.38); backdrop-filter: blur(8px); color: #fff;
+  font: inherit; font-size: 19px; font-weight: 700; line-height: 1;
+}
+.tile-follow.on { background: var(--accent); }
+
+.name-row {
+  display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
+  margin: 0 -12px; padding: 0 12px 4px;
+}
+.name-row::-webkit-scrollbar { display: none; }
+.name-row .leaf { flex: none; font-size: 13px; padding: 7px 12px; }
 
 /* `min-width` because the label carries the state: Follow and Following are
    different lengths, and a button that resizes as you tap it moves the row
@@ -455,22 +520,18 @@ body.digest-view #search-toggle { display: none; }
 .subject-stat { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
 .subject-stat strong { color: var(--accent); font-weight: 650; }
 .subject-actions { display: flex; gap: 8px; margin: 16px 0 4px; }
-/* Full width and side by side: on a phone these are the two things the panel
-   is for, and a pill in a corner does not read as the answer to "do I follow
-   this". Accent still means "you follow this" -- outlined is the offer, filled
-   is the state -- so the language is the same as the chips elsewhere while the
-   button is still the loudest thing under the name. */
-.follow.wide, .subject-go {
+/* Full width: on a phone this is the thing the panel is for, and a pill in a
+   corner does not read as the answer to "do I follow this". Accent still means
+   "you follow this" -- outlined is the offer, filled is the state -- so the
+   language is the same as the chips elsewhere while the button is still the
+   loudest thing under the name. */
+.follow.wide {
   flex: 1; font-size: 14px; padding: 11px 14px; border-radius: 12px;
 }
 .follow.wide {
   background: transparent; color: var(--accent); border-color: var(--accent);
 }
 .follow.wide.on { background: var(--accent); color: #fff; border-color: var(--accent); }
-.subject-go {
-  font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
-  background: var(--surface-2); color: var(--text); border: 1px solid var(--line);
-}
 /* A leaf is a row rather than a chip, so its name and its follow are two
    separate targets. As a chip they were one control that both navigated and
    followed, told apart only by a tint. */
@@ -485,13 +546,7 @@ body.digest-view #search-toggle { display: none; }
 .subject-leaf .n { color: var(--faint); font-weight: 400; margin-left: 6px;
   font-variant-numeric: tabular-nums; }
 .subject-leaf .new { color: var(--accent); font-weight: 650; }
-.headline {
-  display: block; width: 100%; font: inherit; font-size: 14.5px; line-height: 1.4;
-  text-align: left; color: var(--text); background: none; cursor: pointer;
-  border: 0; border-top: 1px solid var(--line); padding: 11px 2px;
-}
-.headline.seen { color: var(--faint); }
-.headline .when { color: var(--faint); font-size: 12.5px; }
+.subject-cards { margin-top: 4px; }
 .subject-drop {
   margin-top: 10px; width: 100%; padding: 11px; border-radius: 10px;
   /* --video is the page's only red, and a delete is the one destructive
@@ -500,9 +555,6 @@ body.digest-view #search-toggle { display: none; }
   font: inherit; font-size: 14px; cursor: pointer;
 }
 .subject-none { color: var(--faint); font-size: 13px; margin: 18px 0 0; }
-/* A row that completes the arithmetic rather than offering a choice: parked
-   stories are not a subtopic, so there is nothing here to open or follow. */
-.subject-leaf.as-text { cursor: default; color: var(--muted); font-weight: 550; }
 .subject-note { color: var(--faint); font-size: 12.5px; line-height: 1.45; margin: 8px 2px 0; }
 
 /* A topic is a place you are in, not a setting you have on. */
@@ -1330,7 +1382,7 @@ function digestRows(live) {
         ? { slug: label.parent, name: label.parent_name }
         : { slug: label.slug, name: label.name };
       if (!shelves.has(shelf.slug)) {
-        shelves.set(shelf.slug, { ...shelf, n: 0, unseen: 0, lead: null, leaves: new Map() });
+        shelves.set(shelf.slug, { ...shelf, n: 0, unseen: 0, lead: null });
       }
       const row = shelves.get(shelf.slug);
       row.n += 1;
@@ -1338,13 +1390,6 @@ function digestRows(live) {
       if (!row.lead || (story.published_at || '') > (row.lead.published_at || '')) {
         row.lead = story;
       }
-      if (!label.parent) continue;
-      if (!row.leaves.has(label.slug)) {
-        row.leaves.set(label.slug, { slug: label.slug, name: label.name, n: 0, unseen: 0 });
-      }
-      const leaf = row.leaves.get(label.slug);
-      leaf.n += 1;
-      if (!marks.seen.has(story.story_id)) leaf.unseen += 1;
     }
   }
   // Most unread first: the page exists to say where to look next, and a shelf
@@ -1380,76 +1425,89 @@ function topicName(slug) {
   return fromStory ? fromStory.name : slug;
 }
 
-/* Everything you follow that this bundle has nothing to show for. Topics die by
-   dormancy -- a quiet one simply stops appearing -- which is right for a filter
-   row and wrong for a follow: the follow is still counted, still gates the
-   feed, and had no row left to turn it off with. */
-function quietFollows(shown) {
-  return [...follows].filter((f) => !shown.has(f)).map((f) => {
-    if (f.startsWith('topic:')) return { key: f, name: topicName(f.slice(6)) };
-    if (f.startsWith('lens:')) {
-      const lens = lensById(f.slice(5));
-      return lens ? { key: f, name: lens.name } : null;
-    }
-    return { key: f, name: f.slice(7) };
-  }).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name));
+/* --- The Topics page ---------------------------------------------------------
+   Redesigned 2026-09-23, on *"the Topics page is still kind of boring"*. It was
+   a column of text sections -- a name, a count, a headline, a row of grey chips,
+   ten times over. It borrows two shapes now, both from apps this one is meant
+   to stand in for: **the row of circles** at the top of Instagram, here the
+   subjects you follow, ringed when something in them is new; and **the explore
+   grid**, here every subject area as a tile wearing its newest picture. Both
+   open the subject's panel, which is where its subtopics and stories are --
+   so the page holds no chips for leaves any more, only ways in. */
+
+/* A colour for a subject with no picture. The same key always gets the same
+   hue, so a subject is recognisable before its name is read. */
+function hueOf(text) {
+  let h = 0;
+  for (const c of text) h = (h * 31 + c.codePointAt(0)) % 360;
+  return h;
+}
+const swatch = (text) => `--tile: hsl(${hueOf(text)} 52% 36%)`;
+const artOf = (stories) => (stories.find((s) => s.media_url) || {}).media_url || '';
+
+/* Every follow, quiet ones included: this row is what "Followed, but quiet"
+   used to be a separate section for. A follow is a preference, not a view of
+   the corpus, so one with nothing in the bundle still needs a control. */
+function followRings() {
+  const rows = [...follows].map((key) => {
+    const entry = parseSubject(key);
+    const name = entry.kind === 'entity' ? entry.name
+      : entry.kind === 'lens' ? (lensById(entry.id) || {}).name
+      : topicName(entry.slug);
+    if (!name) return null;
+    const stories = subjectStories(entry);
+    const unseen = stories.filter((s) => !marks.seen.has(s.story_id)).length;
+    return { key, name, n: stories.length, unseen, art: artOf(stories) };
+  }).filter(Boolean);
+  // New first, then read, then quiet: the row says where to look next.
+  rows.sort((a, b) => (b.unseen > 0) - (a.unseen > 0) || (b.n > 0) - (a.n > 0)
+    || a.name.localeCompare(b.name));
+  return rows.map((r) => `
+    <button class="ring${r.unseen ? ' new' : r.n ? '' : ' quiet'}" data-subject="${esc(r.key)}">
+      <span class="ring-img"><span class="ring-face" style="${swatch(r.key)}">${
+        esc(r.name.slice(0, 1).toUpperCase())}${r.art
+        ? `<img src="${esc(r.art)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''
+      }</span></span>
+      <span class="ring-name">${esc(r.name)}</span>
+      <span class="ring-n">${r.unseen ? `${r.unseen} new` : r.n ? 'all read' : 'quiet'}</span>
+    </button>`).join('');
+}
+
+function tileHTML(row, live) {
+  const key = `topic:${row.slug}`;
+  const on = followed(key);
+  const art = artOf(byDate(live.filter((s) => hasTopic(s, row.slug))));
+  return `
+  <article class="tile" data-subject="${esc(key)}" style="${swatch(key)}">
+    ${art ? `<img src="${esc(art)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}
+    <button class="tile-follow${on ? ' on' : ''}" data-follow="${esc(key)}" aria-pressed="${on}"
+      aria-label="${on ? 'Following' : 'Follow'} ${esc(row.name)}">${on ? '&#10003;' : '&#43;'}</button>
+    <div class="tile-text">
+      <div class="tile-count">${row.unseen ? `<strong>${row.unseen} new</strong>` : 'All read'}
+        · ${plural(row.n, 'story')}</div>
+      <h3 class="tile-name">${esc(row.name)}</h3>
+      ${row.lead ? `<p class="tile-lead">${esc(row.lead.title)}</p>` : ''}
+    </div>
+  </article>`;
 }
 
 function digestHTML(live) {
   /* No early return on an empty spine. Your own subjects are yours whatever the
      news is doing, and bailing out here left a reader with nothing labelled --
-     a quiet day, a fresh database -- looking at "Nothing labelled yet" with no
-     way to make one. */
+     a quiet day, a fresh database -- with no way to make one. */
   const rows = digestRows(live);
+  const rings = followRings();
+  const tiles = rows.map((row) => tileHTML(row, live)).join('');
 
-  const shelves = rows.map((row) => {
-    const on = followed(`topic:${row.slug}`);
-    const leaves = [...row.leaves.values()].sort((a, b) => b.unseen - a.unseen || b.n - a.n);
-    return `
-    <section class="digest${on ? ' on' : ''}">
-      <div class="digest-head">
-        <button class="digest-name" data-subject="topic:${esc(row.slug)}"
-          >${esc(row.name)}</button>
-        ${followButton(`topic:${row.slug}`, on)}
-      </div>
-      <div class="digest-count">${
-        row.unseen === row.n ? `<strong>${plural(row.n, 'story')}</strong>, all new`
-        : row.unseen ? `<strong>${row.unseen} new</strong> · ${plural(row.n, 'story')}`
-        : `${plural(row.n, 'story')} · all read`}</div>
-      ${row.lead ? `<button class="digest-lead" data-open="${row.lead.story_id}"
-        >${esc(row.lead.title)}</button>` : ''}
-      ${leaves.length ? `<div class="digest-leaves">${leaves.map((leaf) => `
-        <button class="leaf${followed(`topic:${leaf.slug}`) ? ' on' : ''}"
-          data-subject="topic:${esc(leaf.slug)}"
-          >${esc(leaf.name)}<span class="n">${leaf.unseen || leaf.n}</span></button>`).join('')
-      }</div>` : ''}
-    </section>`;
-  }).join('');
-
-  const inPlay = namesInPlay(live);
-  const names = inPlay.map((entity) => {
+  const names = namesInPlay(live).map((entity) => {
     const on = followed(`entity:${entity.name}`);
     return `<button class="leaf${on ? ' on' : ''}" data-subject="entity:${esc(entity.name)}"
       >${esc(entity.name)}<span class="n">${entity.n}</span></button>`;
   }).join('');
 
-  // Everything this page has already given you a control for.
-  const shown = new Set();
-  for (const row of rows) {
-    shown.add(`topic:${row.slug}`);
-    for (const leaf of row.leaves.keys()) shown.add(`topic:${leaf}`);
-  }
-  for (const entity of inPlay) shown.add(`entity:${entity.name}`);
-  // Yours are listed in full below, quiet or not, so they never turn up twice.
-  for (const lens of lenses) shown.add(lensKey(lens));
-
-  const quiet = quietFollows(shown).map(({ key, name }) =>
-    `<button class="leaf on" data-subject="${esc(key)}">${esc(name)}</button>`).join('');
-
-  /* Your own subjects, first, because they are the only ones on this page you
-     can make. A lens is listed even when it is matching nothing -- unlike a
-     spine topic it cannot come back on its own, and a thing you wrote that has
-     silently vanished is the bug "Followed, but quiet" exists to prevent. */
+  /* A lens is listed even when it is matching nothing -- unlike a spine topic
+     it cannot come back on its own, and a thing you wrote that has silently
+     vanished is the bug the quiet follows in the row above exist to prevent. */
   const mine = lenses.map((lens) => {
     const on = followed(lensKey(lens));
     const n = live.filter(lensMatcher(lens)).length;
@@ -1458,34 +1516,24 @@ function digestHTML(live) {
   }).join('');
 
   return `
-    <p class="digest-intro">${follows.size
-      ? `Your feed is the ${plural(follows.size, 'subject')} you follow. Tap one to open it.`
-      : 'Your feed is empty until you follow something. Tap a subject to look inside it.'}</p>
-    <section class="digest">
-      <div class="digest-head">
-        <span class="digest-name as-text">Your own subjects</span>
-      </div>
-        ${mine ? `<div class="digest-leaves">${mine}</div>`
-        : `<p class="digest-note">Name a subject and it starts filtering the feed
-            straight away. Teach it what else belongs with <strong>More like
-            this</strong> on any card.</p>`}
-      <form class="profile-new" data-new-lens="" autocomplete="off">
-        <input class="search lens-name" type="text" maxlength="40"
-          placeholder="New subject name" aria-label="New subject name">
-        <button class="follow on" type="submit">Add</button>
-      </form>
-    </section>
-    ${shelves || '<div class="empty">Nothing labelled yet.</div>'}
-    ${names ? `<section class="digest">
-      <div class="digest-head"><span class="digest-name as-text">Names in play</span></div>
-      <div class="digest-leaves">${names}</div>
-    </section>` : ''}
-    ${quiet ? `<section class="digest">
-      <div class="digest-head"><span class="digest-name as-text">Followed, but quiet</span></div>
-      <p class="digest-note">Nothing in the feed right now. They still count as
-        subjects you follow &mdash; tap one to open it and stop.</p>
-      <div class="digest-leaves">${quiet}</div>
-    </section>` : ''}`;
+    <h2 class="dsec">Following<span class="dsec-sub">${follows.size
+      ? `your feed is these ${follows.size}` : ''}</span></h2>
+    ${rings ? `<div class="rings">${rings}</div>`
+      : `<p class="digest-note">Your feed is empty until you follow something.
+          Tap <strong>+</strong> on a subject below, or open one to look inside.</p>`}
+    <h2 class="dsec">Explore</h2>
+    ${tiles ? `<div class="tiles">${tiles}</div>` : '<div class="empty">Nothing labelled yet.</div>'}
+    ${names ? `<h2 class="dsec">Names in play</h2><div class="name-row">${names}</div>` : ''}
+    <h2 class="dsec">Your own subjects</h2>
+    ${mine ? `<div class="digest-leaves">${mine}</div>`
+      : `<p class="digest-note">Name a subject and it starts filtering the feed
+          straight away. Teach it what else belongs with <strong>More like
+          this</strong> on any card.</p>`}
+    <form class="profile-new" data-new-lens="" autocomplete="off">
+      <input class="search lens-name" type="text" maxlength="40"
+        placeholder="New subject name" aria-label="New subject name">
+      <button class="follow on" type="submit">Add</button>
+    </form>`;
 }
 
 
@@ -1829,15 +1877,6 @@ function closePanel() {
   if (panels.length) history.back();
 }
 
-/* Out of all of them at once, for the moves that land you somewhere else:
-   walking into a subject's feed, or following a name out of a story. */
-function leavePanels() {
-  const depth = panels.length;
-  panels = [];
-  showPanel();
-  if (depth) history.go(-depth);
-}
-
 window.addEventListener('popstate', () => {
   if (panels.length) panels.pop();
   showPanel();
@@ -1882,8 +1921,8 @@ function openStory(id) {
    you follow it together at the top, then what sits under it, then what is in
    it. Following is a button rather than a chip's tint -- that is what makes it
    clear what is followed, and it ends the collision where one chip shape
-   navigated in one place and followed in another. The walk-in is still here,
-   as "See all in the feed", so nothing that used to be reachable has gone. */
+   navigated in one place and followed in another. Its stories are the feed's
+   own cards, so the panel is the place itself rather than a way to it. */
 function subjectStories(entry) {
   const live = bundle.stories.filter((s) => !marks.dismissed.has(s.story_id));
   if (entry.kind === 'entity') return byDate(live.filter((s) => hasEntity(s, entry.name)));
@@ -1902,19 +1941,6 @@ function subjectLabel(slug) {
   return (bundle.spine || []).find((t) => t.slug === slug)
     || topicIndex(bundle.stories).get(slug)
     || { slug, name: slug, parent: null, parent_name: null };
-}
-
-/* Stories filed on the shelf itself rather than on any leaf under it. They
-   exist because of **parking**: when a story's top two leaves share a shelf and
-   sit within `park_margin`, the shelf is clear but the leaf is a coin-toss, so
-   it stays on the shelf. `hasTopic` counts them in the shelf's total and no
-   leaf row can, so without a row of their own the panel says 24 above a list
-   adding to 21 -- which is what it did, and what was reported. About 13% of
-   the corpus is parked, so the gap is the rule rather than an edge case. */
-function parkedOn(slug, stories) {
-  const rows = stories.filter((s) =>
-    (s.topics || []).some((label) => label.slug === slug && !label.parent));
-  return { n: rows.length, unseen: rows.filter((s) => !marks.seen.has(s.story_id)).length };
 }
 
 /* What sits under a shelf: the leaves this bundle has stories for, plus any
@@ -1940,7 +1966,13 @@ function subjectLeaves(slug, stories) {
   return [...rows.values()].sort((a, b) => b.unseen - a.unseen || b.n - a.n);
 }
 
-const MAX_HEADLINES = 12;
+/* A subject's stories are the same cards as the feed and Trending, all of them,
+   so the panel is the place itself. Asked 2026-09-23: *"I want it to look the
+   same under latest as in the normal feed and trending. It should not need to
+   route to the feed."* It had been a list of twelve headlines and a "See all in
+   the feed" button -- a table of contents for a page somewhere else. */
+const subjectCards = (stories) =>
+  `<div class="subject-cards">${stories.map(cardHTML).join('')}</div>`;
 
 /* One number unless two say something: a row where everything is unread does
    not need to say the same figure twice. Shared with the profile chooser's
@@ -1981,9 +2013,6 @@ function fillLens(entry) {
     <div class="subject-actions">
       <button class="follow wide${on ? ' on' : ''}" data-follow="${esc(key)}"
         aria-pressed="${on}">${on ? 'Following' : 'Follow'}</button>
-      ${stories.length
-        ? `<button class="subject-go" data-see-feed="${esc(key)}">See all in the feed</button>`
-        : ''}
     </div>
     <div class="group-label">What it matches</div>
     <p class="subject-note">Anything mentioning
@@ -1995,13 +2024,7 @@ function fillLens(entry) {
           : `. Use <strong>More like this</strong> on a card to teach it what
              else belongs here, and it will start matching stories that do not
              use the word.`}</p>
-    ${stories.length ? `<div class="group-label">Latest</div>
-      ${stories.slice(0, MAX_HEADLINES).map((s) =>
-        `<button class="headline${marks.seen.has(s.story_id) ? ' seen' : ''}"
-          data-open="${s.story_id}">${esc(s.title)}
-          <span class="when">· ${esc(ago(s.published_at))}</span></button>`).join('')}
-      ${stories.length > MAX_HEADLINES
-        ? `<p class="subject-none">${stories.length - MAX_HEADLINES} more in the feed.</p>` : ''}`
+    ${stories.length ? `<div class="group-label">Latest</div>${subjectCards(stories)}`
       : `<p class="subject-none">Nothing matches it in the current bundle. It
           still counts as something you follow.</p>`}
     <div class="group-label">Yours to change</div>
@@ -2057,10 +2080,6 @@ function fillSubject(entry) {
   const label = entry.kind === 'topic' ? subjectLabel(entry.slug) : null;
   const name = entry.kind === 'entity' ? entry.name : label.name;
   const leaves = entry.kind === 'entity' ? [] : subjectLeaves(entry.slug, stories);
-  /* Only a shelf can hold parked stories, and only when it has leaves to have
-     been undecided between. */
-  const parked = entry.kind === 'topic' && leaves.length
-    ? parkedOn(entry.slug, stories) : { n: 0, unseen: 0 };
 
   /* A leaf names its shelf, and the name climbs: reached from a story chip,
      the shelf is the level above and there is otherwise no way up to it. */
@@ -2093,9 +2112,6 @@ function fillSubject(entry) {
     <div class="subject-actions">
       <button class="follow wide${on ? ' on' : ''}" data-follow="${esc(key)}"
         aria-pressed="${on}">${on ? 'Following' : 'Follow'}</button>
-      ${stories.length
-        ? `<button class="subject-go" data-see-feed="${esc(key)}">See all in the feed</button>`
-        : ''}
     </div>
     ${leaves.length ? `<div class="group-label">Under this</div>
       ${leaves.map((leaf) => {
@@ -2108,20 +2124,8 @@ function fillSubject(entry) {
             aria-pressed="${lon}">${lon ? 'Following' : 'Follow'}</button>
         </div>`;
       }).join('')}
-      ${parked.n ? `<div class="subject-row">
-        <span class="subject-leaf as-text">Not under a subtopic<span
-          class="n">${leafCount(parked)}</span></span>
-      </div>
-      <p class="subject-note">Too close to call between two of these, so they
-        sit on ${esc(name)} itself. Following ${esc(name)} still collects
-        them.</p>` : ''}` : ''}
-    ${stories.length ? `<div class="group-label">Latest</div>
-      ${stories.slice(0, MAX_HEADLINES).map((s) =>
-        `<button class="headline${marks.seen.has(s.story_id) ? ' seen' : ''}"
-          data-open="${s.story_id}">${esc(s.title)}
-          <span class="when">· ${esc(ago(s.published_at))}</span></button>`).join('')}
-      ${stories.length > MAX_HEADLINES
-        ? `<p class="subject-none">${stories.length - MAX_HEADLINES} more in the feed.</p>` : ''}`
+` : ''}
+    ${stories.length ? `<div class="group-label">Latest</div>${subjectCards(stories)}`
       : `<p class="subject-none">Nothing carries this subject in the current
           bundle. It still counts as something you follow.</p>`}`;
 }
@@ -2296,21 +2300,6 @@ document.addEventListener('click', (event) => {
     // Tapped in the profile chooser, which is not a layer to come back to.
     if (profile) closeProfiles();
     openPanel(parseSubject(subject.dataset.subject));
-    return;
-  }
-
-  /* The walk-in, from inside the panel: the feed, scoped to this subject. A
-     place you walked into shows what is in it whether or not you follow it,
-     so this never lands on the empty feed the panel was built to replace. */
-  const walk = event.target.closest('[data-see-feed]');
-  if (walk) {
-    const into = parseSubject(walk.dataset.seeFeed);
-    entity = into.kind === 'entity' ? into.name : '';
-    lensScope = into.kind === 'lens' ? into.id : '';
-    topic = into.kind === 'topic' ? into.slug : '';
-    store(key('topic'), topic);
-    leavePanels();
-    if (view === 'feed') { render(); window.scrollTo({ top: 0 }); } else selectView('feed');
     return;
   }
 

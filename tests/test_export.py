@@ -113,13 +113,15 @@ def test_the_page_opens_a_subject_and_offers_no_kind_row(conn, source_id, tmp_pa
     page = (tmp_path / "site" / "index.html").read_text()
 
     assert 'id="subject-sheet"' in page
-    assert "data-subject=" in page and "data-see-feed=" in page
+    assert "data-subject=" in page
+    # A subject's panel is the place itself (2026-09-23): no route to the feed.
+    assert "data-see-feed=" not in page
     # The chooser is the surface a follow belongs to, so it lists them.
     assert "followsHTML" in page
     # The digest hid the chooser's name field until this rule was scoped.
     assert "body.digest-view > header .search" in page
-    # A shelf's total counts stories parked on it, so the breakdown must too.
-    assert "parkedOn" in page and "Not under a subtopic" in page
+    # Parked stories are the pipeline's business, not the reader's (2026-09-23).
+    assert "Not under a subtopic" not in page
     # A card names where its story lives, not just who it is about.
     assert "topicChip" in page and "topic-chip" in page
     # A place you walked into is escapable whether or not you follow anything.
