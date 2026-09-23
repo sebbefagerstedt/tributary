@@ -60,6 +60,7 @@ uv run trib topics --stats     # stories per topic
 uv run trib topics --suggest   # recent clusters, sorted by stories parked on a shelf
 uv run trib topics --why "…"   # a story's scores against every leaf: id or title words
 uv run trib entities --suggest # recurring names nobody has seeded
+uv run trib sources --suggest example.com  # find a site's feed; prints config, writes nothing
 uv run trib renewal            # what late arrivals do to the feed's order
 uv run trib serve              # web app on :8808; --host 0.0.0.0 for a phone
 uv run trib export site        # the static site the workflow publishes
@@ -711,7 +712,9 @@ the Llama *model* does not match `llama.cpp`. Seeded ones live in config;
 `trib entities --suggest` proposes more from summaries (Title Case headlines
 make every word look like a name), dropping words also written in lower case
 elsewhere. About half its output is eponyms like `Gaussian`; a person rejects
-those.
+those. A word that mostly follows the same name is proposed with it — `Gemini
+Flash`, never a bare `Flash` (2026-09-23) — unless that name is an ordinary word
+opening a sentence.
 
 **Topics are an ontology, and the tree is only its browsing skeleton.** Category
 (hand-made spine), entity (extracted, human-accepted), event (a story). The
@@ -914,15 +917,21 @@ near-identical titles. It needs a two-stage adapter shaped like
 are read directly now, and the blurbs alone do not earn a two-stage adapter.
 This stays so it is not researched again.
 
-**Commentary can arrive without the thing it comments on.** `identity.py` treats
-a URL as a strong identifier but only finds one in the item's own `url`,
-`canonical_url` and `metadata.outbound_url` — its free-text scan finds arXiv
-ids, DOIs and repos, never generic URLs. So a blog post about an announcement
-does not join it, and `role_for` then promotes the commentary to seed. Extracting
-body links has to be guarded: a link counts only if it leaves the item's own
-domain, the item cites few enough URLs to mean them (a link roundup should
-extract nothing), and `_has_specific_path` holds. Calibrate before trusting it —
-a wrong merge still costs more than a missed link.
+**Commentary joins the thing it comments on through its links** — built
+2026-09-23. `identity.py` used to find a URL only in the item's own `url`,
+`canonical_url` and `metadata.outbound_url`, so a blog post about an
+announcement never joined it and `role_for` promoted the commentary to seed.
+Feed summaries are flattened to text before they are stored, so the RSS adapter
+keeps the summary's links in `metadata.links` first (the summary, not the full
+content: a full article links everything it mentions). `identity._cited`
+guards them three ways, because a wrong merge costs more than a missed link: a
+link must leave the item's own site, it must name a specific page (not a
+homepage, a share button or a profile — `_CHROME_HOSTS`), and an item citing
+more than `MAX_CITED = 3` pages is a roundup and yields nothing. **It is guarded
+and tested, not calibrated** — nothing reachable held a corpus when it was
+built. If `trib calibrate` or the feed shows unrelated stories merged through a
+shared URL, the guards are where to look. Items stored before it carry no
+links and age out.
 
 **A feed does not fail because its XML is bad.** feedparser recovers from bare
 ampersands, undeclared entities, control characters, leading junk and
@@ -985,8 +994,11 @@ what this repo does:
   project's answer. The fallback paths when the `<link>` is missing are well
   known: `/feed/`, `/rss/`, `/feed.xml`, `/index.xml`, `/rss.xml`, `/atom.xml`
   (WordPress `/feed`, Ghost `/rss`, Hugo `/index.xml`). Finding a domain's feed
-  is therefore a *stage* that proposes sources, never a `Source` — propose then
-  accept, like topics.
+  proposes sources and is never a `Source` — propose then accept, like topics.
+  **Built 2026-09-23 as `trib sources --suggest`** (`discover.py`): the page's
+  `<link>` first, then those paths, then a news sitemap from `robots.txt`, each
+  parsed before it is offered. A site that refuses to answer is reported as
+  unreachable, never as having no feed.
 - **Incremental clustering**, with an age limit of about four hours on arrivals
   and entity recognition beside it, is what Full Coverage is. That part is built.
 

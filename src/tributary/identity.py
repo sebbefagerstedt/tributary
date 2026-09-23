@@ -86,6 +86,10 @@ def extract(row: sqlite3.Row) -> list[tuple[str, str]]:
         if candidate and (key := _url_identifier(candidate)):
             found.add(key)
 
+    # Links the item's own prose points at, which the adapter kept before the
+    # HTML was flattened: how a blog post about an announcement joins it.
+    found.update(_cited(row["url"], metadata.get("links") or []))
+
     # Then free text, where citations actually live.
     haystack = " ".join(
         part for part in (row["title"], row["summary"], row["body"]) if part
@@ -102,6 +106,56 @@ def extract(row: sqlite3.Row) -> list[tuple[str, str]]:
             found.add((GITHUB_REPO, f"{owner}/{repo}"))
 
     return sorted(found)
+
+
+# An item that links more places than this is a roundup or a reference list,
+# not a piece about one thing, and extracting its links would weld unrelated
+# stories together. What CLAUDE.md asked for, 2026-09-17: "a link roundup should
+# extract nothing". Three allows "the announcement, its paper and its repo".
+MAX_CITED = 3
+
+# Hosts whose links are chrome -- share buttons, profiles, feed plumbing -- and
+# never what a post is about. `_has_specific_path` alone lets them through, and
+# two posts sharing the same share-intent URL would otherwise merge.
+_CHROME_HOSTS = frozenset(
+    {
+        "twitter.com", "x.com", "t.co", "facebook.com", "linkedin.com", "bsky.app",
+        "threads.net", "instagram.com", "mastodon.social", "news.ycombinator.com",
+        "feedburner.com", "feeds.feedburner.com", "feedproxy.google.com", "wp.me",
+        "gravatar.com", "doubleclick.net", "substack.com", "patreon.com",
+    }
+)
+_CHROME_PATHS = re.compile(r"/(?:share|sharer|intent|subscribe|login|signup|feed)(?:[/.?]|$)", re.I)
+
+
+def _site(url: str) -> str:
+    """The last two labels of a URL's host: `blog.google.com` and `google.com` agree."""
+    from urllib.parse import urlsplit
+
+    host = (urlsplit(url).hostname or "").lower().removeprefix("www.")
+    return ".".join(host.split(".")[-2:])
+
+
+def _cited(own_url: str | None, links: list) -> set[tuple[str, str]]:
+    """Strong and weak identifiers from the links an item's prose points at.
+
+    Guarded three ways, because a wrong merge costs more than a missed link: a
+    link must leave the item's own site (a post linking its own archive says
+    nothing), must name a specific page rather than a homepage, and the item
+    must cite few enough of them to mean them -- a roundup yields nothing.
+    """
+    own = _site(own_url or "")
+    found: set[tuple[str, str]] = set()
+    for raw in links:
+        link = str(raw or "").strip()
+        if not link.lower().startswith(("http://", "https://")):
+            continue
+        site = _site(link)
+        if not site or site == own or site in _CHROME_HOSTS or _CHROME_PATHS.search(link):
+            continue
+        if key := _url_identifier(link):
+            found.add(key)
+    return found if len(found) <= MAX_CITED else set()
 
 
 def _strip_version(value: str) -> str:

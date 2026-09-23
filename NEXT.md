@@ -6,7 +6,7 @@ history is in git, and the reasoning behind how things work is in `CLAUDE.md`.
 **Two big directions**, named 2026-09-23 once the redesign had landed: *"The big
 things I see now is multiple users, more data from topics outside AI (big
 change)."* Each has a section below, and neither is started until the owner
-says so. **Ready to start** is what can be built in the meantime.
+says so. Everything that could be built before them was, on 2026-09-23.
 
 ## Multiple users — accounts, a server, and what people write
 
@@ -270,24 +270,6 @@ seconds"*, on three requests spaced well apart — the first one included, under
 curl's User-Agent and tributary's. So its shape is still unverified, and the
 rate limit is the first thing an adapter has to survive. More in `CLAUDE.md`
 under Sources.
-
-## Ready to start
-
-Small, self-contained jobs. None of them waits on either direction above.
-
-- **`trib sources --suggest`.** Given a domain, find its feed: `<link
-  rel="alternate">` first, then the well-known paths, then `sitemap-news.xml`.
-  Propose-then-accept, like topics. It is a stage, never a `Source`, because
-  adapters do not touch the database. Google's own Follow button works this way
-  — see `CLAUDE.md` under Sources.
-- **Extract linked URLs as join keys**, so a post clusters with the thing it is
-  about. The guards it needs are in `CLAUDE.md` under Sources. Touches
-  clustering, which is calibrated, so it needs guards and tests rather than a
-  one-line regex.
-- **Qualified entity names.** `trib entities --suggest` proposes bare model
-  suffixes like `Flash` and `Sol`, which would be ambiguous as entities (`Flash`
-  claims every flash-attention paper). Reading the word before would let it
-  propose `Gemini Flash` instead.
 
 ## Designed, deliberately not built
 
