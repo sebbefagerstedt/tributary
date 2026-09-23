@@ -350,19 +350,23 @@ def test_a_lens_opens_as_a_subject_and_can_be_thrown_away(page_bundle):
       const lens = createLens('Paper');
       fillSubject({ kind: 'lens', id: lens.id });
       const panel = document.getElementById('subject-body').innerHTML;
+      const matching = subjectStories({ kind: 'lens', id: lens.id }).length;
       const before = lenses.length;
       removeLens(lens.id);
       console.log(JSON.stringify({
         named: panel.includes('Paper'),
         follow: panel.includes('data-follow="lens:' + lens.id + '"'),
-        walkIn: panel.includes('data-see-feed="lens:' + lens.id + '"'),
+        cards: (panel.match(/<article class="card/g) || []).length,
+        matching,
         deletable: panel.includes('data-drop-lens='),
         before,
         after: lenses.length,
         stillFollowed: follows.has('lens:' + lens.id),
       }));
     """)
-    assert out["named"] and out["follow"] and out["walkIn"], out
+    assert out["named"] and out["follow"], out
+    assert out["matching"] > 0 and out["cards"] == out["matching"], (
+        "the panel should show its stories as the feed's own cards", out)
     assert out["deletable"], "a subject you made has no way out"
     assert out["before"] == 1 and out["after"] == 0
     assert not out["stillFollowed"], "deleting left the follow behind"
@@ -393,3 +397,57 @@ def test_every_card_has_a_cover_and_its_headline_once(page_bundle):
     assert out["artImage"] and not out["artType"], "a story with art should lead with it"
     assert out["bareType"] and not out["bareImage"], "a story without art needs a cover"
     assert out["bareTitleOnce"] and out["artTitleOnce"], "the headline is printed twice"
+
+
+@needs_node
+def test_a_subject_is_the_place_itself(page_bundle):
+    """Its stories are the feed's cards, and nothing sends you off to the feed.
+
+    Asked 2026-09-23: *"It should not need to route to the feed"* -- and the
+    parked-story row, which explained arithmetic nobody asked about, is gone.
+    """
+    out = boot(page_bundle, """
+      const agents = { slug: 'coding', name: 'Coding agents', parent: 'agents',
+                       parent_name: 'AI agents' };
+      bundle.stories[0].topics = [agents];
+      bundle.stories[1].topics = [{ slug: 'agents', name: 'AI agents' }];  // parked
+      fillSubject({ kind: 'topic', slug: 'agents' });
+      const panel = document.getElementById('subject-body').innerHTML;
+      console.log(JSON.stringify({
+        cards: (panel.match(/<article class="card/g) || []).length,
+        seeFeed: panel.includes('data-see-feed'),
+        parkedRow: panel.includes('Not under a subtopic'),
+        leaf: panel.includes('data-subject="topic:coding"'),
+      }));
+    """)
+    assert out["cards"] == 2, out
+    assert not out["seeFeed"], "the panel still routes to the feed"
+    assert not out["parkedRow"], out
+    assert out["leaf"], "the subtopic should still be listed under its shelf"
+
+
+@needs_node
+def test_the_topics_page_has_a_tile_per_shelf_and_a_ring_per_follow(page_bundle):
+    """Explore tiles for what is in the bundle, circles for what you follow --
+    including a follow the bundle has nothing for, which still needs a control."""
+    out = boot(page_bundle, """
+      bundle.stories[0].topics = [{ slug: 'coding', name: 'Coding agents',
+                                    parent: 'agents', parent_name: 'AI agents' }];
+      bundle.stories[1].topics = [{ slug: 'companies', name: 'Companies & money',
+                                    parent: 'industry', parent_name: 'Industry & policy' }];
+      follows.clear();
+      follows.add('topic:agents');
+      follows.add('topic:long-gone');
+      view = 'topics';
+      render();
+      const html = document.getElementById('main').innerHTML;
+      console.log(JSON.stringify({
+        tiles: (html.match(/class="tile"/g) || []).length,
+        rings: (html.match(/class="ring[ "]/g) || []).length,
+        quiet: html.includes('data-subject="topic:long-gone"'),
+        followFromTile: html.includes('class="tile-follow on" data-follow="topic:agents"'),
+      }));
+    """)
+    assert out["tiles"] == 2, out
+    assert out["rings"] == 2 and out["quiet"], "a quiet follow lost its control"
+    assert out["followFromTile"], out

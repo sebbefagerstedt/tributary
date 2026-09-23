@@ -268,8 +268,9 @@ and that is right for a filter and wrong for a follow. A followed subject with
 nothing in the bundle had no row anywhere, so it could not be seen or turned
 off, while still counting in `follows` and still deciding what the feed held:
 an invisible follow, and (once follows gated the feed) an empty feed with no
-reachable cause. The digest now ends with **Followed, but quiet** — every
-follow the page has not already given you a control for. Naming those needs the
+reachable cause. So the Topics page's **Following** row lists *every* follow,
+quiet ones faded but still there to tap — it replaced a separate "Followed, but
+quiet" section on 2026-09-23. Naming those needs the
 spine, since no story carries the name: `export.build_bundle` passes the whole
 spine as `bundle.spine`, for the reason it already passed `facets` by name.
 An old bundle without the key falls back to the slug.
@@ -304,9 +305,9 @@ or into a story. Both segments are now `data-subject` buttons, which is the
 rule the rest of the page already follows rather than a fourth behaviour for
 names. Going up and browsing sideways are the same gesture because they land on
 the same surface: the shelf's panel lists every leaf under it with a count and
-a follow each, and its **See all in the feed** is what puts you in the shelf
-itself. The current segment opens its own subject too — from a shelf, that is
-how you reach the leaves without leaving the feed first.
+a follow each, and its stories below them. The current segment opens its own
+subject too — from a shelf, that is how you reach the leaves without leaving
+the feed first.
 
 **Which is why `topicHead` carries `Back to feed`.** `entityHead` always had
 one; a topic's only exit was the `Clear` chip in that row, which renders only
@@ -329,26 +330,32 @@ navigating nowhere nor leaving a filter behind is that.
 
 **The panel is shaped like a profile**, which is what was asked for: the name and
 the follow control together at the top, then what sits under it, then its
-headlines, then "See all in the feed" for the walk-in that `data-goto` used to
-be. Following is a button rather than a chip's tint — that is what makes it
+stories. Following is a button rather than a chip's tint — that is what makes it
 *clear what is followed*, and it ends the collision where one chip shape
 navigated in the Trending sheet and followed in the digest. A shelf's panel
 lists its leaves with a follow each, so the two levels are visibly separate
 choices; a leaf you follow is listed even when the bundle is quiet about it,
-for the same reason **Followed, but quiet** exists.
+for the reason quiet follows stay in the Following row.
 
-**"Under this" has to account for every story the panel counts.** Reported
-2026-09-21: a shelf saying 24 stories over leaves adding to 21. Not an
-off-by-one — it is **parking**. A story whose top two leaves share a shelf and
-sit within `park_margin` stays on the shelf, so `hasTopic` counts it in the
-shelf's total and no leaf row can. At ~13% of the corpus the gap is the rule,
-not an edge case. The panel now ends the list with **Not under a subtopic** and
-its count, plus a line saying why and that following the shelf still collects
-them. It is a row with nothing to open or follow, because parked stories are
-not a subtopic — only a shelf with leaves can hold them, so a leaf's panel
-never shows it. The digest has the same arithmetic and does not show this: its
-leaf chips are a way in rather than a breakdown, and a tenth chip on every
-shelf row would cost more than it explains.
+**The panel is the place itself.** Changed 2026-09-23, on the owner's call:
+*"I want it to look the same under latest as in the normal feed and trending.
+It should not need to route to the feed."* Its stories were twelve headlines
+and a "See all in the feed" button — a table of contents for a page somewhere
+else. They are now every story in the subject as the feed's own cards
+(`subjectCards`), with the same save, dismiss and More like this, and the
+button and its handler are gone. Walking into a subject *in the feed* is still
+possible from the Feed's chip row and Trending's filter sheet, for anyone who
+wants the chrome of a place rather than a panel.
+
+**A shelf's leaves need not add up to its total, and the panel does not say
+why.** A shelf saying 24 stories over leaves adding to 21 is **parking** — a
+story whose top two leaves share a shelf and sit within `park_margin` stays on
+the shelf, so `hasTopic` counts it in the shelf's total and no leaf row can
+(~13% of the corpus). From 2026-09-21 the panel ended its list with a **Not
+under a subtopic** row and a note explaining this; removed 2026-09-23 on the
+owner's call — *"That should not matter to the user."* Parked stories still
+appear among the shelf's cards, and following the shelf still collects them.
+The mismatch is only visible to someone adding the numbers up.
 
 **The panel is a page wearing a sheet, and that is deliberate.** Checked against
 how other apps do this, 2026-09-21, because the brief was "a popup … similar to
@@ -516,6 +523,16 @@ decision is one piece that can be reverted alone:
 - **A subject's panel has a banner**, the way a profile has one: the newest
   picture among its stories, or an accent wash. Borrowed — a subject has no art
   of its own. This was the untried "hero image" idea from the survey.
+- **The Topics page is a row of circles and a grid of tiles** — added
+  2026-09-23, on *"the Topics page is still kind of boring"*. It had been ten
+  text sections of name, count, headline and grey chips. Now: **Following**, the
+  subjects you follow as Instagram-style circles wearing their newest picture,
+  with a gradient ring when something in them is new and faded when the bundle
+  is quiet about them; **Explore**, every shelf as a 4:5 tile wearing its newest
+  picture (or a colour hashed from its slug, so it is recognisable before it is
+  read) with its new count, latest headline and a follow toggle in the corner;
+  then **Names in play** as one sideways row and **Your own subjects** last.
+  Leaf chips left the page: a tile opens the shelf's panel, which lists them.
 
 Measured at 390×844 against the page before it, with five follows: the first
 card starts at 108px instead of 159. **While reading down the chrome is 63px

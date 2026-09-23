@@ -276,7 +276,9 @@ real thing now rather than notes. Ask about each decision in that list, then:
 
 - **Whether topics stay as a filter row** at all, now that following exists
   and a subject opens as a panel. The row survived the redesign unchanged.
-- **Whether the digest or the feed is the front door.** The feed still is.
+- **Whether the Topics page or the feed is the front door.** The feed still
+  is. The Topics page was redesigned on 2026-09-23 (circles and tiles), which
+  makes it a more plausible front door than it was.
 - **Tabs across one subject** — its stories, what sits under it, who keeps
   appearing in it. The one idea from the survey not tried: it would change what
   a subject *is* on screen, which is not a call to make overnight.
