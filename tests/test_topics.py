@@ -519,3 +519,39 @@ def test_the_frontier_claim_takes_launches(title):
 def test_the_frontier_claim_leaves_the_rest_to_scoring(title):
     """A model's name in the title is not enough: it has to be the headline's subject."""
     assert not shipped_claim().search(title)
+
+
+# --- explain -----------------------------------------------------------------
+
+def test_explain_shows_the_scores_and_agrees_with_run(conn, story, axes):
+    """`--why` must tell the truth about what `run` decided, and write nothing."""
+    leaning = story(unit(1.0, 0.6), titles=("Gemini hacked three companies",))
+    spine = profile(0.10, "models", "agents")
+
+    found = topics.explain(conn, spine, leaning)
+    assert found.home == "models" and not found.parked and found.stored is None
+    assert [slug for slug, _ in found.scores] == ["models", "agents"]
+    assert found.margin == pytest.approx(found.scores[0][1] - found.scores[1][1])
+    assert not slugs_for(conn, leaning), "explaining must not label"
+
+    topics.run(conn, spine)
+    assert topics.explain(conn, spine, leaning).stored == "models"
+
+
+def test_explain_names_a_parked_story_and_a_headline_claim(conn, story, axes):
+    parents = {"frontier": "models", "open": "models"}
+    spine = profile(0.10, "models", "frontier", "open", parents=parents, park_margin=0.5)
+    near = story(unit(1.0, 0.0))
+    assert topics.explain(conn, spine, near).parked
+
+    spine.spine[1].claims = r"introducing\s+gpt"
+    launch = story(unit(0.0, 1.0), titles=("Introducing GPT-7",))
+    found = topics.explain(conn, spine, launch)
+    assert found.claimed == "frontier" and found.home == "frontier"
+
+
+def test_a_story_is_found_by_id_or_by_words_in_its_title(conn, story):
+    first = story(unit(1.0), titles=("Gemini Hacked Three Companies",))
+    assert topics.find_story(conn, str(first)) == first
+    assert topics.find_story(conn, "hacked three") == first
+    assert topics.find_story(conn, "nothing like this") is None

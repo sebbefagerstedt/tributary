@@ -43,6 +43,24 @@ def _is_prerelease(release: dict) -> bool:
     return bool(_PRERELEASE_TAG.search(release.get("tag_name") or ""))
 
 
+# A patch release -- `transformers v5.15.1`, `ollama v0.33.3`, LangChain's
+# `langchain-core==1.6.3` -- is a real release, so it passes the prerelease
+# test, but it is almost never news: a fix a user of the project wants, not an
+# event a reader of the feed does. Every repo on the watchlist is semver-ish, and
+# a third number above zero is the one reading of "minor versions and up" that
+# holds across them. Calendar versions (`2026.09.22`) are dates, not patches.
+_VERSION = re.compile(r"(?<![\d.])(\d+)\.(\d+)\.(\d+)(?!\d)")
+
+
+def _is_patch(release: dict) -> bool:
+    """Whether a release only bumps the patch number of a semver-ish tag."""
+    found = _VERSION.search(release.get("tag_name") or "")
+    if not found:
+        return False
+    major, _minor, patch = (int(part) for part in found.groups())
+    return patch > 0 and major < 2000
+
+
 def _parse_time(value: str | None) -> datetime | None:
     if not value:
         return None
@@ -89,17 +107,20 @@ class GitHubSource(Source):
             if payload is None:
                 continue
             keep_pre = bool(options.get("prereleases", False))
+            keep_patches = bool(options.get("patches", False))
             items.extend(
                 built
                 for release in payload
-                if (built := self._build(repo, release, keep_pre))
+                if (built := self._build(repo, release, keep_pre, keep_patches))
             )
 
         if failures and not items:
             raise FetchError("; ".join(failures[:3]))
         return items, {"etags": etags, "failures": failures}
 
-    def _build(self, repo: str, release: dict, keep_pre: bool = False) -> RawItem | None:
+    def _build(
+        self, repo: str, release: dict, keep_pre: bool = False, keep_patches: bool = False
+    ) -> RawItem | None:
         if release.get("draft"):
             return None
         # Prereleases are skipped by default. That is not a taste call: it is
@@ -108,6 +129,8 @@ class GitHubSource(Source):
         # most of this source -- nine of its last fourteen items, none of them
         # news. Set `prereleases = true` on a source that means them.
         if _is_prerelease(release) and not keep_pre:
+            return None
+        if _is_patch(release) and not keep_patches:
             return None
         tag = release.get("tag_name")
         url = release.get("html_url")

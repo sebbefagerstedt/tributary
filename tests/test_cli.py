@@ -106,6 +106,12 @@ def test_a_missing_story_is_an_error_not_a_crash(config):
     assert "No story" in result.output
 
 
+def test_asking_why_about_a_missing_story_is_an_error_not_a_crash(config):
+    result = invoke("topics", "--why", "no such headline", "--config", config)
+    assert result.exit_code == 1
+    assert "No story matches" in result.output
+
+
 def test_the_sample_config_is_the_real_one():
     """`trib init` hands out the config this repo actually runs on.
 

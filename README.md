@@ -55,7 +55,7 @@ command, for when you are working on that stage.
 | `trib cluster` | group items into stories; `--reset`, `--threshold` |
 | `trib calibrate` | measure the clustering threshold against ground truth |
 | **Labels** | |
-| `trib topics` | one home topic per story, plus facets and entities; `--stats`, `--suggest`, `--reset` |
+| `trib topics` | one home topic per story, plus facets and entities; `--stats`, `--suggest`, `--reset`, and `--why "<title words>"` for why a story landed where it did |
 | `trib entities` | stories per entity; `--suggest` proposes names nobody has seeded |
 | **Reading** | |
 | `trib feed` | the ranked feed; `--days N`, `--unseen`, `--mark` |
