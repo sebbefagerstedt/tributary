@@ -148,3 +148,48 @@ def test_an_item_with_nothing_identifiable_yields_nothing():
 
 def test_strong_and_weak_sets_do_not_overlap():
     assert not (identity.STRONG & identity.WEAK)
+
+
+# --- links an item's prose points at -------------------------------------------
+
+def linking(*links, url="https://blog.example.com/post"):
+    return row(url=url, canonical_url=url, metadata=json.dumps({"links": list(links)}))
+
+
+def test_a_post_joins_the_page_it_links_to():
+    """A blog post about an announcement, keyed on the announcement's own URL."""
+    got = identity.extract(linking("https://lab.test/news/model-7?utm_source=rss"))
+    announcement = identity.extract(row(url="https://lab.test/news/model-7",
+                                        canonical_url="https://lab.test/news/model-7"))
+    shared = set(find(identity.URL, got)) & set(find(identity.URL, announcement))
+    assert shared == {"https://lab.test/news/model-7"}
+
+
+def test_a_linked_paper_or_release_is_recognised_as_what_it_is():
+    got = identity.extract(linking("https://arxiv.org/abs/2609.16057",
+                                   "https://github.com/o/r/releases/tag/v2.0"))
+    assert find(identity.ARXIV, got) == ["2609.16057"]
+    assert find(identity.GITHUB_RELEASE, got) == ["o/r@v2.0"]
+
+
+def test_links_back_to_the_items_own_site_say_nothing():
+    got = identity.extract(linking("https://example.com/archive/2026",
+                                   "https://www.example.com/about-us",
+                                   url="https://blog.example.com/post"))
+    assert find(identity.URL, got) == ["https://blog.example.com/post"]
+
+
+def test_share_buttons_profiles_and_homepages_are_not_citations():
+    got = identity.extract(linking(
+        "https://twitter.com/intent/tweet?url=x", "https://lab.test/share/abc",
+        "https://www.linkedin.com/in/someone", "https://lab.test/", "mailto:a@b.test",
+    ))
+    assert find(identity.URL, got) == ["https://blog.example.com/post"]
+
+
+def test_a_roundup_extracts_nothing_from_its_links():
+    """Four distinct pages cited: a list of things, not a piece about one."""
+    got = identity.extract(linking(*(f"https://site{n}.test/story-{n}" for n in range(4))))
+    assert find(identity.URL, got) == ["https://blog.example.com/post"]
+    three = identity.extract(linking(*(f"https://site{n}.test/story-{n}" for n in range(3))))
+    assert len(find(identity.URL, three)) == 4

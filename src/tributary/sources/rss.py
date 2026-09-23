@@ -7,6 +7,7 @@ half hour should mostly return 304s.
 
 from __future__ import annotations
 
+import html
 import re
 from datetime import UTC, datetime
 from time import struct_time
@@ -45,6 +46,25 @@ def _to_datetime(parsed: struct_time | None) -> datetime | None:
         return datetime(*parsed[:6], tzinfo=UTC)
     except (TypeError, ValueError):
         return None
+
+
+_HREF = re.compile(r"""href\s*=\s*["']([^"']+)["']""", re.I)
+# Kept raw, deduplicated and capped; `identity._cited` decides which count.
+LINK_LIMIT = 20
+
+
+def _links(html_text: str | None) -> list[str]:
+    """The links in an entry's summary, in order, before the HTML is flattened.
+
+    Only the summary, not the full content: what a post links in its description
+    is what it is about, while a full article links everything it mentions.
+    """
+    found: list[str] = []
+    for href in _HREF.findall(html_text or ""):
+        href = html.unescape(href).strip()
+        if href not in found:
+            found.append(href)
+    return found[:LINK_LIMIT]
 
 
 def _media_url(entry) -> str | None:
@@ -104,7 +124,8 @@ class RSSSource(Source):
             published_at=published,
             summary=truncate(strip_boilerplate(strip_html(entry.get("summary"))), SUMMARY_LIMIT),
             media_url=_media_url(entry),
-            metadata={"feed": self.config.url},
+            metadata={"feed": self.config.url}
+            | ({"links": links} if (links := _links(entry.get("summary"))) else {}),
         )
 
 

@@ -916,15 +916,21 @@ near-identical titles. It needs a two-stage adapter shaped like
 are read directly now, and the blurbs alone do not earn a two-stage adapter.
 This stays so it is not researched again.
 
-**Commentary can arrive without the thing it comments on.** `identity.py` treats
-a URL as a strong identifier but only finds one in the item's own `url`,
-`canonical_url` and `metadata.outbound_url` — its free-text scan finds arXiv
-ids, DOIs and repos, never generic URLs. So a blog post about an announcement
-does not join it, and `role_for` then promotes the commentary to seed. Extracting
-body links has to be guarded: a link counts only if it leaves the item's own
-domain, the item cites few enough URLs to mean them (a link roundup should
-extract nothing), and `_has_specific_path` holds. Calibrate before trusting it —
-a wrong merge still costs more than a missed link.
+**Commentary joins the thing it comments on through its links** — built
+2026-09-23. `identity.py` used to find a URL only in the item's own `url`,
+`canonical_url` and `metadata.outbound_url`, so a blog post about an
+announcement never joined it and `role_for` promoted the commentary to seed.
+Feed summaries are flattened to text before they are stored, so the RSS adapter
+keeps the summary's links in `metadata.links` first (the summary, not the full
+content: a full article links everything it mentions). `identity._cited`
+guards them three ways, because a wrong merge costs more than a missed link: a
+link must leave the item's own site, it must name a specific page (not a
+homepage, a share button or a profile — `_CHROME_HOSTS`), and an item citing
+more than `MAX_CITED = 3` pages is a roundup and yields nothing. **It is guarded
+and tested, not calibrated** — nothing reachable held a corpus when it was
+built. If `trib calibrate` or the feed shows unrelated stories merged through a
+shared URL, the guards are where to look. Items stored before it carry no
+links and age out.
 
 **A feed does not fail because its XML is bad.** feedparser recovers from bare
 ampersands, undeclared entities, control characters, leading junk and

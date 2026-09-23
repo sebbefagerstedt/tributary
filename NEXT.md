@@ -280,10 +280,7 @@ Small, self-contained jobs. None of them waits on either direction above.
   Propose-then-accept, like topics. It is a stage, never a `Source`, because
   adapters do not touch the database. Google's own Follow button works this way
   — see `CLAUDE.md` under Sources.
-- **Extract linked URLs as join keys**, so a post clusters with the thing it is
-  about. The guards it needs are in `CLAUDE.md` under Sources. Touches
-  clustering, which is calibrated, so it needs guards and tests rather than a
-  one-line regex.
+
 
 ## Designed, deliberately not built
 

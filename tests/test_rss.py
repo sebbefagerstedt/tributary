@@ -187,3 +187,29 @@ def test_the_wrong_encoding_reports_the_bytes_that_arrived(httpx_mock):
     with pytest.raises(FetchError) as caught:
         make_source().fetch({})
     assert "body starts" in str(caught.value)
+
+
+LINKED = """<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>T</title>
+  <item>
+    <title>What the new model means</title>
+    <link>https://blog.example.com/what-it-means</link>
+    <description>&lt;p&gt;Today &lt;a href="https://lab.test/news/model-7?utm_source=x"&gt;the lab
+      announced&lt;/a&gt; a model (&lt;a href='https://lab.test/news/model-7'&gt;again&lt;/a&gt;).
+      &lt;/p&gt;</description>
+  </item>
+  <item><title>Plain</title><link>https://blog.example.com/plain</link>
+    <description>No links at all.</description></item>
+</channel></rss>
+"""
+
+
+def test_the_links_in_a_summary_survive_the_html_being_flattened(httpx_mock):
+    """They are how a post about an announcement can join it (identity._cited)."""
+    httpx_mock.add_response(url="https://ex.test/feed", content=LINKED.encode())
+    linked, plain = make_source().fetch({})[0]
+
+    assert linked.metadata["links"] == [
+        "https://lab.test/news/model-7?utm_source=x", "https://lab.test/news/model-7",
+    ]
+    assert "links" not in plain.metadata
