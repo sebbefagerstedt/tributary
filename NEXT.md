@@ -146,6 +146,29 @@ one way the "I do not want to miss events" worry is answered by this feature
 rather than by ingestion. Moved here 2026-09-23: not useful until topics are
 shared.
 
+### Popularity from readers, for Trending only
+
+**Asked 2026-09-23:** *"Lets introduce something to measure how popular a news
+is. An easy thing is to like a news but also a point for opening a news, liking
+should be better though."* It cannot be measured without a server: likes and
+opens live in each device's `localStorage`, so the only count a static page can
+make is one reader's own, which is taste, not popularity — and letting your own
+behaviour reorder your feed is what `CLAUDE.md` rules out ("The ranking does not
+learn from what you do"). Summed over many readers it is a different thing: the
+readers' verdict on a story, beside the points and source counts Trending
+already uses.
+
+- **Trending only.** *"I do not want to miss any news"* — so the Feed stays
+  everything you follow, newest first, and nothing a count says ever hides a
+  story there.
+- **Weights:** a like (the star) counts most, being a deliberate choice; an open
+  counts little, since a headline that tricks you still earns one; **×** is at
+  most a small minus, because it mixes "not for me" with "not important". Never
+  time spent or scroll-past.
+- **Anonymous counts per story are enough** — no login needed, so it can come
+  before accounts, on the free tier under hosting below. It shares the comment's
+  address problem: a count keyed on `story_id` is lost on a re-cluster.
+
 ### Hosting and identity
 
 - **"GitHub Pages or pay" is a false choice.** Cloudflare Workers' free tier is
