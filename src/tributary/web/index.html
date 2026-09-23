@@ -546,6 +546,13 @@ body.digest-view #search-toggle { display: none; }
 .subject-leaf .n { color: var(--faint); font-weight: 400; margin-left: 6px;
   font-variant-numeric: tabular-nums; }
 .subject-leaf .new { color: var(--accent); font-weight: 650; }
+/* A subject you made, among the spine's own: the only difference on screen. */
+.yours {
+  margin-left: 7px; padding: 1px 6px; border-radius: 5px; vertical-align: 1px;
+  font-size: 10px; font-weight: 750; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.profile-new.here { margin: 12px 0 4px; }
 .subject-cards { margin-top: 4px; }
 .subject-drop {
   margin-top: 10px; width: 100%; padding: 11px; border-radius: 10px;
@@ -616,6 +623,82 @@ body.digest-view #search-toggle { display: none; }
   margin: 18px 0 0; padding: 0 8px;
 }
 
+/* --- The circles, played -----------------------------------------------------
+   Full screen and one story at a time, the way a ring on Instagram opens. Under
+   the sheets (z 40), so reading a story from here stacks above it and back
+   returns to where you were. */
+.viewer {
+  position: fixed; inset: 0; z-index: 35; display: none;
+  background: #000; color: #fff; touch-action: none; user-select: none;
+  -webkit-user-select: none; overflow: hidden;
+}
+.viewer.open { display: block; animation: v-in .18s ease-out; }
+@keyframes v-in { from { opacity: 0; transform: scale(.97); } }
+.v-bg { position: absolute; inset: 0; }
+.v-bg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.v-bg.type {
+  --k: var(--muted);
+  background:
+    radial-gradient(120% 70% at 100% 0%, color-mix(in srgb, var(--k) 75%, #fff) 0%, transparent 55%),
+    linear-gradient(165deg, color-mix(in srgb, var(--k) 80%, #000), color-mix(in srgb, var(--k) 28%, #000));
+}
+.v-shade {
+  position: absolute; inset: 0;
+  background: linear-gradient(to bottom, rgba(0,0,0,.55) 0%, rgba(0,0,0,0) 20%,
+    rgba(0,0,0,0) 36%, rgba(0,0,0,.88) 76%);
+}
+.v-top {
+  position: absolute; left: 0; right: 0; top: 0; max-width: 720px; margin: 0 auto;
+  padding: calc(env(safe-area-inset-top) + 10px) 10px 0;
+}
+.v-bars { display: flex; gap: 4px; padding: 0 2px; }
+.v-bars span { flex: 1; height: 3px; border-radius: 2px; background: rgba(255,255,255,.32); }
+.v-bars span.done, .v-bars span.now { background: #fff; }
+.v-who { display: flex; align-items: center; gap: 9px; margin-top: 10px; padding-left: 4px; }
+.v-avatar {
+  position: relative; flex: none; width: 34px; height: 34px; border-radius: 50%;
+  overflow: hidden; border: 2px solid #fff; background: var(--tile);
+  display: flex; align-items: center; justify-content: center; font-weight: 750; font-size: 14px;
+}
+.v-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.v-name {
+  font: inherit; font-size: 15px; font-weight: 700; color: #fff; background: none;
+  border: 0; padding: 0; cursor: pointer; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.v-when { font-size: 13px; opacity: .72; flex: none; }
+.v-close {
+  margin-left: auto; flex: none; width: 44px; height: 44px; border: 0; background: none;
+  color: #fff; font-size: 30px; line-height: 1; cursor: pointer;
+}
+.v-body {
+  position: absolute; left: 0; right: 0; bottom: 0; max-width: 720px; margin: 0 auto;
+  padding: 0 20px calc(env(safe-area-inset-bottom) + 22px);
+}
+.v-meta { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 10px; }
+.v-meta .src { color: rgba(255,255,255,.88); }
+.v-title {
+  margin: 0 0 10px; font-size: 28px; font-weight: 780; line-height: 1.14;
+  letter-spacing: -.022em; text-wrap: balance;
+}
+.v-bg.type ~ .v-body .v-title { font-size: 32px; }
+.v-summary {
+  margin: 0; font-size: 15.5px; line-height: 1.5; color: rgba(255,255,255,.88);
+  display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden;
+}
+.viewer .wake { color: rgba(255,255,255,.8); }
+.viewer .wake .eng { color: #fff; }
+.v-actions { display: flex; gap: 10px; margin-top: 18px; }
+.v-open {
+  flex: 1; padding: 14px; border-radius: 14px; border: 0; cursor: pointer;
+  background: #fff; color: #111; font: inherit; font-size: 15px; font-weight: 700;
+}
+.v-save {
+  flex: none; width: 54px; border-radius: 14px; cursor: pointer; font-size: 22px;
+  border: 1px solid rgba(255,255,255,.4); background: rgba(255,255,255,.12); color: #fff;
+}
+.v-save.on { background: #fff; color: #111; }
+
 @media (prefers-reduced-motion: reduce) {
   *, .sheet { transition: none !important; animation: none !important; }
 }
@@ -665,6 +748,8 @@ body.digest-view #search-toggle { display: none; }
   </div>
   <div class="sheet-body" id="profile-body"></div>
 </div>
+
+<div class="viewer" id="viewer" role="dialog" aria-modal="true" aria-label="Stories"></div>
 
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Story detail">
   <div class="sheet-bar">
@@ -716,6 +801,24 @@ function matches(s, needle) {
     ...(s.entities || []).map((e) => e.name),
     ...(s.items || []).flatMap((i) => [i.title, i.source])];
   return hay.some((text) => text && text.toLowerCase().includes(needle));
+}
+/* A lens's word, as a word. `matches` is a substring test, which is right for
+   search -- you are typing, and "anthro" should find Anthropic -- and wrong for
+   a subject you named: a lens called "test" filled up with *testimony*. So a
+   lens matches whole words, allowing the plural either way round: "dog" finds
+   "dogs", and "dogs" finds "dog". */
+function wordPattern(term) {
+  const escape = (w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const stems = [term];
+  if (term.length > 3 && term.endsWith('s')) stems.push(term.slice(0, -1));
+  return new RegExp(`(^|[^\\p{L}\\p{N}])(?:${stems.map(escape).join('|')})(?:s|es|'s|\u2019s)?(?![\\p{L}\\p{N}])`, 'iu');
+}
+function matchesWord(s, term) {
+  const pattern = wordPattern(term);
+  const hay = [s.title, s.summary, s.source, ...(s.topics || []).map((t) => t.name),
+    ...(s.entities || []).map((e) => e.name),
+    ...(s.items || []).flatMap((i) => [i.title, i.source])];
+  return hay.some((text) => text && pattern.test(text));
 }
 
 /* The bundle packs a story's centroid one byte per dimension (`bundle.vectors`
@@ -784,7 +887,7 @@ function lensMatcher(lens) {
   const terms = lensTerms(lens);
   const vector = decodeVector(lens.vector);
   return (story) => {
-    if (terms.some((term) => matches(story, term))) return true;
+    if (terms.some((term) => matchesWord(story, term))) return true;
     if (!vector || !story.centroid) return false;
     return cosine(vector, decodeVector(story.centroid)) >= LENS_FLOOR;
   };
@@ -911,12 +1014,26 @@ const forgetLenses = () => { lensCache = null; };
 function activeLenses() {
   if (!lensCache) {
     lensCache = lenses.filter((l) => follows.has(lensKey(l)))
-      .map((l) => ({ lens: l, hit: lensMatcher(l) }));
+      .map((l) => ({ lens: l, hit: lensHit(l) }));
   }
   return lensCache;
 }
 
-function createLens(name) {
+/* The page's own test for a lens: its words and vector (the pure part, above),
+   inside the topic it was made in, if it was made in one. */
+function lensHit(lens) {
+  const hit = lensMatcher(lens);
+  return lens.parent ? (s) => hasTopic(s, lens.parent) && hit(s) : hit;
+}
+
+/* `parent` is the topic it was made inside, or null for one made on the Topics
+   page. Asked 2026-09-23: creating a subject should be possible *"under a topic
+   in all layers it may have"*. Made inside a topic, a lens filters only that
+   topic's stories -- "Claude Code" inside Coding agents, not every mention of
+   Claude anywhere -- and it is listed there. The field is also what a shared
+   version will need: several readers naming the same thing in the same place
+   is the signal that the spine is missing a leaf. */
+function createLens(name, parent = null) {
   const clean = String(name || '').trim();
   if (!clean) return null;
   const lens = {
@@ -925,6 +1042,7 @@ function createLens(name) {
     terms: [clean],
     vector: null,
     seeds: [],
+    parent: parent || null,
     created: new Date().toISOString(),
   };
   lenses.push(lens);
@@ -1275,7 +1393,7 @@ function scoped(stories) {
   if (entity) return stories.filter((s) => hasEntity(s, entity));
   if (lensScope) {
     const lens = lensById(lensScope);
-    return lens ? stories.filter(lensMatcher(lens)) : stories;
+    return lens ? stories.filter(lensHit(lens)) : stories;
   }
   if (topic) return stories.filter((s) => hasTopic(s, topic));
   return stories;
@@ -1448,7 +1566,7 @@ const artOf = (stories) => (stories.find((s) => s.media_url) || {}).media_url ||
 /* Every follow, quiet ones included: this row is what "Followed, but quiet"
    used to be a separate section for. A follow is a preference, not a view of
    the corpus, so one with nothing in the bundle still needs a control. */
-function followRings() {
+function ringRows() {
   const rows = [...follows].map((key) => {
     const entry = parseSubject(key);
     const name = entry.kind === 'entity' ? entry.name
@@ -1457,13 +1575,20 @@ function followRings() {
     if (!name) return null;
     const stories = subjectStories(entry);
     const unseen = stories.filter((s) => !marks.seen.has(s.story_id)).length;
-    return { key, name, n: stories.length, unseen, art: artOf(stories) };
+    return { key, name, n: stories.length, unseen, art: artOf(stories), stories };
   }).filter(Boolean);
   // New first, then read, then quiet: the row says where to look next.
-  rows.sort((a, b) => (b.unseen > 0) - (a.unseen > 0) || (b.n > 0) - (a.n > 0)
+  return rows.sort((a, b) => (b.unseen > 0) - (a.unseen > 0) || (b.n > 0) - (a.n > 0)
     || a.name.localeCompare(b.name));
-  return rows.map((r) => `
-    <button class="ring${r.unseen ? ' new' : r.n ? '' : ' quiet'}" data-subject="${esc(r.key)}">
+}
+
+/* A circle plays its subject full screen; a quiet one has nothing to play, so
+   it opens the subject instead -- still a control for a follow the bundle is
+   silent about. */
+function followRings() {
+  return ringRows().map((r) => `
+    <button class="ring${r.unseen ? ' new' : r.n ? '' : ' quiet'}" ${
+      r.n ? `data-ring="${esc(r.key)}"` : `data-subject="${esc(r.key)}"`}>
       <span class="ring-img"><span class="ring-face" style="${swatch(r.key)}">${
         esc(r.name.slice(0, 1).toUpperCase())}${r.art
         ? `<img src="${esc(r.art)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''
@@ -1497,7 +1622,15 @@ function digestHTML(live) {
      a quiet day, a fresh database -- with no way to make one. */
   const rows = digestRows(live);
   const rings = followRings();
-  const tiles = rows.map((row) => tileHTML(row, live)).join('');
+  const unsorted = live.filter((s) => !(s.topics || []).length);
+  const tiles = rows.map((row) => tileHTML(row, live)).join('') + (unsorted.length ? `
+  <article class="tile unsorted" data-subject="unsorted:" style="${swatch('unsorted:')}">
+    <div class="tile-text">
+      <div class="tile-count">${plural(unsorted.length, 'story')}</div>
+      <h3 class="tile-name">Not in any topic</h3>
+      <p class="tile-lead">Name what they are about</p>
+    </div>
+  </article>` : '');
 
   const names = namesInPlay(live).map((entity) => {
     const on = followed(`entity:${entity.name}`);
@@ -1510,7 +1643,7 @@ function digestHTML(live) {
      vanished is the bug the quiet follows in the row above exist to prevent. */
   const mine = lenses.map((lens) => {
     const on = followed(lensKey(lens));
-    const n = live.filter(lensMatcher(lens)).length;
+    const n = live.filter(lensHit(lens)).length;
     return `<button class="leaf${on ? ' on' : ''}" data-subject="${esc(lensKey(lens))}"
       >${esc(lens.name)}<span class="n">${n || 'quiet'}</span></button>`;
   }).join('');
@@ -1526,14 +1659,10 @@ function digestHTML(live) {
     ${names ? `<h2 class="dsec">Names in play</h2><div class="name-row">${names}</div>` : ''}
     <h2 class="dsec">Your own subjects</h2>
     ${mine ? `<div class="digest-leaves">${mine}</div>`
-      : `<p class="digest-note">Name a subject and it starts filtering the feed
-          straight away. Teach it what else belongs with <strong>More like
-          this</strong> on any card.</p>`}
-    <form class="profile-new" data-new-lens="" autocomplete="off">
-      <input class="search lens-name" type="text" maxlength="40"
-        placeholder="New subject name" aria-label="New subject name">
-      <button class="follow on" type="submit">Add</button>
-    </form>`;
+      : `<p class="digest-note">Name a subject and it filters the whole feed for
+          that word straight away. Tap <strong>+</strong> on any card to teach it
+          by example. To make one inside a topic, open the topic.</p>`}
+    ${lensForm(null, '')}`;
 }
 
 
@@ -1851,12 +1980,14 @@ async function load() {
 let panels = [];
 
 const subjectKey = (entry) => {
+  if (entry.kind === 'unsorted') return 'unsorted:';
   if (entry.kind === 'entity') return `entity:${entry.name}`;
   if (entry.kind === 'lens') return `lens:${entry.id}`;
   return `topic:${entry.slug}`;
 };
 
 const parseSubject = (value) => {
+  if (value === 'unsorted:') return { kind: 'unsorted' };
   if (value.startsWith('entity:')) return { kind: 'entity', name: value.slice(7) };
   if (value.startsWith('lens:')) return { kind: 'lens', id: value.slice(5) };
   return { kind: 'topic', slug: value.slice(6) };
@@ -1879,6 +2010,7 @@ function closePanel() {
 
 window.addEventListener('popstate', () => {
   if (panels.length) panels.pop();
+  else if (viewer) { hideViewer(); return; }
   showPanel();
 });
 
@@ -1892,7 +2024,7 @@ function showPanel() {
   else if (top) fillSubject(top);
   sheet.classList.toggle('open', story);
   document.getElementById('subject-sheet').classList.toggle('open', Boolean(top) && !story);
-  document.body.style.overflow = top ? 'hidden' : '';
+  document.body.style.overflow = top || viewer ? 'hidden' : '';
   if (!top) settle();
 }
 
@@ -1906,6 +2038,131 @@ function settle() {
 function openStory(id) {
   if (bundle.stories.some((s) => s.story_id === id)) openPanel({ kind: 'story', id });
 }
+
+/* --- The circles, played ----------------------------------------------------
+   Asked 2026-09-23: tapping a circle should open its new stories full screen,
+   *"and I can swipe like on instagram to see the next"*. So: one story at a
+   time over its picture (or its kind's colour), a bar per story along the top,
+   tap the right of the screen for the next and the left for the one before,
+   swipe sideways for the next subject, swipe down to close. After a subject's
+   last story it moves on to the next circle with something new, as Instagram
+   does, and closes after the last.
+
+   **The one thing not borrowed is the timer.** Instagram advances on its own
+   every few seconds; that paces the reader instead of letting them read, and
+   it is exactly the hook the ground rules keep out. Here nothing moves until
+   you tap. A story shown here counts as seen, so its circle's ring clears. */
+let viewer = null;   // { queue: [{ key, name, art, play }], s, i }
+const viewerEl = document.getElementById('viewer');
+
+/* What a circle plays: its unread stories, oldest first so they read in order;
+   or, when it is all read, its latest few again. */
+function playlist(row) {
+  const unseen = row.stories.filter((s) => !marks.seen.has(s.story_id));
+  return unseen.length ? [...unseen].reverse() : row.stories.slice(0, 10);
+}
+
+function openViewer(key) {
+  const rows = ringRows().filter((r) => r.n);
+  const at = rows.findIndex((r) => r.key === key);
+  if (at < 0) return;
+  // The circle tapped, then every later one with something new.
+  const queue = [rows[at], ...rows.slice(at + 1).filter((r) => r.unseen)]
+    .map((r) => ({ ...r, play: playlist(r) }));
+  viewer = { queue, s: 0, i: 0 };
+  history.pushState({ viewer: true }, '');
+  viewerEl.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  drawViewer();
+}
+
+function drawViewer() {
+  const row = viewer.queue[viewer.s];
+  const story = row.play[viewer.i];
+  mark('seen', story.story_id, true);
+  const colour = KINDS[story.kind] || 'var(--muted)';
+  const isSaved = marks.saved.has(story.story_id);
+  viewerEl.innerHTML = `
+    <div class="v-bg${story.media_url ? '' : ' type'}" style="--k:${colour}">${story.media_url
+      ? `<img src="${esc(story.media_url)}" alt="" referrerpolicy="no-referrer">` : ''}</div>
+    <div class="v-shade"></div>
+    <div class="v-top">
+      <div class="v-bars">${row.play.map((_, n) =>
+        `<span class="${n < viewer.i ? 'done' : n === viewer.i ? 'now' : ''}"></span>`).join('')}</div>
+      <div class="v-who">
+        <span class="v-avatar" style="${swatch(row.key)}">${esc(row.name.slice(0, 1).toUpperCase())}${
+          row.art ? `<img src="${esc(row.art)}" alt="" referrerpolicy="no-referrer">` : ''}</span>
+        <button class="v-name" data-v-subject="${esc(row.key)}">${esc(row.name)}</button>
+        <span class="v-when">${esc(ago(story.published_at))}</span>
+        <button class="v-close" data-v-close aria-label="Close">&times;</button>
+      </div>
+    </div>
+    <div class="v-body">
+      <div class="v-meta">
+        <span class="badge" style="background:${colour}">${esc(KIND_WORD[story.kind] || story.kind)}</span>
+        <span class="src">${esc(story.source)}</span>
+      </div>
+      <h2 class="v-title">${esc(story.title)}</h2>
+      ${story.summary ? `<p class="v-summary">${esc(story.summary)}</p>` : ''}
+      ${wakeHTML(story)}
+      <div class="v-actions">
+        <button class="v-open" data-v-open="${story.story_id}">Read the story</button>
+        <button class="v-save${isSaved ? ' on' : ''}" data-v-save="${story.story_id}"
+          aria-label="Save">${isSaved ? '&#9733;' : '&#9734;'}</button>
+      </div>
+    </div>`;
+}
+
+// One story along, or back; past either end of a subject, on to the next.
+function viewerStep(dir) {
+  const i = viewer.i + dir;
+  if (i >= viewer.queue[viewer.s].play.length) { viewerJump(1); return; }
+  if (i < 0) {
+    if (viewer.s > 0) { viewer.s -= 1; viewer.i = viewer.queue[viewer.s].play.length - 1; }
+    drawViewer();
+    return;
+  }
+  viewer.i = i;
+  drawViewer();
+}
+
+function viewerJump(dir) {
+  const s = viewer.s + dir;
+  if (s >= viewer.queue.length) { closeViewer(); return; }
+  if (s >= 0) { viewer.s = s; viewer.i = 0; }
+  drawViewer();
+}
+
+// Through history, like every other layer, so the phone's back gesture closes it.
+function closeViewer() {
+  if (viewer) history.back();
+}
+
+function hideViewer() {
+  viewer = null;
+  viewerEl.classList.remove('open');
+  viewerEl.innerHTML = '';
+  document.body.style.overflow = '';
+  render();   // the circles it played have been read
+}
+
+/* Taps and swipes. Buttons inside it are clicks, handled with the rest. */
+let press = null;
+viewerEl.addEventListener('pointerdown', (event) => {
+  press = { x: event.clientX, y: event.clientY };
+});
+viewerEl.addEventListener('pointerup', (event) => {
+  const from = press;
+  press = null;
+  if (!from || !viewer || event.target.closest('button')) return;
+  const dx = event.clientX - from.x;
+  const dy = event.clientY - from.y;
+  if (dy > 90 && dy > Math.abs(dx)) { closeViewer(); return; }
+  if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) { viewerJump(dx < 0 ? 1 : -1); return; }
+  if (Math.abs(dx) < 14 && Math.abs(dy) < 14) {
+    viewerStep(event.clientX < window.innerWidth * 0.3 ? -1 : 1);
+  }
+});
 
 /* --- A subject as a place --------------------------------------------------
    Tapping a subject used to do one of two things, and neither of them opened
@@ -1929,9 +2186,9 @@ function subjectStories(entry) {
   if (entry.kind === 'lens') {
     const lens = lensById(entry.id);
     if (!lens) return [];
-    const hit = lensMatcher(lens);
-    return byDate(live.filter(hit));
+    return byDate(live.filter(lensHit(lens)));
   }
+  if (entry.kind === 'unsorted') return byDate(live.filter((s) => !(s.topics || []).length));
   return byDate(live.filter((s) => hasTopic(s, entry.slug)));
 }
 
@@ -1971,6 +2228,9 @@ function subjectLeaves(slug, stories) {
    same under latest as in the normal feed and trending. It should not need to
    route to the feed."* It had been a list of twelve headlines and a "See all in
    the feed" button -- a table of contents for a page somewhere else. */
+const countOf = (stories) => ({
+  n: stories.length, unseen: stories.filter((s) => !marks.seen.has(s.story_id)).length,
+});
 const subjectCards = (stories) =>
   `<div class="subject-cards">${stories.map(cardHTML).join('')}</div>`;
 
@@ -2003,9 +2263,15 @@ function fillLens(entry) {
   const key = lensKey(lens);
   const on = followed(key);
 
-  document.getElementById('subject-where').textContent = `Your subjects › ${lens.name}`;
+  /* Made inside a topic, it says so, and the name climbs to it the way a
+     leaf's shelf does. */
+  const home = lens.parent ? subjectLabel(lens.parent) : null;
+  document.getElementById('subject-where').textContent = home
+    ? `${home.name} › ${lens.name}` : `Your subjects › ${lens.name}`;
   body.innerHTML = `
-    <span class="subject-where as-text">Your own subject</span>
+    ${home ? `<button class="subject-where" data-subject="topic:${esc(home.slug)}"
+        >Yours, in ${esc(home.name)}</button>`
+      : '<span class="subject-where as-text">Your own subject</span>'}
     <h1 class="subject-title">${esc(lens.name)}</h1>
     <p class="subject-stat">${stories.length
       ? `${plural(stories.length, 'story')}${unseen ? ` · <strong>${unseen} new</strong>` : ' · all read'}`
@@ -2015,15 +2281,14 @@ function fillLens(entry) {
         aria-pressed="${on}">${on ? 'Following' : 'Follow'}</button>
     </div>
     <div class="group-label">What it matches</div>
-    <p class="subject-note">Anything mentioning
+    <p class="subject-note">${home ? `Stories in <strong>${esc(home.name)}</strong>`
+      : 'Stories anywhere in the feed'} that mention the word
       ${lensTerms(lens).map((term) => `<strong>${esc(term)}</strong>`).join(' or ')}${
         lens.seeds.length
-          ? `, and anything that reads like the ${plural(lens.seeds.length, 'story')}
-             you taught it with. Use <strong>More like this</strong> on a card to
-             teach it another.`
-          : `. Use <strong>More like this</strong> on a card to teach it what
-             else belongs here, and it will start matching stories that do not
-             use the word.`}</p>
+          ? `, or read like the ${plural(lens.seeds.length, 'story')} you taught it
+             with. Tap <strong>+</strong> on any card to teach it another.`
+          : `. Tap <strong>+</strong> on any card to teach it by example: after
+             that it also catches stories that never use the word.`}</p>
     ${stories.length ? `<div class="group-label">Latest</div>${subjectCards(stories)}`
       : `<p class="subject-none">Nothing matches it in the current bundle. It
           still counts as something you follow.</p>`}
@@ -2070,9 +2335,38 @@ function fillSeed(entry) {
       never use the word.</p>`;
 }
 
+/* Make one here: the same form on the Topics page, inside every topic at every
+   level, and on the stories nothing placed. `data-parent` is what scopes it. */
+const lensForm = (parent, where) => `
+  <form class="profile-new here" data-new-lens="" data-parent="${esc(parent || '')}"
+    autocomplete="off">
+    <input class="search lens-name" type="text" maxlength="40"
+      placeholder="${where ? `New subject in ${esc(where)}` : 'New subject name'}"
+      aria-label="New subject name">
+    <button class="follow on" type="submit">Add</button>
+  </form>`;
+
+/* Stories the spine had no opinion about -- under the floor, so no topic --
+   are unreachable by browsing topics. This panel is where they are, and where
+   naming what they are about is one field away. */
+function fillUnsorted() {
+  const stories = subjectStories({ kind: 'unsorted' });
+  document.getElementById('subject-where').textContent = 'Not in any topic';
+  document.getElementById('subject-body').innerHTML = `
+    <div class="subject-banner plain"></div>
+    <h1 class="subject-title">Not in any topic</h1>
+    <p class="subject-stat">${plural(stories.length, 'story')} the topics did not catch</p>
+    <div class="group-label">Name what they are about</div>
+    <p class="subject-note">A subject you name collects these, and anything else
+      that mentions it. Tap <strong>+</strong> on a card to teach it by example.</p>
+    ${lensForm(null, '')}
+    ${stories.length ? `<div class="group-label">Latest</div>${subjectCards(stories)}` : ''}`;
+}
+
 function fillSubject(entry) {
   if (entry.kind === 'seed') { fillSeed(entry); return; }
   if (entry.kind === 'lens') { fillLens(entry); return; }
+  if (entry.kind === 'unsorted') { fillUnsorted(); return; }
   const stories = subjectStories(entry);
   const unseen = stories.filter((s) => !marks.seen.has(s.story_id)).length;
   const key = subjectKey(entry);
@@ -2080,6 +2374,8 @@ function fillSubject(entry) {
   const label = entry.kind === 'topic' ? subjectLabel(entry.slug) : null;
   const name = entry.kind === 'entity' ? entry.name : label.name;
   const leaves = entry.kind === 'entity' ? [] : subjectLeaves(entry.slug, stories);
+  // Subjects you made inside this topic sit beside the ones the spine has.
+  const mineHere = entry.kind === 'topic' ? lenses.filter((l) => l.parent === entry.slug) : [];
 
   /* A leaf names its shelf, and the name climbs: reached from a story chip,
      the shelf is the level above and there is otherwise no way up to it. */
@@ -2113,18 +2409,20 @@ function fillSubject(entry) {
       <button class="follow wide${on ? ' on' : ''}" data-follow="${esc(key)}"
         aria-pressed="${on}">${on ? 'Following' : 'Follow'}</button>
     </div>
-    ${leaves.length ? `<div class="group-label">Under this</div>
-      ${leaves.map((leaf) => {
-        const lk = `topic:${leaf.slug}`;
+    ${entry.kind === 'topic' || leaves.length ? `<div class="group-label">Under this</div>
+      ${[...leaves.map((leaf) => ({ lk: `topic:${leaf.slug}`, name: leaf.name, row: leaf })),
+         ...mineHere.map((lens) => ({ lk: lensKey(lens), name: lens.name, mine: true,
+           row: countOf(stories.filter(lensHit(lens))) }))].map(({ lk, name: rowName, row, mine }) => {
         const lon = followed(lk);
         return `<div class="subject-row">
-          <button class="subject-leaf" data-subject="${esc(lk)}">${esc(leaf.name)}<span
-            class="n">${leafCount(leaf)}</span></button>
+          <button class="subject-leaf" data-subject="${esc(lk)}">${esc(rowName)}${
+            mine ? '<span class="yours">yours</span>' : ''}<span
+            class="n">${leafCount(row)}</span></button>
           <button class="follow${lon ? ' on' : ''}" data-follow="${esc(lk)}"
             aria-pressed="${lon}">${lon ? 'Following' : 'Follow'}</button>
         </div>`;
       }).join('')}
-` : ''}
+      ${entry.kind === 'topic' ? lensForm(entry.slug, name) : ''}` : ''}
     ${stories.length ? `<div class="group-label">Latest</div>${subjectCards(stories)}`
       : `<p class="subject-none">Nothing carries this subject in the current
           bundle. It still counts as something you follow.</p>`}`;
@@ -2196,6 +2494,22 @@ function selectView(next) {
 }
 
 document.addEventListener('click', (event) => {
+  const ring = event.target.closest('[data-ring]');
+  if (ring) { openViewer(ring.dataset.ring); return; }
+  if (viewer && event.target.closest('#viewer')) {
+    if (event.target.closest('[data-v-close]')) { closeViewer(); return; }
+    const read = event.target.closest('[data-v-open]');
+    if (read) { openStory(Number(read.dataset.vOpen)); return; }
+    const who = event.target.closest('[data-v-subject]');
+    if (who) { openPanel(parseSubject(who.dataset.vSubject)); return; }
+    const keep = event.target.closest('[data-v-save]');
+    if (keep) {
+      const on = toggleSave(Number(keep.dataset.vSave));
+      keep.classList.toggle('on', on);
+      keep.innerHTML = on ? '&#9733;' : '&#9734;';
+    }
+    return;
+  }
   if (event.target.closest('#who')) { openProfiles(); return; }
   if (event.target.closest('#close-profiles')) {
     // Only closable once somebody is chosen; otherwise there is no feed behind it.
@@ -2408,7 +2722,7 @@ document.addEventListener('submit', (event) => {
   if (making) {
     event.preventDefault();
     const input = making.querySelector('.lens-name');
-    const lens = createLens(input.value);
+    const lens = createLens(input.value, making.dataset.parent || null);
     if (!lens) return;
     input.value = '';
     // Created from a card, so it starts knowing one thing that belongs in it.
@@ -2460,6 +2774,12 @@ document.getElementById('save-detail').addEventListener('click', (event) => {
   if (current !== null) event.currentTarget.innerHTML = toggleSave(current) ? '&#9733;' : '&#9734;';
 });
 document.addEventListener('keydown', (event) => {
+  if (viewer && !panels.length) {
+    if (event.key === 'Escape') closeViewer();
+    else if (event.key === 'ArrowRight') viewerStep(1);
+    else if (event.key === 'ArrowLeft') viewerStep(-1);
+    return;
+  }
   if (event.key === 'Escape') closePanel();
 });
 

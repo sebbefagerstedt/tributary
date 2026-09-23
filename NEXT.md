@@ -193,7 +193,7 @@ by followers before there are followers, but a personal filter is useful with
 one reader.
 
 **What the shared one now needs is only storage.** A lens is already shaped like
-a row — `{id, name, terms, vector, seeds, created}` — and a comment will be
+a row — `{id, name, terms, vector, seeds, parent, created}` — and a comment will be
 addressed by `story_id`. Moving them to a server should not touch `visible()`,
 the panel, or the chip row.
 
