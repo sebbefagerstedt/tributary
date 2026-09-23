@@ -158,6 +158,13 @@ learn from what you do"). Summed over many readers it is a different thing: the
 readers' verdict on a story, beside the points and source counts Trending
 already uses.
 
+**It is also the answer to the first open ask**, from 2026-09-17: *"I only want
+the most popular news, not everything. Otherwise it is not really news."* Decided
+2026-09-23 that popularity is part of the multiple-users build rather than a
+per-kind bar over source metrics before it. The constraint from that ask still
+holds: **do not cut arXiv** — a new paper is news whether or not anyone has
+reacted to it yet.
+
 - **Trending only.** *"I do not want to miss any news"* — so the Feed stays
   everything you follow, newest first, and nothing a count says ever hides a
   story there.
@@ -194,7 +201,8 @@ already uses.
 **Deferred 2026-09-22** as a big change the owner had not decided to make, then
 named as one of the two big directions on 2026-09-23. It started with product
 launches, and everything in it meets the same two walls: a pipeline that only
-fetches on a schedule, and a corpus with no popularity bar.
+fetches on a schedule, and a corpus with no popularity bar — which comes with
+multiple users, under popularity from readers.
 
 **Search is the exception** — *"a search would be interesting to look into"* —
 and it is the hard part, so it can be investigated for AI subjects without
@@ -262,14 +270,6 @@ seconds"*, on three requests spaced well apart — the first one included, under
 curl's User-Agent and tributary's. So its shape is still unverified, and the
 rate limit is the first thing an adapter has to survive. More in `CLAUDE.md`
 under Sources.
-
-### The popularity bar
-
-**Broader sources make it mandatory.** All world news, or every gadget review,
-is far more than a feed can show, and the owner's standing ask is only the most
-popular news (at the foot of this file). It cannot be one global gate, since
-that drops arXiv, so it is per kind — and it has to exist before GDELT or a
-gadget source lands.
 
 ## Ready to start
 
@@ -345,18 +345,3 @@ Small, self-contained jobs. None of them waits on either direction above.
   repos for *releases* and cannot find a new project built on a story. Hugging
   Face's `arxiv:` tags partly cover artefacts, and Reddit now covers some of the
   argument; nothing finds the new project.
-
----
-
-## Sebastian's open asks
-
-Verbatim, because they are the sharpest statement of what is left. Delete each
-one when it is built.
-
-> I only want the most popular news, not everything. Otherwise it is not really
-> news.
-
-Constrained by a second instruction given at the same time: **do not cut
-arXiv** — a new paper is real news whether or not anyone has reacted to it yet.
-So this cannot be one global popularity gate, since that is exactly what would
-drop arXiv. Per-kind thresholds are the likely shape.
