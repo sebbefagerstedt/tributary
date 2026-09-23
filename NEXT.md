@@ -158,6 +158,13 @@ learn from what you do"). Summed over many readers it is a different thing: the
 readers' verdict on a story, beside the points and source counts Trending
 already uses.
 
+**It is also the answer to the first open ask**, from 2026-09-17: *"I only want
+the most popular news, not everything. Otherwise it is not really news."* Decided
+2026-09-23 that popularity is part of the multiple-users build rather than a
+per-kind bar over source metrics before it. The constraint from that ask still
+holds: **do not cut arXiv** — a new paper is news whether or not anyone has
+reacted to it yet.
+
 - **Trending only.** *"I do not want to miss any news"* — so the Feed stays
   everything you follow, newest first, and nothing a count says ever hides a
   story there.
@@ -194,7 +201,8 @@ already uses.
 **Deferred 2026-09-22** as a big change the owner had not decided to make, then
 named as one of the two big directions on 2026-09-23. It started with product
 launches, and everything in it meets the same two walls: a pipeline that only
-fetches on a schedule, and a corpus with no popularity bar.
+fetches on a schedule, and a corpus with no popularity bar — which comes with
+multiple users, under popularity from readers.
 
 **Search is the exception** — *"a search would be interesting to look into"* —
 and it is the hard part, so it can be investigated for AI subjects without
@@ -263,14 +271,6 @@ curl's User-Agent and tributary's. So its shape is still unverified, and the
 rate limit is the first thing an adapter has to survive. More in `CLAUDE.md`
 under Sources.
 
-### The popularity bar
-
-**Broader sources make it mandatory.** All world news, or every gadget review,
-is far more than a feed can show, and the owner's standing ask is only the most
-popular news (at the foot of this file). It cannot be one global gate, since
-that drops arXiv, so it is per kind — and it has to exist before GDELT or a
-gadget source lands.
-
 ## Ready to start
 
 Small, self-contained jobs. None of them waits on either direction above.
@@ -305,30 +305,6 @@ Small, self-contained jobs. None of them waits on either direction above.
   like — the known runner-up problem (`CLAUDE.md`: 41% of stories have a
   runner-up on another shelf within 0.02), not a spine defect. Build this, then
   check the margin: 0.01 and 0.15 are different faults.
-- **Search inside a place says where it looked.** `visible()` scopes before it
-  searches, on purpose, but the empty state reads only *"Nothing matches
-  google."* — on 2026-09-19 that made the Gemini story above, one shelf away,
-  look like an absence. Decided 2026-09-23: name the place (*"Nothing matches
-  google in Safety & security"*) rather than search everything, because it keeps
-  the place you chose. That holds for all four kinds of place: a topic, a name,
-  one of yours, and Not in any topic.
-- **A leaf under a followed shelf reads as covered, and can still be
-  followed.** `isFollowed` treats a shelf follow as covering every leaf under
-  it, but each leaf draws its button from its own key, so a covered leaf still
-  offers `+` on its tile and `Follow` on its page and in its banner, as if it
-  were not in the feed. Decided 2026-09-23: say it is covered, since the feed
-  already works that way — and keep following it possible, because a subtopic
-  can matter more than the shelf around it: *"I might be specially interested
-  in some subtopic so I do not want to miss news there."* A leaf followed in
-  its own right gets its own circle in the Following row, with its own new
-  count, instead of being folded into the shelf's, and it stays followed if the
-  shelf is unfollowed. So the button needs a third state between `+` and `✓`:
-  covered by the shelf, and still tappable.
-- **Names on a subject's page.** Who keeps appearing in a subject — OpenAI,
-  Claude, NVIDIA — as a row of name chips under **Under this**, the same chips
-  as the Topics page's **Names in play**. `namesInPlay` already counts them over
-  the whole bundle; this is the same over the subject's stories. It is the last
-  idea left from the "tabs across one subject" survey.
 
 ## Designed, deliberately not built
 
@@ -345,18 +321,3 @@ Small, self-contained jobs. None of them waits on either direction above.
   repos for *releases* and cannot find a new project built on a story. Hugging
   Face's `arxiv:` tags partly cover artefacts, and Reddit now covers some of the
   argument; nothing finds the new project.
-
----
-
-## Sebastian's open asks
-
-Verbatim, because they are the sharpest statement of what is left. Delete each
-one when it is built.
-
-> I only want the most popular news, not everything. Otherwise it is not really
-> news.
-
-Constrained by a second instruction given at the same time: **do not cut
-arXiv** — a new paper is real news whether or not anyone has reacted to it yet.
-So this cannot be one global popularity gate, since that is exactly what would
-drop arXiv. Per-kind thresholds are the likely shape.
