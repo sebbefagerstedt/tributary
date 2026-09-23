@@ -288,19 +288,6 @@ Small, self-contained jobs. None of them waits on either direction above.
   suffixes like `Flash` and `Sol`, which would be ambiguous as entities (`Flash`
   claims every flash-attention paper). Reading the word before would let it
   propose `Gemini Flash` instead.
-- **Ask why a story landed where it did.** Nothing prints a story's scores
-  against the spine — `trib topics` has `--stats`, `--suggest` and `--reset` —
-  and it is a few lines over `topics.centroids`: the top leaves and their
-  scores, the margin, and whether it was parked or claimed by its headline. The
-  case that asked for it, 2026-09-19: *"Gemini Hacked Three Companies in First
-  Known Breakout by Google's AI"* took `Industry & policy › Companies & money`
-  rather than `misuse`, and the owner's read was *"I am not sure if it is wrong
-  but I would not know that this is where a news like this would land."* Its
-  summary names Google, OpenAI, Anthropic, Meta and the WSJ and reads as a
-  disclosure story, so it may be scoring honestly against what it is written
-  like — the known runner-up problem (`CLAUDE.md`: 41% of stories have a
-  runner-up on another shelf within 0.02), not a spine defect. Build this, then
-  check the margin: 0.01 and 0.15 are different faults.
 
 ## Designed, deliberately not built
 

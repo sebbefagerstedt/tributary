@@ -403,6 +403,100 @@ def _home(
     return winner, False
 
 
+@dataclass
+class Explanation:
+    """Why a story has the home it has: what `run` would decide, and on what."""
+
+    story_id: int
+    headline: str
+    stored: str | None             # the home it carries now, if it was labelled
+    attempted: bool                # whether `run` has been over it at all
+    claimed: str | None            # the leaf whose `claims` took it by headline
+    home: str | None               # what `run` would give it today
+    parked: bool
+    scores: list[tuple[str, float]]  # every leaf, best first
+    parent_of: dict[str, str | None]
+    names: dict[str, str]
+
+    @property
+    def margin(self) -> float | None:
+        """How far the best leaf is ahead of the runner-up."""
+        if len(self.scores) < 2:
+            return None
+        return self.scores[0][1] - self.scores[1][1]
+
+
+def find_story(conn: sqlite3.Connection, key: str) -> int | None:
+    """A story by its id, or the newest one with an item whose title holds `key`."""
+    if key.isdigit():
+        row = conn.execute("SELECT id FROM stories WHERE id = ?", (int(key),)).fetchone()
+        return row["id"] if row else None
+    row = conn.execute(
+        """
+        SELECT si.story_id
+          FROM story_items si
+          JOIN items i ON i.id = si.item_id
+         WHERE i.title LIKE ?
+         ORDER BY COALESCE(i.published_at, i.fetched_at) DESC
+         LIMIT 1
+        """,
+        (f"%{key}%",),
+    ).fetchone()
+    return row["story_id"] if row else None
+
+
+def explain(
+    conn: sqlite3.Connection,
+    profile: TopicsConfig,
+    story_id: int,
+    model_name: str = DEFAULT_MODEL,
+) -> Explanation | None:
+    """Score one story against every leaf, the way `run` does, and show the work.
+
+    Asked for when *"Gemini Hacked Three Companies in First Known Breakout by
+    Google's AI"* landed under Companies & money rather than misuse: there was no
+    way to see whether that was a 0.01 coin-toss or a 0.15 verdict, and those
+    are different faults. Nothing is written.
+    """
+    leaves = profile.leaves()
+    found, vectors = centroids(conn, [story_id])
+    if not leaves or not found:
+        return None
+
+    descriptions = np.array(
+        embed([topic.description for topic in leaves], model_name), dtype=np.float32
+    )
+    row = (vectors @ descriptions.T)[0]
+    parent_of = {topic.slug: topic.parent for topic in profile.spine}
+    claimants = [
+        (topic.slug, re.compile(topic.claims, CLAIMS_FLAGS)) for topic in leaves if topic.claims
+    ]
+    headline = _headlines(conn, [story_id]).get(story_id)
+    claimed = _claimed(headline, claimants)
+    home = (claimed, False) if claimed else _home(row, leaves, parent_of, profile)
+    stored = conn.execute(
+        "SELECT t.slug FROM story_topics stp JOIN topics t ON t.id = stp.topic_id "
+        "WHERE stp.story_id = ?",
+        (story_id,),
+    ).fetchone()
+
+    order = np.argsort(-row)
+    return Explanation(
+        story_id=story_id,
+        headline=headline[0] if headline else "",
+        stored=stored["slug"] if stored else None,
+        attempted=conn.execute(
+            "SELECT 1 FROM topic_assigned WHERE story_id = ?", (story_id,)
+        ).fetchone() is not None,
+        claimed=claimed,
+        home=home[0] if home else None,
+        parked=bool(home and home[1]),
+        scores=[(leaves[int(i)].slug, float(row[int(i)])) for i in order],
+        parent_of=parent_of,
+        names={topic.slug: topic.name for topic in profile.spine},
+    )
+
+
 def for_stories(conn: sqlite3.Connection, story_ids: list[int]) -> dict[int, list[dict]]:
     """Topic slugs and names per story, for the bundle."""
     if not story_ids:
