@@ -281,12 +281,18 @@ Small, self-contained jobs. None of them waits on either direction above.
   google in Safety & security"*) rather than search everything, because it keeps
   the place you chose. That holds for all four kinds of place: a topic, a name,
   one of yours, and Not in any topic.
-- **A leaf under a followed shelf reads as covered.** `isFollowed` treats a
-  shelf follow as covering every leaf under it, but each leaf draws its button
-  from its own key, so a covered leaf still offers `+` on its tile and `Follow`
-  on its page and in its banner. Decided 2026-09-23: show it as covered, since
-  the feed already works that way, rather than stop a shelf follow covering its
-  leaves.
+- **A leaf under a followed shelf reads as covered, and can still be
+  followed.** `isFollowed` treats a shelf follow as covering every leaf under
+  it, but each leaf draws its button from its own key, so a covered leaf still
+  offers `+` on its tile and `Follow` on its page and in its banner, as if it
+  were not in the feed. Decided 2026-09-23: say it is covered, since the feed
+  already works that way — and keep following it possible, because a subtopic
+  can matter more than the shelf around it: *"I might be specially interested
+  in some subtopic so I do not want to miss news there."* A leaf followed in
+  its own right gets its own circle in the Following row, with its own new
+  count, instead of being folded into the shelf's, and it stays followed if the
+  shelf is unfollowed. So the button needs a third state between `+` and `✓`:
+  covered by the shelf, and still tappable.
 - **Names on a subject's page.** Who keeps appearing in a subject — OpenAI,
   Claude, NVIDIA — as a row of name chips under **Under this**, the same chips
   as the Topics page's **Names in play**. `namesInPlay` already counts them over
