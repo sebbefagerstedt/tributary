@@ -430,7 +430,14 @@ minutes apart and that is one event, not a wake.
 **The bundle is selected by date** (`feed.recent`), not by rank. Taking the
 top-ranked N and sorting those by date would silently drop a recent story the
 ranking did not rate, and the reader would never learn it existed. Every card
-still carries `score`, which is all Trending needs.
+still carries `score`, which is all Trending needs. **And it is bounded by time, not by count.** The
+workflow exported `--limit 120`, which at this corpus's rate — about 1,300
+stories a month — was two or three days deep: on 2026-09-25 AI video news was
+"at the most 24h old" on the page while thirty days of it sat in the database.
+The limit is gone (`export.DEFAULT_LIMIT = 0`, every story in `--days 30`),
+about 1 MB gzipped, and the page draws fifty cards at a time behind a **Show
+more** button — a button, never loading on scroll, because a feed that refills
+as you reach the end is a hook.
 
 **There is no kind row.** Facets had their own filter row under the Feed's
 subjects and their own `Kind` group in Trending's sheet. Removed 2026-09-21, on

@@ -171,6 +171,14 @@ def test_limit_caps_the_bundle(conn, source_id):
     assert len(export.build_bundle(conn, limit=1)["stories"]) == 1
 
 
+def test_by_default_the_bundle_is_every_story_in_the_window(conn, source_id):
+    """A count cap made the site two or three days deep (reported 2026-09-25)."""
+    seed(conn, source_id)
+    total = conn.execute("SELECT COUNT(*) c FROM stories").fetchone()["c"]
+    assert total > 1
+    assert len(export.build_bundle(conn)["stories"]) == total
+
+
 # --- engagement --------------------------------------------------------------
 # Metadata is whatever an adapter chose to store, so this reads a blob no schema
 # guards.

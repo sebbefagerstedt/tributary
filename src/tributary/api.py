@@ -123,7 +123,7 @@ def create_app(config_path: Path | None = None) -> FastAPI:
 
     @app.get("/data.json")
     def data_bundle(
-        limit: int = Query(export_mod.DEFAULT_LIMIT, ge=1, le=500),
+        limit: int = Query(export_mod.DEFAULT_LIMIT, ge=0),
         days: int | None = Query(export_mod.DEFAULT_DAYS, ge=1, le=365),
     ) -> JSONResponse:
         """The same bundle the static export writes.

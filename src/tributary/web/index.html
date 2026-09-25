@@ -652,6 +652,12 @@ body.digest-view #search-toggle { display: none; }
   animation: spin .7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+.more {
+  display: block; width: 100%; margin: 8px 0 18px; padding: 14px; cursor: pointer;
+  font: inherit; font-weight: 600; color: var(--accent);
+  background: var(--surface-2); border: 0; border-radius: 12px;
+}
+.more span { color: var(--muted); font-weight: 400; margin-left: 6px; }
 .health {
   color: var(--faint); font-size: 12px; text-align: center;
   margin: 18px 0 0; padding: 0 8px;
@@ -1967,6 +1973,10 @@ function closeFilters() {
   document.body.style.overflow = '';
 }
 
+const PAGE_SIZE = 50;
+let pageSize = PAGE_SIZE;
+let pageKey = '';
+
 function render() {
   forgetLenses();
   const live = bundle.stories.filter((s) => !marks.dismissed.has(s.story_id));
@@ -2006,6 +2016,8 @@ function render() {
     html += `<p class="note">Ranked by relevance, how recent it is, and how many
       sources carried it &mdash; not by date. Still being judged.</p>`;
   }
+  const key = `${view}|${scopeKey()}|${query}|${trendScope}`;
+  if (key !== pageKey) { pageKey = key; pageSize = PAGE_SIZE; }
   if (!stories.length) {
     html += `<div class="empty">${
       /* Search runs inside the place you are in, on purpose -- so the empty
@@ -2021,7 +2033,18 @@ function render() {
       : `Nothing new in what you follow. <br>
           <button class="linkish" data-view-jump="topics">Follow more subjects</button>`}</div>`;
   } else {
-    html += stories.map(cardHTML).join('');
+    /* Fifty cards at a time, then a button for the next fifty. The bundle holds
+       thirty days -- over a thousand stories -- and drawing them all at once is
+       slow on a phone. A button rather than loading on scroll, because a feed
+       that refills itself as you reach the end is the hook the ground rules
+       keep out: reaching the end should be a place you can stop. The count
+       starts again whenever what is shown changes (`pageKey`, above). */
+    html += stories.slice(0, pageSize).map(cardHTML).join('');
+    const left = stories.length - pageSize;
+    if (left > 0) {
+      html += `<button class="more" data-more>Show ${Math.min(PAGE_SIZE, left)} more
+        <span>${left} left</span></button>`;
+    }
   }
   /* Source health is operational detail, not news. It stays in the bundle for
      `trib sources` and for anyone who scrolls to the end, but a red box above
@@ -2747,6 +2770,11 @@ document.addEventListener('click', (event) => {
   const play = event.target.closest('[data-play]');
   if (play) { openViewer(play.dataset.play, true); return; }
 
+  if (event.target.closest('[data-more]')) {
+    pageSize += PAGE_SIZE;
+    render();
+    return;
+  }
   const jump = event.target.closest('[data-view-jump]');
   if (jump) {
     if (profile) closeProfiles();
