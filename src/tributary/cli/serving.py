@@ -17,7 +17,9 @@ PANEL = "Publishing"
 def export_cmd(
     out: Annotated[Path, typer.Argument(help="Directory to write the static site into.")],
     config: ConfigOpt = None,
-    limit: Annotated[int, typer.Option("--limit", "-n")] = export_mod.DEFAULT_LIMIT,
+    limit: Annotated[
+        int, typer.Option("--limit", "-n", help="At most N stories; 0 means all in --days.")
+    ] = export_mod.DEFAULT_LIMIT,
     days: Annotated[
         int | None, typer.Option("--days", "-d", help="Only stories active in the last N days.")
     ] = export_mod.DEFAULT_DAYS,

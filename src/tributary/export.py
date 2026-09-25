@@ -25,10 +25,15 @@ from tributary import feed as feed_mod
 from tributary.text import truncate
 
 WEB_DIR = Path(__file__).parent / "web"
-DEFAULT_LIMIT = 80
+# No cap on the number of stories: the window is decided by time, not volume.
+# A cap of 120 on the deployed site covered two or three days at this corpus's
+# rate, so a subject quiet for a weekend -- AI video, reported 2026-09-25 --
+# looked empty while thirty days of it sat in the database. Thirty days is about
+# 1,300 stories, roughly a megabyte gzipped; the page draws fifty at a time.
+DEFAULT_LIMIT = 0  # 0 means every story in the window
 DEFAULT_DAYS = 30
 # Item blurbs are for scanning a story's members, not reading them, and every
-# one of them is paid for by all eighty stories in the bundle.
+# one of them is paid for by every story in the bundle.
 ITEM_SUMMARY_LIMIT = 220
 
 # Adapters name engagement differently; the page should not have to care.
@@ -103,8 +108,8 @@ def build_bundle(
 ) -> dict:
     """Everything the page needs, in one object.
 
-    Story items are embedded rather than fetched per story: a feed of 80 stories
-    is a few hundred kilobytes, and one request beats eighty.
+    Story items are embedded rather than fetched per story: one request beats a
+    thousand. `limit` of 0 takes every story inside `days`.
     """
     # Newest first, not best first. The page's default feed is chronological,
     # so the bundle is selected by date; every card still carries `score`, which

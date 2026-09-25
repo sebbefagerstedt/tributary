@@ -729,3 +729,27 @@ def test_a_subjects_page_names_who_keeps_appearing_in_it(page_bundle):
     """)
     assert out["label"], out
     assert 0 <= out["openai"] < out["nvidia"], "most frequent name first"
+
+
+@needs_node
+def test_a_long_surface_draws_fifty_cards_and_a_button_for_more(page_bundle):
+    """Thirty days is over a thousand stories; the page draws them in pages, and
+    a button -- not scrolling -- asks for the next one."""
+    out = boot(page_bundle, """
+      const base = bundle.stories[0];
+      bundle.stories = Array.from({ length: 120 }, (_, n) =>
+        ({ ...base, story_id: 1000 + n, title: `Story ${n}`, items: [] }));
+      view = 'trending';
+      render();
+      const first = document.getElementById('main').innerHTML;
+      pageSize += PAGE_SIZE;
+      render();
+      const second = document.getElementById('main').innerHTML;
+      view = 'saved'; render(); view = 'trending'; render();
+      const reset = document.getElementById('main').innerHTML;
+      console.log(JSON.stringify({
+        first: cardsIn(first), more: first.includes('data-more'), left: /70 left/.test(first),
+        second: cardsIn(second), reset: cardsIn(reset),
+      }));
+    """)
+    assert out == {"first": 50, "more": True, "left": True, "second": 100, "reset": 50}, out

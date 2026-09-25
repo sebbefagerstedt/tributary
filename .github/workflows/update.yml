@@ -92,7 +92,7 @@ jobs:
         run: uv run trib renewal --limit 40 --days 30
 
       - name: Build the site
-        run: uv run trib export site --days 30 --limit 120
+        run: uv run trib export site --days 30
 
       - uses: actions/upload-pages-artifact@v3
         with:

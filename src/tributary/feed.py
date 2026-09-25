@@ -201,6 +201,8 @@ def recent(
 ) -> list[StoryCard]:
     """The most recently active stories, newest first.
 
+    A `limit` of 0 or None takes every story in the window.
+
     The page's default feed is chronological, so the bundle has to be selected
     by date rather than by rank: taking the top-ranked N and sorting those by
     date would silently drop a recent story the ranking did not rate, and the
@@ -221,7 +223,7 @@ def recent(
                 row["role_count"],
             ),
         )
-        for row in rows[:limit]
+        for row in (rows[:limit] if limit else rows)
     ]
 
 

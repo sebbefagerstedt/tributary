@@ -133,10 +133,10 @@ description, by yield and by coherence, not by followers (`CLAUDE.md` says why).
 server should not touch `visible()`, the panel or the chip row.
 
 **The ceiling on the private version is reach, not comments.** A lens sees only
-the bundle — on Pages, 120 stories over 30 days (`trib export site --days 30
---limit 120`). Raising that is affordable on the vectors alone, measured at
-60KB per 120 stories, so 500 would be 250KB — but the JSON around them grows
-with it. That, not commenting, is the honest reason a backend eventually wins.
+the bundle — thirty days since 2026-09-25, about 1,300 stories and 1 MB
+gzipped. Going further back means a bigger download on every visit, which is
+the honest reason a backend eventually wins: a server can search the whole
+database and send only what matched.
 
 **A subject nobody's news fills is a gap report.** Your own subjects already
 read `quiet` when they match nothing, which says little to one reader. Across
