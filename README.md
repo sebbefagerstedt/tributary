@@ -13,7 +13,9 @@ rather than as twelve near-duplicate headlines.
 **No LLM, no API key, no cost.** Everything runs locally; the one model is a
 small embedding model on your CPU.
 
-Live at **https://sebbefagerstedt.github.io/tributary/**. What is next is in
+Live at **https://sebbefagerstedt.github.io/tributary/**. **A redesign is
+under way**: [`VISION.md`](VISION.md) is its spec — Tributary as a platform
+where you follow topics and choose their sources yourself. What is next is in
 [`NEXT.md`](NEXT.md); how the code fits together, and why it works the way it
 does, is in [`CLAUDE.md`](CLAUDE.md).
 

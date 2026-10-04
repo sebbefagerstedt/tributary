@@ -9,10 +9,15 @@ scan on a phone — live at https://sebbefagerstedt.github.io/tributary/.
 build next**; this file holds everything else: the ground rules, how the code
 fits together, and the decisions that should not be rediscovered.
 
-**`VISION.md` is where the project is going** (2026-10-04): a personal news
-platform where each reader finds and chooses their own sources, on a new
-deployment with a server. It holds the idea and design principles for that
-rebuild and is meant to outlive this code; read it before changing direction.
+**This file describes version 1 — the app that runs today — and what building
+it taught.** The app is being redesigned (decided 2026-10-04): **`VISION.md` is
+the spec for the redesign and wins wherever the two disagree**, and `NEXT.md` is
+its roadmap. Superseded for the redesign, but true of the code here: sources are
+fixed in `config.toml`; topics are one shared spine for everyone; the page is
+one HTML file with no build step, split into tabs; deployment is a static site
+rebuilt every three hours. What carries over — the story as the unit, the
+clustering and its measured thresholds, the source findings, the page lessons —
+is listed at the end of `VISION.md`.
 
 ## Ground rules
 
@@ -1107,5 +1112,5 @@ story page, and the funnel is the clusterer.
 **"Community" means the ripple, not a chat room**: what happened *because of* a
 story — the projects started after it, the arguments, the write-ups and video
 takes. A story is the announcement plus its wake, which is what item roles are
-for. Posting and commenting on a topic is a separate, open requirement, under
-**Multiple users** in `NEXT.md`.
+for. Posting and commenting on a topic is a separate requirement, parked in
+`NEXT.md` until the redesign has users.
