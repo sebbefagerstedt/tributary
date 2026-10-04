@@ -219,9 +219,9 @@ features, shut down in 2024 when growth stalled. Lightweight is the safer bet.
   want to lose functionality or design because it should be simple."* Simple
   means a small, clear codebase, not fewer features or a plainer look. **Version
   1's design is thrown away** — the new one is designed fresh, and version 1's
-  recorded decisions are a checklist of lessons, not a template. Framework not
-  chosen yet; Svelte is the suggestion, for doing a lot of interface in little
-  code.
+  recorded decisions are a checklist of lessons, not a template. **The framework is React**
+  (decided 2026-10-04: *"I like react"*), built with Vite into a static site
+  that GitHub Pages can host now and the server can serve later.
 - **Backend and frontend talk through JSON**, as in version 1, so either can be
   replaced without the other.
 
