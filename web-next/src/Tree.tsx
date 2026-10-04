@@ -32,7 +32,7 @@ export function Tree({ bundle, profile, onBack, onOpen }: {
     nodes.push({ key: t.id, kind: 'topic', x, y, label: t.name, hue, topic: t.id });
     edges.push({ a: [CX, CY], b: [x, y], cls: '' });
     // Only subtopics that hold something of yours, then the busiest sources.
-    const leaves = bundle.spine.filter((l) => l.parent === t.id && storiesOf(bundle, t, l.slug).length > 0);
+    const leaves = t.spine ? bundle.spine.filter((l) => l.parent === t.spine && storiesOf(bundle, t, l.slug).length > 0) : [];
     const outer = [
       ...leaves.map((l) => ({ kind: 'sub' as const, label: l.name, leaf: l.slug })),
       ...t.sources.slice(0, SOURCES_SHOWN).map((s) => ({ kind: 'src' as const, label: s, leaf: undefined })),

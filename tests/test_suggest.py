@@ -70,3 +70,9 @@ def test_a_subject_ranks_known_sources_by_stories_that_fit(conn):
     got = suggest.for_subject(conn, "AI video", lambda texts: [unit(1.0) for _ in texts])
     assert [s["name"] for s in got["sources"]] == ["video"]
     assert got["sources"][0]["fit"] == 2 and got["sources"][0]["latest"]
+
+    def offline(texts):
+        raise OSError("model download refused")
+
+    got = suggest.for_subject(conn, "AI video", offline)
+    assert got["sources"] == [] and "could not load" in got["note"]

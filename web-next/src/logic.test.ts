@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Bundle, Story, buildCatalog, shelves, sourcesForShelf } from './data';
 import { Topic, blankProfile, inTopic, isNew } from './state';
+import { cosine, decodeVector } from './vectors';
 
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3600e3).toISOString();
 const story = (id: number, over: Partial<Story> = {}): Story => ({
@@ -10,7 +11,7 @@ const story = (id: number, over: Partial<Story> = {}): Story => ({
   items: [{ role: 'seed', kind: 'article', title: `Story ${id}`, url: `https://e.test/${id}`, author: null, source: 'Lab Blog', published_at: hoursAgo(3), summary: null }],
   ...over,
 });
-const topic: Topic = { id: 'agents', name: 'AI agents', sources: ['Lab Blog'], muted: [] };
+const topic: Topic = { id: 'agents', name: 'AI agents', spine: 'agents', sources: ['Lab Blog'], muted: [] };
 
 describe('what reaches a topic', () => {
   it('takes a story on its shelf from one of its sources', () => {
@@ -33,6 +34,38 @@ describe('what reaches a topic', () => {
   it('narrows to one subtopic', () => {
     expect(inTopic(story(6), topic, 'agents-coding')).toBe(true);
     expect(inTopic(story(6), topic, 'agents-browser')).toBe(false);
+  });
+});
+
+/* Packed by readers.pack in Python: [1,0,0,0], [0.6,0.8,0,0] and [-1,0,0,0]. */
+const X = 'fwAAAA==', DIAG = 'TGYAAA==', NEG = 'gQAAAA==';
+
+describe('vectors packed by the backend', () => {
+  it('decode to the signed bytes Python wrote', () => {
+    expect([...decodeVector(X)!]).toEqual([127, 0, 0, 0]);
+    expect([...decodeVector(NEG)!]).toEqual([-127, 0, 0, 0]);
+  });
+  it('give the cosine numpy would', () => {
+    expect(cosine(decodeVector(X)!, decodeVector(DIAG)!)).toBeCloseTo(0.6, 2);
+    expect(cosine(decodeVector(X)!, decodeVector(NEG)!)).toBeCloseTo(-1, 5);
+  });
+});
+
+describe('a topic of your own', () => {
+  const own: Topic = { id: 'robot-dogs', name: 'Robot dogs', description: 'robot dogs', spine: null,
+    vector: X, sources: ['Lab Blog'], muted: [] };
+  it('takes a story that names it, whatever its labels', () => {
+    expect(inTopic(story(1, { title: 'Robot dogs learn to climb', topics: [] }), own)).toBe(true);
+  });
+  it('takes a story near its description that never names it', () => {
+    expect(inTopic(story(2, { centroid: X }), own)).toBe(true);
+  });
+  it('leaves out a story far from it', () => {
+    expect(inTopic(story(3, { centroid: DIAG }), own)).toBe(false);
+    expect(inTopic(story(4), own)).toBe(false);
+  });
+  it('still needs one of its sources', () => {
+    expect(inTopic(story(5, { centroid: X }), { ...own, sources: ['Other'] })).toBe(false);
   });
 });
 

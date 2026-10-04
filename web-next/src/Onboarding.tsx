@@ -1,10 +1,12 @@
 /* The first run: a name, what you care about, what we found, then news. A
    device with nothing stored is a new reader, so this is testable without
-   accounts — a private window starts it again. */
+   accounts — a private window starts it again. With the backend there you can
+   also type any subject or paste a site, and it is searched for real. */
 
 import { FormEvent, useMemo, useState } from 'react';
 import { Bundle, Source, shelves, sourcesForShelf } from './data';
-import { Profile, Topic } from './state';
+import { DiscoveredCard, slugOf } from './Discovery';
+import { Profile, SourceSpec, Topic } from './state';
 import { FoundCard, hueOf } from './ui';
 
 export function ProfileStep({ names, onChoose }: { names: string[]; onChoose: (n: string) => void }) {
@@ -34,24 +36,43 @@ export function ProfileStep({ names, onChoose }: { names: string[]; onChoose: (n
   );
 }
 
-export function InterestsAndFound({ bundle, catalog, profile, onDone }: {
-  bundle: Bundle; catalog: Map<string, Source>; profile: Profile; onDone: (topics: Topic[]) => void;
+export function InterestsAndFound({ bundle, catalog, profile, server, onDone }: {
+  bundle: Bundle; catalog: Map<string, Source>; profile: Profile; server: boolean; onDone: (topics: Topic[]) => void;
 }) {
   const subjects = useMemo(() => shelves(bundle), [bundle]);
   const [picks, setPicks] = useState<string[]>([]);
+  const [own, setOwn] = useState<string[]>([]);       // subjects you typed
+  const [typed, setTyped] = useState('');
   const [step, setStep] = useState<'interests' | 'found'>('interests');
   const [chosen, setChosen] = useState<Record<string, string[]>>({});
+  const [specs, setSpecs] = useState<Record<string, Record<string, SourceSpec>>>({});
+  const [titles, setTitles] = useState<Record<string, string>>({});
+  const count = picks.length + own.length;
 
+  const addOwn = (e: FormEvent) => {
+    e.preventDefault();
+    const q = typed.trim();
+    if (q.length >= 2 && !own.includes(q)) setOwn([...own, q]);
+    setTyped('');
+  };
   const toFound = () => {
-    const next: Record<string, string[]> = {};
-    for (const id of picks) next[id] = sourcesForShelf(catalog, id).map((s) => s.name);
-    setChosen(next);
+    setChosen((c) => {
+      const next = { ...c };
+      for (const id of picks) next[id] = next[id] || sourcesForShelf(catalog, id).map((s) => s.name);
+      return next;
+    });
     setStep('found');
     window.scrollTo(0, 0);
   };
-  const finish = () => onDone(picks.map((id) => ({
-    id, name: subjects.find((s) => s.slug === id)!.name, sources: chosen[id] || [], muted: [],
-  })));
+  const finish = () => onDone([
+    ...picks.map((id) => ({ id, name: subjects.find((s) => s.slug === id)!.name, spine: id, sources: chosen[id] || [], muted: [] })),
+    ...own.map((q) => {
+      const sources = chosen[`own:${q}`] || [];
+      const found = Object.fromEntries(Object.entries(specs[`own:${q}`] || {}).filter(([n]) => sources.includes(n)));
+      const name = titles[`own:${q}`] || q;
+      return { id: slugOf(name), name, description: q, spine: null, sources, muted: [], found };
+    }),
+  ]);
 
   if (step === 'interests') {
     return (
@@ -67,10 +88,25 @@ export function InterestsAndFound({ bundle, catalog, profile, onDone }: {
             </button>
           ))}
         </div>
-        <p className="mock-note">Any subject you can name — searched on the web — arrives with the backend. For now these are the subjects Tributary already reads.</p>
+        {server ? (
+          <>
+            <form className="row" style={{ marginTop: 12 }} onSubmit={addOwn}>
+              <input className="field" id="own" placeholder="Or type your own — a subject, or paste a site"
+                value={typed} onChange={(e) => setTyped(e.target.value)} style={{ flex: 1 }} />
+              <button className="btn" type="submit">Add</button>
+            </form>
+            {own.length > 0 && (
+              <div className="chips" style={{ marginTop: 10 }}>
+                {own.map((q) => <button key={q} className="chip place" onClick={() => setOwn(own.filter((x) => x !== q))}>{q} ×</button>)}
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="mock-note">Any subject you can name, searched on the web, arrives with the backend on your computer. Here these are the subjects Tributary already reads.</p>
+        )}
         <div className="sticky-cta">
-          <button className="btn primary wide" disabled={!picks.length} onClick={toFound}>
-            {picks.length ? `Find sources for ${picks.length} topic${picks.length > 1 ? 's' : ''}` : 'Pick at least one'}
+          <button className="btn primary wide" disabled={!count} onClick={toFound}>
+            {count ? `Find sources for ${count} topic${count > 1 ? 's' : ''}` : 'Pick at least one'}
           </button>
         </div>
       </>
@@ -87,6 +123,18 @@ export function InterestsAndFound({ bundle, catalog, profile, onDone }: {
             sources={sourcesForShelf(catalog, id)} chosen={chosen[id] || []}
             setChosen={(next) => setChosen((c) => ({ ...c, [id]: next }))} />
         ))}
+        {own.map((q) => {
+          const key = `own:${q}`;
+          return (
+            <DiscoveredCard key={key} query={q} chosen={chosen[key]}
+              setChosen={(next) => setChosen((c) => ({ ...c, [key]: next }))}
+              onFound={(all, found, title) => {
+                setChosen((c) => ({ ...c, [key]: all }));
+                setSpecs((s) => ({ ...s, [key]: found }));
+                if (title) setTitles((t) => ({ ...t, [key]: title }));
+              }} />
+          );
+        })}
       </div>
       <div className="sticky-cta">
         <button className="btn ghost" onClick={() => setStep('interests')}>Back</button>

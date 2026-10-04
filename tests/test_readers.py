@@ -67,6 +67,23 @@ def test_a_topic_of_your_own_is_embedded_once(conn, source_id):
     assert len(calls) == 1, "an unchanged description must not be embedded again"
 
 
+def test_a_model_that_cannot_load_still_saves_the_topic(conn, source_id):
+    readers.ensure_profile(conn, "S")
+
+    def offline(texts):
+        raise OSError("model download refused")
+
+    saved = readers.save_topic(
+        conn, "S", {"name": "Robot dogs", "sources": ["Test Feed"]}, embed=offline
+    )
+    assert saved["id"] == "robot-dogs" and saved["vector"] is None
+    again = readers.save_topic(
+        conn, "S", {"id": "robot-dogs", "name": "Robot dogs", "sources": ["Test Feed"]},
+        embed=fake_embed,
+    )
+    assert again["vector"], "the next save tries the model again"
+
+
 def test_a_source_a_reader_found_is_fetched_while_a_topic_uses_it(conn):
     readers.ensure_profile(conn, "S")
     spec = {"name": "Runway Blog", "url": "https://runway.test/feed", "kind": "rss"}

@@ -27,15 +27,23 @@ This step is done when the owner has used it on a phone and its fixes are in.
 
 No shortcuts: suggestions are built against real fetching (`VISION.md`).
 
-- `trib serve` serves the new page and the API from one place, on the owner's
-  computer, reachable from a phone (same Wi-Fi, or a free tunnel).
-- Profiles (a name, no password) and their topics with source lists, stored by
-  the backend.
-- Discovery: from a subject or a pasted site to candidate sources, each with a
-  preview (latest headlines, items a week) — built on `trib sources --suggest`.
-  Where subject suggestions come from is worked out here.
-- The pipeline fetches the sources the profiles' topics use, and a story can
-  sit in several topics, read once.
+**Built 2026-10-04, first half.** `trib serve` serves the new page at `/next/`
+beside the API (`/api/next/…`), and the page notices it and switches from the
+browser to the server: profiles and topics with their source lists are stored
+in the database (`readers.py`, migration 009), a typed subject or a pasted site
+is searched (`suggest.py`, on `trib sources --suggest`) and previewed, a source
+found that way becomes a row with `origin = 'reader'` that the pipeline fetches
+while some topic uses it, and saving one runs the pipeline once so its news
+arrives at once. How to run it is in `web-next/README.md`. What is left:
+
+- **The owner tries it** on the computer and a phone, and the fixes go in.
+- **Where subject suggestions come from.** A subject only ranks the sources
+  Tributary already reads, by how many recent stories of theirs fit; a pasted
+  site reaches anywhere. Finding sources for a subject on the open web has to
+  be worked out on the owner's machine, where the network is open.
+- **`FIT_FLOOR = 0.62` is unmeasured**, in `suggest.py` and `state.ts` alike —
+  measure it against the owner's corpus before trusting a topic of one's own to
+  catch stories that never use its words.
 - Topic relations for "Up and related" (`VISION.md`): a topic's parent, and a
   short Related row from the embeddings — browsing only, never adding to the
   feed. An unfollowed topic opens as a preview: stories already held that fit,

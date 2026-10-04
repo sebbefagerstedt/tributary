@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 import re
 import sqlite3
 from collections.abc import Callable, Sequence
@@ -32,6 +33,8 @@ from tributary.db import transaction
 # How a topic's description becomes a vector. Injected so tests never load the
 # model (CLAUDE.md); the API passes `embeddings.embed`.
 Embedder = Callable[[Sequence[str]], list[list[float]]]
+
+log = logging.getLogger(__name__)
 
 VECTOR_SCALE = 127  # the same int8 packing as export._centroids
 MAX_NAME = 40
@@ -245,13 +248,19 @@ def save_topic(
             [(topic_id, i) for i in sorted(ids)],
         )
     # Embedded only once the topic and its sources are known to be valid, so a
-    # mistake never costs a model load.
+    # mistake never costs a model load. A model that cannot load (offline, the
+    # first download refused) leaves the topic saved without a vector: the page
+    # still matches it by its words, and the next save tries again.
     if vector is None and not spine and embed is not None:
-        with transaction(conn):
-            conn.execute(
-                "UPDATE reader_topics SET vector = ? WHERE id = ?",
-                (pack(embed([description])[0]), topic_id),
-            )
+        try:
+            packed = pack(embed([description])[0])
+        except Exception as exc:  # noqa: BLE001 - any model failure degrades the same way
+            log.warning("could not embed topic %r: %s", key, exc)
+        else:
+            with transaction(conn):
+                conn.execute(
+                    "UPDATE reader_topics SET vector = ? WHERE id = ?", (packed, topic_id)
+                )
     reconcile_sources(conn)
     return next(t for t in get_profile(conn, profile)["topics"] if t["id"] == key)
 

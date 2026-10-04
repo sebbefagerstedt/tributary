@@ -97,7 +97,12 @@ def for_subject(conn: sqlite3.Connection, query: str, embed: Embedder, limit: in
             "paste a site to add one from anywhere.")
     if not found:
         return {"kind": "subject", "sources": [], "note": note}
-    q = np.asarray(embed([query])[0], dtype=np.float32)
+    try:
+        q = np.asarray(embed([query])[0], dtype=np.float32)
+    except Exception:  # noqa: BLE001 - offline, or the model download refused
+        return {"kind": "subject", "sources": [],
+                "note": "The embedding model could not load, so subjects cannot be "
+                        "searched right now. Paste a site instead."}
     q /= np.linalg.norm(q) or 1.0
     fits = [sid for sid, score in zip(found, vectors @ q, strict=True) if score >= FIT_FLOOR]
     if not fits:
