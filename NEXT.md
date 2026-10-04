@@ -16,6 +16,13 @@ published free on GitHub Pages next to version 1 (for example under `/next/`).
 It reads the bundle the current pipeline already produces. A profile is a name,
 no password; topics and their source lists live with it in the browser.
 
+**Built 2026-10-04 in `web-next/`** and published at
+https://sebbefagerstedt.github.io/tributary/next/: profile, first run, home with
+the layout switch, topic pages with subtopics, the player, topic settings, new
+topics, the story sheet and the tree. Starter subjects are the spine's shelves
+and the sources offered are the ones the pipeline already reads, until step 2.
+This step is done when the owner has used it on a phone and its fixes are in.
+
 ## 2. The backend on the owner's computer, with real suggestions
 
 No shortcuts: suggestions are built against real fetching (`VISION.md`).
