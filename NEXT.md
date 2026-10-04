@@ -38,7 +38,8 @@ No shortcuts: suggestions are built against real fetching (`VISION.md`).
   sit in several topics, read once.
 - Topic relations for "Up and related" (`VISION.md`): a topic's parent, and a
   short Related row from the embeddings — browsing only, never adding to the
-  feed.
+  feed. An unfollowed topic opens as a preview: stories already held that fit,
+  then a live fetch of its suggested sources, kept only briefly.
 
 ## 3. Hosting, once it feels right
 
