@@ -11,9 +11,8 @@ the design feels usable.
 ## 1. The new frontend, on GitHub Pages
 
 Build what the approved mockup shows (`docs/mockup/index.html`, approved by the
-owner 2026-10-04: *"It looks perfect"*). Choose the framework (Svelte
-suggested), set it up in its own folder, and
-publish it free on GitHub Pages next to version 1 (for example under `/next/`).
+owner 2026-10-04: *"It looks perfect"*). React with Vite (decided 2026-10-04), in its own folder,
+published free on GitHub Pages next to version 1 (for example under `/next/`).
 It reads the bundle the current pipeline already produces. A profile is a name,
 no password; topics and their source lists live with it in the browser.
 
