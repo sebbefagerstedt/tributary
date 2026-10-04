@@ -3,7 +3,8 @@
 
 import { FormEvent, ReactNode, useMemo, useState } from 'react';
 import { Bundle, Source, Story, agoLabel, isBusy, shelves, sourcesForShelf } from './data';
-import { Profile, Topic } from './state';
+import { DiscoveredCard, asSource, slugOf, specsOf, useDiscovery } from './Discovery';
+import { Profile, SourceSpec, Topic } from './state';
 import { FoundCard, KIND_WORD, hueOf } from './ui';
 
 export function Sheet({ onClose, children }: { onClose: () => void; children: ReactNode }) {
@@ -20,10 +21,18 @@ const sourceLine = (s: Source | undefined) => (s
 
 /* After creation, sources step back into settings: remove with a tap, search to
    add, muted words (VISION.md, "A topic's settings"). */
-export function SettingsSheet({ topic, catalog, onChange, onDelete, onClose }: {
-  topic: Topic; catalog: Map<string, Source>; onChange: (t: Topic) => void; onDelete: () => void; onClose: () => void;
+export function SettingsSheet({ topic, catalog, server, onChange, onDelete, onClose }: {
+  topic: Topic; catalog: Map<string, Source>; server: boolean;
+  onChange: (t: Topic) => void; onDelete: () => void; onClose: () => void;
 }) {
   const [q, setQ] = useState('');
+  const [web, setWeb] = useState<string | null>(null); // a search sent to the backend
+  const discovery = useDiscovery(server ? web : null);
+  const webFound = (discovery.result?.sources || []).filter((c) => !topic.sources.includes(c.name));
+  const addFound = (spec: SourceSpec | undefined, name: string) => onChange({
+    ...topic, sources: [...topic.sources, name], found: spec ? { ...(topic.found || {}), [name]: spec } : topic.found,
+  });
+  const searchWeb = (e: FormEvent) => { e.preventDefault(); if (q.trim().length >= 2) setWeb(q.trim()); };
   const [word, setWord] = useState('');
   const [confirm, setConfirm] = useState(false);
   const found = q.trim()
@@ -53,8 +62,12 @@ export function SettingsSheet({ topic, catalog, onChange, onDelete, onClose }: {
       </div>
       <div className="section">
         <h3>Add sources</h3>
-        <input className="field" id="add-source" placeholder="Search sources by name" value={q} autoComplete="off"
-          onChange={(e) => setQ(e.target.value)} />
+        <form className="row" onSubmit={searchWeb}>
+          <input className="field" id="add-source" autoComplete="off" style={{ flex: 1 }}
+            placeholder={server ? 'A source by name, a subject, or paste a site' : 'Search sources by name'}
+            value={q} onChange={(e) => { setQ(e.target.value); setWeb(null); }} />
+          {server && <button className="btn" type="submit">Search</button>}
+        </form>
         {q.trim() ? (
           <div className="set-list">
             {found.map((s) => (
@@ -66,9 +79,23 @@ export function SettingsSheet({ topic, catalog, onChange, onDelete, onClose }: {
                 <button className="x add" onClick={() => onChange({ ...topic, sources: [...topic.sources, s.name] })}>Add</button>
               </div>
             ))}
-            {found.length === 0 && <div className="set-item sub">No source by that name yet.</div>}
+            {found.length === 0 && !web && <div className="set-item sub">{server ? 'No source by that name yet. Search to look further.' : 'No source by that name yet.'}</div>}
+            {web && discovery.loading && <div className="set-item sub">Searching…</div>}
+            {web && discovery.error && <div className="set-item sub warn">{discovery.error}</div>}
+            {web && webFound.filter((c) => !found.some((s) => s.name === c.name)).map((c) => (
+              <div className="set-item wrap" key={`web:${c.name}`}>
+                <div className="grow">
+                  <div className="strong">{c.name}</div><div className="sub">{c.known ? sourceLine(asSource(c)) : `New · ${c.week} this week`}</div>
+                  {c.latest.length > 0 && <div className="sub pv-line">{c.latest.slice(0, 2).join(' · ')}</div>}
+                </div>
+                <button className="x add" onClick={() => addFound(specsOf([c])[c.name], c.name)}>Add</button>
+              </div>
+            ))}
+            {web && discovery.result?.note && <div className="set-item sub">{discovery.result.note}</div>}
           </div>
-        ) : <div className="hint">Searches the sources Tributary already reads. Searching the whole web comes with the backend.</div>}
+        ) : <div className="hint">{server
+          ? 'Searches the sources Tributary reads, and with Search, the web.'
+          : 'Searches the sources Tributary already reads. Searching the whole web comes with the backend.'}</div>}
       </div>
       <div className="section">
         <h3>Muted words</h3>
@@ -98,23 +125,74 @@ export function SettingsSheet({ topic, catalog, onChange, onDelete, onClose }: {
 }
 
 /* Creating a topic: the one moment sources are the main event. */
-export function NewTopicSheet({ bundle, catalog, profile, onCreate, onClose }: {
-  bundle: Bundle; catalog: Map<string, Source>; profile: Profile; onCreate: (t: Topic) => void; onClose: () => void;
+export function NewTopicSheet({ bundle, catalog, profile, server, onCreate, onClose }: {
+  bundle: Bundle; catalog: Map<string, Source>; profile: Profile; server: boolean;
+  onCreate: (t: Topic) => void; onClose: () => void;
 }) {
   const options = useMemo(() => shelves(bundle).filter((s) => !profile.topics.some((t) => t.id === s.slug)), [bundle, profile.topics]);
   const [pick, setPick] = useState<string | null>(null);
   const [chosen, setChosen] = useState<string[]>([]);
+  const [typed, setTyped] = useState('');
+  const [query, setQuery] = useState<string | null>(null);   // a subject or site sent to discovery
+  const [ownChosen, setOwnChosen] = useState<string[] | undefined>(undefined);
+  const [specs, setSpecs] = useState<Record<string, SourceSpec>>({});
+  const [name, setName] = useState('');
   const choose = (slug: string) => { setPick(slug); setChosen(sourcesForShelf(catalog, slug).map((s) => s.name)); };
   const shelf = options.find((s) => s.slug === pick);
+  const search = (e: FormEvent) => {
+    e.preventDefault();
+    const q = typed.trim();
+    if (q.length < 2) return;
+    setQuery(q); setName(q); setOwnChosen(undefined); setSpecs({});
+  };
+  /* Two topics cannot share an id, so a name already taken gets a number. */
+  const freeId = (base: string) => {
+    let id = base, n = 2;
+    while (profile.topics.some((t) => t.id === id)) id = `${base}-${n++}`;
+    return id;
+  };
+  const createOwn = () => {
+    const sources = ownChosen || [];
+    const found = Object.fromEntries(Object.entries(specs).filter(([n]) => sources.includes(n)));
+    const title = name.trim() || query!;
+    onCreate({ id: freeId(slugOf(title)), name: title, description: query, spine: null, sources, muted: [], found });
+  };
+  if (query) {
+    return (
+      <Sheet onClose={onClose}>
+        <div className="row"><h2 className="sheet-title">Here's what we found</h2>
+          <button className="x" onClick={onClose}>Cancel</button></div>
+        <div className="section">
+          <label className="eyebrow" htmlFor="topic-name">Call it</label>
+          <input className="field" id="topic-name" value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <DiscoveredCard query={query} chosen={ownChosen} setChosen={setOwnChosen}
+            onFound={(all, found, title) => { setOwnChosen(all); setSpecs(found); if (title) setName(title); }} />
+        </div>
+        <div className="sticky-cta">
+          <button className="btn ghost" onClick={() => setQuery(null)}>Back</button>
+          <button className="btn primary wide" disabled={!ownChosen?.length} onClick={createOwn}>Create topic</button>
+        </div>
+      </Sheet>
+    );
+  }
   return (
     <Sheet onClose={onClose}>
       <div className="row"><h2 className="sheet-title">{shelf ? "Here's what we found" : 'New topic'}</h2>
         <button className="x" onClick={onClose}>Cancel</button></div>
       {!shelf ? (
         <div className="section">
+          {server && (
+            <form className="row" style={{ marginBottom: 12 }} onSubmit={search}>
+              <input className="field" id="new-subject" placeholder="Any subject, or paste a site" autoComplete="off"
+                value={typed} onChange={(e) => setTyped(e.target.value)} style={{ flex: 1 }} />
+              <button className="btn" type="submit">Find</button>
+            </form>
+          )}
           <div className="chips">{options.map((s) => <button key={s.slug} className="chip" onClick={() => choose(s.slug)}>{s.name}</button>)}</div>
           {options.length === 0 && <span className="hint">You follow every subject Tributary reads today.</span>}
-          <p className="hint">Naming any subject, or pasting a site, arrives with the backend.</p>
+          {!server && <p className="hint">Naming any subject, or pasting a site, arrives with the backend.</p>}
         </div>
       ) : (
         <>
@@ -123,7 +201,7 @@ export function NewTopicSheet({ bundle, catalog, profile, onCreate, onClose }: {
           </div>
           <div className="sticky-cta">
             <button className="btn ghost" onClick={() => setPick(null)}>Back</button>
-            <button className="btn primary wide" onClick={() => onCreate({ id: shelf.slug, name: shelf.name, sources: chosen, muted: [] })}>Create topic</button>
+            <button className="btn primary wide" onClick={() => onCreate({ id: shelf.slug, name: shelf.name, spine: shelf.slug, sources: chosen, muted: [] })}>Create topic</button>
           </div>
         </>
       )}
@@ -131,8 +209,8 @@ export function NewTopicSheet({ bundle, catalog, profile, onCreate, onClose }: {
   );
 }
 
-export function ProfileSheet({ profile, onTopic, onSwitch, onReset, onClose }: {
-  profile: Profile; onTopic: (id: string) => void; onSwitch: () => void; onReset: () => void; onClose: () => void;
+export function ProfileSheet({ profile, server, onTopic, onSwitch, onReset, onClose }: {
+  profile: Profile; server: boolean; onTopic: (id: string) => void; onSwitch: () => void; onReset: () => void; onClose: () => void;
 }) {
   const [confirm, setConfirm] = useState(false);
   return (
@@ -157,7 +235,7 @@ export function ProfileSheet({ profile, onTopic, onSwitch, onReset, onClose }: {
               <button className="btn danger" onClick={onReset}>Start over</button></div>
           : <button className="btn wide" onClick={() => setConfirm(true)}>Start over</button>}
       </div>
-      <p className="mock-note">A profile is just a name for now — no password. It lives on this device.</p>
+      <p className="mock-note">A profile is just a name for now — no password. {server ? 'It lives on this computer\'s server, so every device that opens it sees the same one.' : 'It lives on this device.'}</p>
     </Sheet>
   );
 }

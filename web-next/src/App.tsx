@@ -4,7 +4,8 @@ import { InterestsAndFound, ProfileStep } from './Onboarding';
 import { Player } from './Player';
 import { Home, Nav, TopicPage, storiesOf } from './Screens';
 import { NewTopicSheet, ProfileSheet, SettingsSheet, StorySheet } from './Sheets';
-import { Topic, blankProfile, isNew, useProfiles } from './state';
+import { hasServer, remote } from './remote';
+import { Topic, isNew, useProfiles } from './state';
 import { Tree } from './Tree';
 import { setHueOrder } from './ui';
 
@@ -18,18 +19,48 @@ const PAGE = 50;
 export default function App() {
   const [bundle, setBundle] = useState<Bundle | null>(null);
   const [error, setError] = useState('');
-  const { names, profile, choose, signOut, update } = useProfiles();
+  const [toast, setToast] = useState('');
+  const flash = useCallback((msg: string, ms = 1800) => { setToast(msg); window.setTimeout(() => setToast(''), ms); }, []);
+  /* Served by `trib serve`, the page keeps readers on the server and can search
+     the web; on GitHub Pages nothing answers and it stays in this browser. */
+  const [server, setServer] = useState<boolean | null>(null);
+  useEffect(() => { hasServer().then(setServer); }, []);
+
+  const reload = useCallback(() => loadBundle()
+    .then((b) => { setHueOrder(shelves(b).map((s) => s.slug)); setBundle(b); })
+    .catch((e) => setError(String(e.message || e))), []);
+  useEffect(() => { reload(); }, [reload]);
+
+  /* A topic saved with sources the server had never read: run the pipeline
+     once, so their news arrives now rather than at the next scheduled run. */
+  const refreshing = useRef(false);
+  const onNewSources = useCallback(async () => {
+    if (refreshing.current) return;
+    refreshing.current = true;
+    flash('Fetching your new sources…', 4000);
+    try {
+      await remote.refresh();
+      for (;;) {
+        await new Promise((r) => window.setTimeout(r, 4000));
+        const st = await remote.refreshStatus();
+        if (!st.running) {
+          await reload();
+          flash(st.ok === false ? 'Some sources could not be fetched' : 'Your new sources are in', 2500);
+          break;
+        }
+      }
+    } catch (e) {
+      flash(`Could not fetch: ${(e as Error).message}`, 3000);
+    } finally {
+      refreshing.current = false;
+    }
+  }, [flash, reload]);
+  const onError = useCallback((msg: string) => flash(msg, 3000), [flash]);
+  const { names, profile, choose, signOut, update, reset } = useProfiles(server, onError, onNewSources);
   const [screens, setScreens] = useState<Screen[]>([{ name: 'home' }]);
   const [sheet, setSheet] = useState<SheetState>(null);
   const [player, setPlayer] = useState<PlayerState | null>(null);
   const [shown, setShown] = useState(PAGE);
-  const [toast, setToast] = useState('');
-
-  useEffect(() => {
-    loadBundle()
-      .then((b) => { setHueOrder(shelves(b).map((s) => s.slug)); setBundle(b); })
-      .catch((e) => setError(String(e.message || e)));
-  }, []);
   const catalog = useMemo(() => (bundle ? buildCatalog(bundle) : new Map()), [bundle]);
 
   /* Back climbs one level, and the phone's own back gesture is the same path:
@@ -71,7 +102,6 @@ export default function App() {
     setSheet(null); setPlayer(null); setScreens([{ name: 'home' }]);
   };
 
-  const flash = (msg: string) => { setToast(msg); window.setTimeout(() => setToast(''), 1800); };
   const markSeen = useCallback((s: Story) =>
     update((p) => (p.seen.includes(s.story_id) ? p : { ...p, seen: [...p.seen, s.story_id] })), [update]);
 
@@ -102,13 +132,14 @@ export default function App() {
   };
 
   if (error) return <div className="app"><div className="empty big">{error}<br /><button className="btn" onClick={() => location.reload()}>Try again</button></div></div>;
+  if (server === null) return <div className="app"><div className="empty big">Loading…</div></div>;
   if (!profile) return <div className="app"><ProfileStep names={names} onChoose={choose} /></div>;
   if (!bundle) return <div className="app"><div className="empty big">Loading your news…</div></div>;
 
   if (!profile.onboarded) {
     return (
       <div className="app">
-        <InterestsAndFound bundle={bundle} catalog={catalog} profile={profile}
+        <InterestsAndFound bundle={bundle} catalog={catalog} profile={profile} server={server}
           onDone={(topics) => { update((p) => ({ ...p, topics, onboarded: true })); window.scrollTo(0, 0); }} />
       </div>
     );
@@ -132,7 +163,7 @@ export default function App() {
 
       {sheet?.kind === 'story' && <StorySheet story={sheet.story} onClose={() => back()} />}
       {settingsTopic && (
-        <SettingsSheet topic={settingsTopic} catalog={catalog} onClose={() => back()}
+        <SettingsSheet topic={settingsTopic} catalog={catalog} server={server} onClose={() => back()}
           onChange={saveTopic}
           onDelete={() => {
             update((p) => ({ ...p, topics: p.topics.filter((t) => t.id !== settingsTopic.id) }));
@@ -140,14 +171,14 @@ export default function App() {
           }} />
       )}
       {sheet?.kind === 'new' && (
-        <NewTopicSheet bundle={bundle} catalog={catalog} profile={profile} onClose={() => back()}
+        <NewTopicSheet bundle={bundle} catalog={catalog} profile={profile} server={server} onClose={() => back()}
           onCreate={(t) => { update((p) => ({ ...p, topics: [...p.topics, t] })); nav.openTopic(t.id); flash('Topic created'); }} />
       )}
       {sheet?.kind === 'profile' && (
-        <ProfileSheet profile={profile} onClose={() => back()}
+        <ProfileSheet profile={profile} server={server} onClose={() => back()}
           onTopic={(id) => nav.openTopic(id)}
           onSwitch={() => { resetNav(); signOut(); }}
-          onReset={() => { resetNav(); update(() => blankProfile(profile.name)); }} />
+          onReset={() => { resetNav(); reset(); }} />
       )}
       {player && (
         <Player topic={player.topic} queue={player.queue} index={player.index} onSeen={markSeen}

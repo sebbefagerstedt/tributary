@@ -150,7 +150,7 @@ export function TopicPage({ bundle, profile, topic, leaf, nav, shown, more }: {
 }) {
   const list = storiesOf(bundle, topic, leaf);
   const n = list.filter((s) => isNew(profile, s)).length;
-  const leaves: Label[] = bundle.spine.filter((l) => l.parent === topic.id);
+  const leaves: Label[] = topic.spine ? bundle.spine.filter((l) => l.parent === topic.spine) : [];
   const leafName = leaf && leaves.find((l) => l.slug === leaf)?.name;
   return (
     <>

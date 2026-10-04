@@ -1,5 +1,5 @@
 import { Source, Story, agoLabel, isBusy } from './data';
-import { Profile, Topic, isNew, isSeen } from './state';
+import { Profile, Topic, inTopic, isNew, isSeen } from './state';
 
 export const ICON = {
   back: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>,
@@ -105,7 +105,7 @@ export function StoryCard({ story, profile, topics, here, onOpen, onTopic }: {
   story: Story; profile: Profile; topics: Topic[]; here?: string;
   onOpen: (s: Story) => void; onTopic: (id: string, leaf?: string) => void;
 }) {
-  const places = topics.filter((t) => story.topics.some((l) => (l.parent || l.slug) === t.id));
+  const places = topics.filter((t) => inTopic(story, t));
   const leaf = story.topics.find((l) => l.parent)?.name;
   return (
     <article className={`card ${isSeen(profile, story) ? 'read' : ''}`}>

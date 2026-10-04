@@ -8,7 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
 from tributary.config import SourceConfig
@@ -50,6 +50,8 @@ class SourceRow:
     name: str
     url: str | None
     state: dict
+    options: dict = field(default_factory=dict)
+    origin: str = "config"
 
 
 # Items older than this are dropped at ingest instead of inserted, and the
@@ -80,10 +82,12 @@ class IngestResult:
 def sync_sources(conn: sqlite3.Connection, configs: list[SourceConfig]) -> list[SourceRow]:
     """Reconcile the config file's sources into the database.
 
-    The config file is the source of truth for which sources exist and their
-    options; the database keeps identity and fetch state across runs. Sources
-    dropped from the config are disabled rather than deleted, so their items
-    survive.
+    The config file is the source of truth for which of *its* sources exist and
+    their options; the database keeps identity and fetch state across runs.
+    Sources dropped from the config are disabled rather than deleted, so their
+    items survive. Sources a reader added (`origin = 'reader'`, the redesign)
+    are not the config's to switch off: `readers.reconcile_sources` enables them
+    while some topic uses them.
     """
     with transaction(conn):
         configured = {(c.kind, c.name) for c in configs}
@@ -99,7 +103,9 @@ def sync_sources(conn: sqlite3.Connection, configs: list[SourceConfig]) -> list[
                 """,
                 (cfg.kind, cfg.name, cfg.url, json.dumps(cfg.options), int(cfg.enabled)),
             )
-        for row in conn.execute("SELECT id, kind, name FROM sources WHERE enabled = 1"):
+        for row in conn.execute(
+            "SELECT id, kind, name FROM sources WHERE enabled = 1 AND origin = 'config'"
+        ):
             if (row["kind"], row["name"]) not in configured:
                 conn.execute("UPDATE sources SET enabled = 0 WHERE id = ?", (row["id"],))
 
@@ -110,9 +116,12 @@ def sync_sources(conn: sqlite3.Connection, configs: list[SourceConfig]) -> list[
             name=r["name"],
             url=r["url"],
             state=json.loads(r["state"]),
+            options=json.loads(r["config"] or "{}"),
+            origin=r["origin"],
         )
         for r in conn.execute(
-            "SELECT id, kind, name, url, state FROM sources WHERE enabled = 1 ORDER BY kind, name"
+            "SELECT id, kind, name, url, state, config, origin FROM sources "
+            "WHERE enabled = 1 ORDER BY kind, name"
         )
     ]
 

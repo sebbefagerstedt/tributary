@@ -1073,6 +1073,21 @@ as the corpus grows. For triage, `trib triage --by-source` should show a
 gradient — research feeds 80–100% kept, general tech 20–30% — and a uniform
 rate means the profile is measuring text length, not relevance.
 
+## The redesign's backend, beside version 1
+
+Step 2 of `NEXT.md` lives in the same code without changing what version 1
+does. Migration 009 adds `profiles`, `reader_topics`, `reader_topic_sources`
+and `reader_seen`, and an `origin` column on `sources`: `config` for the ones in
+`config.toml`, `reader` for a feed a reader found. **`sync_sources` only ever
+disables `config` sources**, so a config edit cannot switch off a reader's;
+`readers.reconcile_sources` enables a reader source while some topic uses it.
+`readers.py` holds profiles and topics, `suggest.py` turns a subject or a site
+into candidate sources with previews, and `api.py` serves both under
+`/api/next/` plus the built page (`web-next/dist`) at `/next/`. The embedding
+model is injected, as everywhere: `save_topic` embeds a topic's description only
+after its sources validate, and a model that cannot load leaves the topic saved
+without a vector rather than failing the request.
+
 ## How it runs
 
 `.github/workflows/update.yml` runs `trib run`, `trib prune --days 60` and

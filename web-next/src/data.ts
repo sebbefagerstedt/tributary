@@ -10,7 +10,7 @@ export interface Item {
 export interface Story {
   story_id: number; title: string; summary: string | null; url: string; kind: string;
   source: string; sources: number; published_at: string | null; last_activity: string | null;
-  item_count: number; media_url: string | null; topics: Label[]; items: Item[];
+  item_count: number; media_url: string | null; centroid?: string | null; topics: Label[]; items: Item[];
 }
 export interface Bundle {
   generated_at: string;
