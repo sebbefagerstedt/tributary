@@ -34,8 +34,9 @@ readers find their own sources, the app no longer has to guess.
 
 ## Design principles
 
-1. **You follow topics, and every topic shows its sources.** A topic is not a
-   black box: open it and see exactly which sources feed it. Search for new
+1. **You follow topics, and every topic's sources can be seen and changed.**
+   A topic is not a black box, but its sources stay in the background: shown
+   properly when the topic is created, then kept in its settings. Search for new
    sources and add them to the topic; remove the ones that do not fit. The app
    suggests, the reader decides — nothing joins a topic without their say-so,
    the same propose-then-accept rule the current app uses for topics and
@@ -76,14 +77,26 @@ The user should be able to search for new sources and add them to the topic and
 remove sources that does not fit."*
 
 So the unit you follow stays the **topic**, as in the current app. What changes
-is that a topic carries its **source list in the open**:
+is that a topic's sources can always be seen and changed — but **quietly**.
+Refined the same day: *"it should not be too visual what the sources are. When
+you first "create" a topic it should be a good UI so it is clear what sources
+it found and suggest. And an option to include all or select a few. But when
+you already have a topic it should be more like settings where you can click
+and change."* So sources get two different treatments:
 
-- **Each topic lists the sources feeding it**, visible on the topic itself —
-  where the news comes from is never hidden.
-- **Search to add.** From inside a topic, search for sources (by subject, name
-  or pasted site), preview one, add it to that topic.
-- **Remove what does not fit.** One tap takes a source out of a topic; it stops
-  feeding that topic and nothing else changes.
+- **Creating a topic is the one moment sources are the main event.** A proper
+  screen shows what the app found and suggests — each source with its preview
+  (latest headlines, how often it publishes) — with **Include all** as the easy
+  path and the option to pick only some. Clear and inviting, because this is
+  where the reader decides where their news comes from.
+- **After that, sources live in the topic's settings**, out of the way of the
+  news. Reading a topic shows stories, not source lists. Behind a settings
+  entry on the topic: the sources it uses, each removable with a tap, and a
+  search to add more at any time. Transparent when asked for, invisible when
+  not.
+- **Search to add, remove what does not fit** — from those settings: search by
+  subject, name or pasted site, preview, add; one tap takes a source out of
+  that topic and nothing else changes.
 - **A source can feed several topics**, and the same source fetched once serves
   every topic and every reader that uses it.
 - **Starter topics come with starter sources** — the AI tree today is such a
