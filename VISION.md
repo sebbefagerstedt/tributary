@@ -123,8 +123,15 @@ the topic's name. Removing a source from a topic affects only that topic.
 
 *"I would actually like a view where you can explore your tree it would be
 cool."* Your topics, the subtopics under them, the sources feeding each, and the
-related topics around them, seen whole. An outline you fold, a map of nodes, or
-both — to be decided in the mockups.
+related topics around them, seen whole — as an **interactive graph**: nodes for
+topics, subtopics and sources, colour-coded by kind, with lines for how they
+connect (a subtopic to its topic, a source to the topics it feeds, a related
+topic to its neighbour). Decided 2026-10-04 from a reference the owner sent —
+[Magnowlia's ontology graph](docs/reference/tree-view-magnowlia.png) — *"Tree
+view similar to this but prettier."* The reference shows the shape (coloured
+boxes, curved links, a canvas you explore); the new one should be calmer and
+more beautiful: fewer crossing lines, room to breathe, and tapping a node opens
+that topic.
 
 ## The model
 
@@ -134,16 +141,23 @@ both — to be decided in the mockups.
 | **Item** | One entry from a source: title, short summary, link, date, picture, vector. Expires after a fixed window. |
 | **Story** | Items about the same event, grouped — the unit you read, as in version 1. |
 | **Topic** | Yours. A name, a short description (embedded, so it can be compared), the sources you chose for it, optional muted words, and optionally a parent topic — subtopics are topics with a parent. |
-| **Your tree** | Your topics and how they nest. On a device for now; with an account once there is a server. |
+| **Your tree** | Your topics and how they nest, under your profile. |
+| **Profile** | A name you create, nothing else — no password for now (decided 2026-10-04: *"Keep it simple and let the user create a profile for now, no password yet"*). Version 1 already works this way. Real sign-in comes later. |
 
 **How a story gets into a topic.** A story is in your topic when it comes from
-one of the topic's sources **and** fits the topic. A dedicated source (a lab's
-own blog in a model-releases topic) nearly always fits; a general source (Hacker
-News, a tech site) writes about everything, and only its stories that match the
-topic's description by embedding reach the topic. Muted words then take out
-what you never want to see. *Open:* whether "fit" is always automatic, or each
-source in a topic gets a visible choice between "everything" and "only what
-fits".
+one of the topic's sources; muted words then take out what you never want to
+see. **A general source is the reader's call** (decided 2026-10-04): Hacker
+News or a broad tech site writes about everything, and if it is suggested for a
+topic, the reader sees that in its preview — how much it publishes, what its
+headlines are about — and decides whether to include it. *"I guess if it comes
+as a suggestion it is up to the user."* An automatic "only what fits" filter
+by embedding can be added later if general sources turn out to flood topics.
+
+**A story can sit in several of your topics, and is read once** (decided
+2026-10-04). If it belongs to two of your topics it appears in both; once you
+have seen it in either, it is read everywhere — as seen marks already work in
+version 1. Version 1's "one home per story" was for one shared tree; a
+personal tree does not need it.
 
 **The embedding layer is the tree's engine**, kept from version 1 on the owner's
 call: *"the relations can be used to find similar topics and of course to auto
@@ -223,23 +237,24 @@ than offering them.
 
 | Setup | What it tests | How |
 |---|---|---|
-| **GitHub Pages** | First run, reading, layouts, topic settings, the tree view — with a fixed menu of starter subjects and a catalogue of sources the scheduled job already fetches | The new frontend published next to version 1 (for example under `/next/`), reading the bundle the current pipeline produces. Every device that has never opened it is a new reader. |
-| **The owner's computer** | The same app plus **real discovery** of any subject or site | `trib serve` delivers both the new page and a discovery endpoint (built on today's `trib sources --suggest`). Phone on the same Wi-Fi: `--host 0.0.0.0`; away from home: a free tunnel (Cloudflare Tunnel or Tailscale) while the computer is on. The page and the endpoint come from the same server, because a page on Pages cannot call a plain-http server on another device. |
+| **GitHub Pages** | Reading, layouts, topic settings, the tree view — over the sources the scheduled job already fetches | The new frontend published next to version 1 (for example under `/next/`), reading the bundle the current pipeline produces. Every device that has never opened it is a new reader. |
+| **The owner's computer** | The same app plus **suggestions and discovery** — the first run's "here is what we found", creating a topic, and adding sources — for real, for any subject or site | `trib serve` delivers both the new page and a discovery endpoint (built on today's `trib sources --suggest`). Phone on the same Wi-Fi: `--host 0.0.0.0`; away from home: a free tunnel (Cloudflare Tunnel or Tailscale) while the computer is on. The page and the endpoint come from the same server, because a page on Pages cannot call a plain-http server on another device. |
+
+**Suggestions are built on the real backend, not faked.** Decided 2026-10-04:
+*"Lets wait with suggestions until I setup the backend on my computer. I do not
+want to take too many shortcuts now."* So suggesting and discovering sources is
+designed and tested only on the owner's computer, with real fetching — no
+hand-made catalogue standing in for it on Pages.
 
 ## Open questions
 
-- **Where suggestions come from, without paying for search.** Candidates: a
-  starter catalogue curated by hand; sites linked from sources already used;
-  Reddit and Hacker News domains for a subject; public feed directories and OPML
-  collections. A search API works and costs money. None measured yet.
-- **What a general source puts in a topic** — automatic fit, or a visible
-  per-source choice (see The model).
-- **One home or several within your tree?** Version 1 gave each story exactly
-  one topic, because a shared spine needed that (`CLAUDE.md` has the
-  measurements). In a personal tree a story fitting two of your topics may
-  belong in both; to be decided with real use.
-- **How the tree view looks** — outline, map, or both.
-- **Identity**, once there is a server: emailed link or Google/GitHub sign-in.
+- **Where suggestions come from, without paying for search** — to be worked out
+  once the backend runs on the owner's computer. Candidates: sites linked from
+  sources already used; Reddit and Hacker News domains for a subject; public
+  feed directories and OPML collections; a starter catalogue as a seed. A search
+  API works and costs money. None measured yet.
+- **Real sign-in**, later: emailed link or Google/GitHub. For now a profile is
+  just a name.
 
 ## What carries over from version 1
 
