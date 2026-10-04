@@ -602,10 +602,14 @@ vocabulary — paper, model, repo, video, discussion, article, post — used by
 both. A *story* is still a different unit from any of them: it is the cluster,
 which is why counts say "6 stories" while a card in it is badged `article`.
 
-**The digest counts unseen, not "since a timestamp".** Seen marks are already
-per story and per device, and a count you clear by reading beats one that
-resets itself at midnight. Counts are over the stories in the bundle, so they
-always match what tapping through shows.
+**"New" is unread and under 48 hours old.** Seen marks are per story and per
+device, and a count you clear by reading beats one that resets itself at
+midnight — but unread alone stopped working once the bundle held thirty days:
+every circle and tile counted a month, and a circle played two hundred stories
+to reach today's. Reported 2026-10-04: *"news should not be marked as new
+unless they are under 48 hours old … I still want to have the opportunity to
+look at more"*. So `isNew` is the one test every count, ring and playlist uses;
+older unread stories stay in the feed to scroll to, they just stop being news.
 
 ### Ranking
 
