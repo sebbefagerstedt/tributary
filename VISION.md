@@ -1,20 +1,24 @@
-# Tributary — the vision, for the rebuild
+# Tributary — the spec for the redesign
 
-Written 2026-10-04, when the idea changed shape. **This file is meant to outlive
-the code.** The app will be rebuilt on a different deployment, and most of what
-is in this repo will be replaced; this is what should not be. `CLAUDE.md`
-explains how the current app works and why; this explains what the next one is
-for.
+**This is the design of the next Tributary, and the file to read first.** It is
+meant to outlive the code: the app is being redesigned from scratch, and most of
+this repo will be replaced. Written 2026-10-04 from a day of decisions with the
+owner, consolidated into one pass so nothing here contradicts anything else.
+
+- `CLAUDE.md` describes **version 1**, the app that runs today, and what
+  building it taught. Where the two disagree, this file wins for the redesign;
+  `CLAUDE.md` stays as the record of lessons.
+- `NEXT.md` is the roadmap: the steps from here to the redesign, in order.
 
 ## The idea
 
-**Tributary is a platform for building your own news, not a news app with fixed
-sources.** Each reader grows their own news tree: they find sources, choose
-which to keep, and arrange what arrives into subjects that mean something to
-them. The current AI feed is one example of a tree, offered as a starting point
-and never imposed.
+**Tributary is a platform for building your own news.** You follow topics, and
+you decide where each topic's news comes from: the app finds and suggests
+sources, you choose which ones to keep, and your topics grow into your own news
+tree. Version 1 was one person's AI feed with a fixed source list; its AI topics
+become one starter example among others.
 
-In the owner's words, 2026-10-04:
+In the owner's words:
 
 > Tributary should be a platform to be able to personalise news. So a user
 > should be able to create their news tree themself. […] So it is less of an app
@@ -24,256 +28,235 @@ In the owner's words, 2026-10-04:
 > entire reason why is has felt unscaleable. To have a user find and choose on
 > their own is sooo much better.
 
-### Why this replaced the old shape
+**Why the idea changed.** Version 1 has one source list in `config.toml`,
+fetched for everyone by a scheduled job. Every new subject meant the owner
+finding its sources by hand, and every reader got the owner's choices — that is
+what felt unscalable, not the storage, which is small. When readers choose
+their own sources, the app no longer has to know in advance what everyone
+wants.
 
-The current app has one source list in `config.toml`, fetched for everyone by a
-scheduled job. Every new subject meant the owner finding its sources by hand,
-and every reader got the owner's choices. That is what felt unscalable: not the
-storage, which is small, but having to know in advance what everyone wants. Once
-readers find their own sources, the app no longer has to guess.
+**What it is for has not changed.** Replace a social-media scrolling habit with
+something worth the time — *"något vettigt"* — keeping the form of those apps
+and none of their hooks.
 
 ## Design principles
 
-1. **You follow topics, and every topic's sources can be seen and changed.**
-   A topic is not a black box, but its sources stay in the background: shown
-   properly when the topic is created, then kept in its settings. Search for new
-   sources and add them to the topic; remove the ones that do not fit. The app
-   suggests, the reader decides — nothing joins a topic without their say-so,
-   the same propose-then-accept rule the current app uses for topics and
-   entities. See "A topic is its sources, made visible" below.
-2. **Start from examples, never from nothing.** A new reader picks from starter
-   trees — the AI tree that exists today, and others — so the first screen is
-   news, not a form.
-3. **Fetch only what someone follows, once.** A source is fetched if at least one
-   reader follows it, and once however many do. Nothing nobody follows is
-   fetched or kept. This is what makes "personal" affordable: cost grows with
-   what people chose, never with the size of the internet.
-4. **Keep headlines and links, not the news.** Store a title, a short summary, a
-   link, a date and a vector, for a limited time. The article stays on the
-   publisher's site. Old items expire; nothing is archived "just in case".
-5. **Discovery needs the open web, so the app needs a server.** Finding sources
-   a reader asks for cannot be done in advance or from a static page. The
-   rebuild is a real deployment with network access and accounts — see below.
-6. **Shared knowledge emerges from many readers, later.** Once there are users,
-   sources and subjects that many people follow become the best suggestions
-   for the next person ("people who follow X also follow Y"), and a subject
-   many people build in the same place is a candidate for a shared one. Until
-   then, nothing pretends to know.
-7. **Replace the scroll habit's content, keep its form.** Unchanged from the
-   current ground rules: borrow the large, image-led, immersive form of social
-   apps and never their hooks. No autoplay timers, no endless refill, no
-   ranking tuned to keep you scrolling, no learning from time spent.
-8. **No LLM by default.** Local embeddings do the understanding — grouping items
-   into stories, matching subjects, judging whether a suggested source fits.
-   Anything that needs a paid model is optional and priced.
+1. **You follow topics, and you decide where they get their news.** Every topic
+   has sources you chose, and you can always see and change them — quietly, in
+   the topic's settings, never in the way of the news.
+2. **The app suggests; you decide.** Nothing joins a topic without your say-so.
+   Suggested sources, proposed subtopics and similar topics are offered and
+   accepted, never added silently.
+3. **Never start empty.** The first run ends in a feed with news in it, built
+   from what you said you care about, using starter topics with starter sources.
+4. **Fetch only what someone uses, and only once.** A source is fetched while at
+   least one topic uses it, once however many do. Cost grows with what people
+   chose, never with the size of the internet.
+5. **Keep headlines and links, not the news.** A title, a short summary, a link,
+   a date and a vector, for a limited time. The article stays on the
+   publisher's site; old items expire.
+6. **Keep the form of social apps, never their hooks.** Large, image-led,
+   immersive and fast to scan. No autoplay timers, no feed that refills itself
+   as you reach the end, no ranking that learns from your behaviour, no
+   notifications you did not ask for. A clear "you're all caught up" is a place
+   to stop.
+7. **No paid AI by default.** Local embeddings do the understanding: grouping
+   articles into stories, placing them in topics, proposing subtopics, judging
+   whether a source fits. Anything that needs a paid model is optional and
+   priced.
+8. **Lightweight first.** *"The first version needs to be lightweight. I do not
+   want unnecessary features."* Every feature in the first version below earns
+   its place; everything else waits.
+9. **What many people choose helps the next person — later.** Once there are
+   users, topics and sources that many follow become the best suggestions.
+   Until then, nothing pretends to know.
 
-## A topic is its sources, made visible
+## The core flows
 
-Clarified by the owner on 2026-10-04, correcting an earlier draft that had
-readers following *sources*: *"I do not want to follow sources. I want to follow
-topics, what i mean is that it should be possible to choose the sources tied to
-a topic. It is same as before but more transparent where the info comes from.
-The user should be able to search for new sources and add them to the topic and
-remove sources that does not fit."*
+### First run
 
-So the unit you follow stays the **topic**, as in the current app. What changes
-is that a topic's sources can always be seen and changed — but **quietly**.
-Refined the same day: *"it should not be too visual what the sources are. When
-you first "create" a topic it should be a good UI so it is clear what sources
-it found and suggest. And an option to include all or select a few. But when
-you already have a topic it should be more like settings where you can click
-and change."* So sources get two different treatments:
+The first time a device opens the app — a device with nothing stored is a new
+reader, so this works without accounts:
 
-- **Creating a topic is the one moment sources are the main event.** A proper
-  screen shows what the app found and suggests — each source with its preview
-  (latest headlines, how often it publishes) — with **Include all** as the easy
-  path and the option to pick only some. Clear and inviting, because this is
-  where the reader decides where their news comes from.
-- **After that, sources live in the topic's settings**, out of the way of the
-  news. Reading a topic shows stories, not source lists. Behind a settings
-  entry on the topic: the sources it uses, each removable with a tap, and a
-  search to add more at any time. Transparent when asked for, invisible when
-  not.
-- **Search to add, remove what does not fit** — from those settings: search by
-  subject, name or pasted site, preview, add; one tap takes a source out of
-  that topic and nothing else changes.
-- **A source can feed several topics**, and the same source fetched once serves
-  every topic and every reader that uses it.
-- **Starter topics come with starter sources** — the AI tree today is such a
-  set — which the reader then edits.
+1. **What do you care about?** One screen of subjects to tap, or type your own.
+2. **Here is what we found.** For each pick, a starter topic and its suggested
+   sources, each with a preview. **Include all** is the one-tap path; picking
+   some is the other.
+3. **News, straight away.** You land in your own feed with stories in it.
+4. **A light pointer to the rest** — your tree, the layout switch — shown once.
 
-**Open question: what a general source puts in a topic.** A dedicated source
-(a lab's blog in "Frontier model releases") can feed its topic whole. A general
-one (Hacker News, a tech site) writes about everything, so its items should
-reach a topic only when they fit it — which is what the embedding match the
-current app uses for homing stories already decides. Whether that is automatic
-per source, or a per-source "everything / only what fits" choice the reader
-can see, is to be decided.
+This is the "hook" the owner asked for, in the good sense: a welcome that gets
+you to your own news fast. It is not an engagement hook (principle 6).
 
-## The tree, and how you look at it
+### Creating a topic
 
-Added 2026-10-04, the same day.
+The one moment sources are the main event — *"When you first "create" a topic
+it should be a good UI so it is clear what sources it found and suggest. And an
+option to include all or select a few."* Name a subject or paste a site; the app
+shows what it found, each source with its **preview** (latest headlines, and how
+many items a week it publishes, so a source that posts forty times a day is seen
+before it floods the topic). **Include all**, or pick some.
 
-**The embedding layer stays, as the tree's engine.** The current app already
-builds an ontology from local embeddings — topics, the subtopics under them,
-names, and stories — and the owner wants it kept: *"The embedding layer we have
-now to create a ontology tree is very nice. I think it will be useful in some
-way, the relations can be used to find similar topics and of course to auto
-create the subtopics."* In a personal tree that becomes:
+### Reading
 
-- **Subtopics proposed automatically.** When a subject fills up, clustering what
-  sits in it (what `trib topics --suggest` does today) proposes the subtopics
-  under it. The reader names and accepts them; nothing is added silently.
-- **Similar topics from the relations.** Topic vectors sit in one space, so
-  "near this" is a cosine away: related subjects to explore, a synonym caught
-  before it becomes a duplicate, and a new source's items placed where they fit
-  in the tree.
-- **The same vectors judge suggestions.** A candidate source is embedded and
-  compared with the subject the reader asked for before it is offered.
+Wherever you stand — everything you follow, one topic, one subtopic — you see
+its stories, and you choose **how** to see them with a layout switch, the way
+Instagram switches a profile between grid and list: *"it does not have to be in
+different tabs in the new app. Think like instagram and most sites where you can
+choose which layout you want."* The formats people liked in version 1 are the
+starting point: tiles and circles for an overview, big cards for reading, and
+circles that play a topic's new stories full screen, one at a time, with no
+timer. **New** means unread *and* under 48 hours old; older stories stay
+reachable but stop counting. The end of what is new says **you're all caught
+up**.
 
-**A view where you explore your own tree.** *"I would actually like a view where
-you can explore your tree it would be cool."* The tree is the reader's own
-creation, so it deserves a place to be seen whole — subjects, their subtopics,
-the sources feeding each, and the related subjects around them — not only a
-list of follows. How it looks is open: an outline you fold, a map of nodes, or
-both.
+### A topic's settings
 
-**Layouts, not tabs.** *"I want to keep a similar format with the topics and
-feed view, but it does not have to be in different tabs in the new app. Think
-like instagram and most sites where you can choose which layout you want."*
-Today Topics (circles and tiles, the map) and Feed (big cards, the reader) are
-separate tabs. In the rebuild they are **layouts of the same place**: wherever
-you stand — everything, a subject, a subtopic — you pick how to see it, the way
-Instagram switches a profile between a grid and a list. The formats themselves
-stay; the tab bar that separates them does not have to.
+After creation, sources step back — *"when you already have a topic it should
+be more like settings where you can click and change."* Behind a settings entry
+on the topic: the sources it uses, each removable with one tap; a search to add
+more at any time (by subject, name or pasted site, with the same preview);
+**muted words**, to hide anything mentioning, say, "crypto" in this topic; and
+the topic's name. Removing a source from a topic affects only that topic.
 
-## What the rebuild needs
+### Exploring your tree
 
-| Piece | What it does |
+*"I would actually like a view where you can explore your tree it would be
+cool."* Your topics, the subtopics under them, the sources feeding each, and the
+related topics around them, seen whole. An outline you fold, a map of nodes, or
+both — to be decided in the mockups.
+
+## The model
+
+| Thing | What it is |
 |---|---|
-| **Source discovery** | Turns "I want AI video news" or a pasted site into candidate feeds, checks each one parses, and offers a few. Feed autodiscovery (`<link rel="alternate">`, well-known paths, news sitemaps) is built today as `trib sources --suggest` (`discover.py`) and carries over. Finding *which sites* to try from a subject is the open part (below). |
-| **A shared source catalogue** | Every source anyone follows, fetched on a schedule once each, with health and last error, as today's `sources` table. |
-| **Per-reader trees** | Which sources and subjects each reader follows, stored with an account rather than in one phone's `localStorage`. |
-| **The pipeline, per source** | Today's stages — fetch, describe, embed, cluster, label — still apply; they just run over the union of what readers follow. |
-| **Expiry** | Items deleted after a fixed window; sources nobody follows stop being fetched. |
-| **The reader** | Today's formats are the starting point — tiles and circles, big cards, circles that play what is new, "new" meaning unread and under 48 hours old — but as switchable layouts of one place rather than tabs, plus a view to explore your whole tree. |
-| **The ontology** | Today's embedding layer: subtopics proposed from clusters, similar topics from vector relations, and candidate sources judged against the subject asked for. |
+| **Source** | A feed (RSS, Atom, a news sitemap, or a special adapter such as arXiv, Hacker News, GitHub releases). Shared: fetched once for everyone who uses it, with its health and last error. |
+| **Item** | One entry from a source: title, short summary, link, date, picture, vector. Expires after a fixed window. |
+| **Story** | Items about the same event, grouped — the unit you read, as in version 1. |
+| **Topic** | Yours. A name, a short description (embedded, so it can be compared), the sources you chose for it, optional muted words, and optionally a parent topic — subtopics are topics with a parent. |
+| **Your tree** | Your topics and how they nest. On a device for now; with an account once there is a server. |
 
-### Open questions to settle before building
+**How a story gets into a topic.** A story is in your topic when it comes from
+one of the topic's sources **and** fits the topic. A dedicated source (a lab's
+own blog in a model-releases topic) nearly always fits; a general source (Hacker
+News, a tech site) writes about everything, and only its stories that match the
+topic's description by embedding reach the topic. Muted words then take out
+what you never want to see. *Open:* whether "fit" is always automatic, or each
+source in a topic gets a visible choice between "everything" and "only what
+fits".
 
-- **Where suggestions come from, without an API key.** Candidates to test: a
-  starter catalogue curated by hand; sites that already appear in followed
-  sources' links (which this repo already extracts); Reddit and Hacker News
-  domains for a subject; public feed directories and OPML collections. A search
-  API would work and costs money. None of these has been measured.
-- **How a suggestion is judged before it is offered.** Fetch it, check it parses,
-  embed a few recent items and compare them with what the reader asked for.
-- **Hosting and identity.** `NEXT.md` has the notes from the multiple-users work:
-  a free tier (Cloudflare Workers with D1) has the headroom, and a login of some
-  kind is unavoidable once trees live on a server.
-- **What can be tried before the rebuild, for free.** A prototype of the new
-  page on GitHub Pages, reading the `data.json` the current workflow already
-  publishes, with topics showing their sources and the reader editing which
-  sources a topic uses, from a larger catalogue the workflow fetches. Searching
-  the open web for brand-new sources needs a server, but that server can be
-  the owner's own computer: `trib serve` plus a discovery endpoint built on
-  `trib sources --suggest`, reachable from a phone through a free tunnel
-  (Cloudflare Tunnel or Tailscale) while the computer is on. Enough to learn
-  whether the design feels usable before paying for hosting.
+**The embedding layer is the tree's engine**, kept from version 1 on the owner's
+call: *"the relations can be used to find similar topics and of course to auto
+create the subtopics."*
 
-## Features for the first version — and what was left out on purpose
+- **Subtopics, proposed.** When a topic fills up, clustering its stories
+  proposes subtopics; you name and accept them.
+- **Similar topics, from the relations.** Topic vectors sit in one space, so
+  "related to this" is a cosine away — something to explore, and a duplicate
+  caught before it is made.
+- **Suggestions, judged.** A candidate source's recent items are embedded and
+  compared with the topic before it is offered.
 
-From a scan of similar apps on 2026-10-04 (Feedly, Inoreader, NewsBlur, Ground
-News, Particle, Artifact, Bluesky), filtered by the owner's rule: *"the first
-version needs to be lightweight. I do not want unnecessary features."*
+## The first version
 
-**First version** — small, and each one serves the reader choosing for
-themselves:
+Built on the flows above, and nothing more. From a scan of similar apps
+(Feedly, Inoreader, NewsBlur, Ground News, Particle, Artifact, Bluesky), four
+features earn a place:
 
-1. **Preview a source before adding it to a topic** — its latest headlines and
-   how many items a week it publishes, so a source that posts forty times a
-   day is seen before it floods a topic. This is what makes "the reader chooses"
-   work: choosing well needs something to judge by.
-2. **Mute words and sources** — the opposite of a follow: hide anything that
-   mentions "crypto", or one source inside one subject. Feedly ships it as mute
-   filters, NewsBlur as "Hide". A word match, and the direct answer to "I got
-   too much".
-3. **Import and export sources as OPML**, the standard file every feed reader
-   speaks — its folders map onto topics, so a new reader brings their old
-   sources in one go, and a tree is never locked in.
-4. **"You're all caught up"** — a clear end once everything new is seen, as
-   Instagram added. The end of the feed is a place to stop, not a refill.
+1. **Source previews** — in topic creation and settings.
+2. **Muted words** — per topic, in its settings.
+3. **OPML import and export** — the standard file every feed reader uses; its
+   folders map onto topics, so a reader brings their old sources in one go and
+   is never locked in.
+4. **"You're all caught up"** — at the end of what is new.
 
-**Later, once there are users:**
+**Later, once there are users:** shareable topics and trees, as links others can
+adopt (how "what many follow" starts); opt-in alerts for one topic, off by
+default.
 
-5. **Shareable trees and starter packs** — share a tree, or one subject in it,
-   as a link others can adopt (Bluesky's custom feeds work this way). This is
-   also how "topics and sources many people follow" starts.
-6. **Opt-in alerts for one subject** — a push when something lands in a subject
-   marked important. Off by default: notifications are the classic hook.
-
-**Considered and left out**, so they are not reconsidered without a reason:
+**Left out on purpose**, so they are not reconsidered without a reason:
 
 - **AI summaries and rewritten headlines** (Artifact, Particle) need a paid
-  model. Particle's core — grouping articles about one event by embeddings —
-  is what Tributary's stories already do, without one.
-- **Bias ratings and "blindspots"** (Ground News) lean on outside rating
-  services, and are the "Verifierad" idea the owner removed on 2026-09-23.
-- **Rules engines** (Inoreader's auto-tag, auto-archive, send to Slack) are
-  heavy and built for analysts.
-- **Like/dislike training** (NewsBlur) is learning from behaviour, which
-  `CLAUDE.md` rules out.
-- **A warning from the scan:** Artifact, by Instagram's founders and full of AI
-  features, shut down in 2024 when growth stalled. Lightweight is the safer bet.
+  model. Grouping articles about one event — Particle's core — Tributary
+  already does with local embeddings.
+- **Bias ratings and "blindspots"** (Ground News) rely on outside rating
+  services; the owner removed the related "Verifierad" idea on 2026-09-23.
+- **Rules engines** (Inoreader) — heavy, and built for analysts.
+- **Like/dislike training** (NewsBlur) and any ranking that learns from what you
+  do — principle 6.
+- **Posting and commenting** were designed for version 1 (the notes are in git
+  history, see `NEXT.md`); they wait until there are users to write.
+
+A warning from the scan: Artifact, by Instagram's founders and full of AI
+features, shut down in 2024 when growth stalled. Lightweight is the safer bet.
 
 ## Technology
 
-**Decided 2026-10-04:**
+**Decided:**
 
-- **The backend stays Python.** The pipeline, the embedding model, clustering
-  and the measured thresholds all carry over as they are. *"Ok python is fine
-  for the backend."*
-- **The frontend is rebuilt in a real frontend stack**, replacing today's single
-  HTML file with no build step. *"The frontend needs to be a frontend language.
-  I do not want to lose functionality or design because it should be simple."*
-  Simple means a small, clear codebase — **not** fewer features or a plainer
-  look. **The current design itself is thrown away** (*"I want to throwaway
-  the current design"*, the same day): the new page is designed fresh rather
-  than ported, and the current page's behaviour, recorded decision by decision
-  in `CLAUDE.md`, is a checklist of lessons rather than a template. The JSON contract between
-  backend and page already exists and keeps the two independent. Which
-  framework is not decided yet.
+- **The backend stays Python** — the pipeline, the embedding model
+  (bge-small-en-v1.5, local), clustering and the measured thresholds carry over.
+  *"Ok python is fine for the backend."*
+- **The frontend is a new app in a real frontend framework**, replacing version
+  1's single HTML file. *"The frontend needs to be a frontend language. I do not
+  want to lose functionality or design because it should be simple."* Simple
+  means a small, clear codebase, not fewer features or a plainer look. **Version
+  1's design is thrown away** — the new one is designed fresh, and version 1's
+  recorded decisions are a checklist of lessons, not a template. Framework not
+  chosen yet; Svelte is the suggestion, for doing a lot of interface in little
+  code.
+- **Backend and frontend talk through JSON**, as in version 1, so either can be
+  replaced without the other.
 
-**Hosting — the leading option, not decided.** The cheapest setup that runs
-today's Python as it is: **one small rented Linux server** (Hetzner's smallest
-cloud server was about €4–5 a month — check the current price), running the
-API, the scheduled fetching and SQLite, with Caddy for HTTPS; nightly database
-backups to a free storage tier (Cloudflare R2 or Backblaze B2); email sign-in
-links through a free tier (e.g. Resend) or sign-in with Google or GitHub; and
-an optional domain. Roughly €5 a month in all. Serverless platforms are cheaper
-on paper but cannot run the embedding model, which would force a rewrite of the
-core. Oracle Cloud's free tier is the free alternative, at the price of a
-fiddlier signup. One caveat: a rented server is a cloud IP too, so sources that
-block GitHub Actions (Substack) may block it as well — discovery should say so
-rather than offer them.
+**Hosting — the leading option, not decided.** One small rented Linux server
+(Hetzner's smallest was about €4–5 a month; check the current price) running the
+API, the scheduled fetching and SQLite, with Caddy for HTTPS; nightly backups to
+a free storage tier (Cloudflare R2 or Backblaze B2); sign-in by emailed link
+(a free tier such as Resend) or with Google or GitHub; an optional domain.
+About €5 a month. Serverless platforms cannot run the embedding model, which
+would force a rewrite of the core; Oracle Cloud's free tier is the free
+alternative, with a fiddlier signup. A rented server is a cloud IP, so sources
+that block cloud IPs (Substack) will block it too — discovery says so rather
+than offering them.
 
-**If it is built in steps**, each is usable on its own: move today's app to the
-server unchanged; then accounts and follows stored per person; then source
-discovery in the app.
+**Testing before paying for anything** — two setups, both free:
 
-## What carries over from the current app
+| Setup | What it tests | How |
+|---|---|---|
+| **GitHub Pages** | First run, reading, layouts, topic settings, the tree view — with a fixed menu of starter subjects and a catalogue of sources the scheduled job already fetches | The new frontend published next to version 1 (for example under `/next/`), reading the bundle the current pipeline produces. Every device that has never opened it is a new reader. |
+| **The owner's computer** | The same app plus **real discovery** of any subject or site | `trib serve` delivers both the new page and a discovery endpoint (built on today's `trib sources --suggest`). Phone on the same Wi-Fi: `--host 0.0.0.0`; away from home: a free tunnel (Cloudflare Tunnel or Tailscale) while the computer is on. The page and the endpoint come from the same server, because a page on Pages cannot call a plain-http server on another device. |
 
-Lessons that cost real work and should not be learned twice, all detailed in
-`CLAUDE.md`:
+## Open questions
+
+- **Where suggestions come from, without paying for search.** Candidates: a
+  starter catalogue curated by hand; sites linked from sources already used;
+  Reddit and Hacker News domains for a subject; public feed directories and OPML
+  collections. A search API works and costs money. None measured yet.
+- **What a general source puts in a topic** — automatic fit, or a visible
+  per-source choice (see The model).
+- **One home or several within your tree?** Version 1 gave each story exactly
+  one topic, because a shared spine needed that (`CLAUDE.md` has the
+  measurements). In a personal tree a story fitting two of your topics may
+  belong in both; to be decided with real use.
+- **How the tree view looks** — outline, map, or both.
+- **Identity**, once there is a server: emailed link or Google/GitHub sign-in.
+
+## What carries over from version 1
+
+Lessons that cost real work, detailed in `CLAUDE.md`:
 
 - **The story is the unit, not the article**, built cheapest-first: a shared
   identifier (arXiv id, DOI, canonical URL) before embedding similarity, and a
-  wrong merge costs more than a missed link.
-- **Following is the filter**, and an empty follow set is an empty feed.
-- **A topic has one home; a reader's own subject is a lens** that cuts across.
-- **Measured values** — merge threshold 0.92, topic floor 0.55 — are in
-  `CLAUDE.md` with how they were measured.
+  wrong merge costs more than a missed link. The measured merge threshold is
+  0.92.
+- **Following is the filter**: an empty follow set is an empty feed, and a
+  feed full before you choose anything is the habit the project replaces.
+- **Version 1's personal "lenses" were a rehearsal of personal topics** — a
+  saved query any reader could make — and showed that per-reader filtering
+  works in the page.
 - **Source findings**: Substack blocks cloud IPs; Reddit needs no key but a real
-  User-Agent; Google News links poison clustering; GDELT rate-limits hard.
-- **The page's design decisions**: big cards, little chrome, back climbs one
-  level, a subject opens like a profile, nothing narrows the feed silently.
+  User-Agent; Google News links break clustering; GDELT rate-limits hard;
+  GitHub's pre-release flag cannot be trusted alone.
+- **Page lessons**: big cards are wanted and chrome is the waste; back climbs
+  one level; a subject opens like a profile; nothing narrows the feed silently;
+  a hidden search is a filter nobody can see; "new" is unread and recent.
