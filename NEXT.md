@@ -3,6 +3,12 @@
 Only upcoming work lives here. **When something is built, delete its entry** —
 history is in git, and the reasoning behind how things work is in `CLAUDE.md`.
 
+**Read `VISION.md` first.** On 2026-10-04 the idea changed: Tributary becomes
+a platform where each reader finds and chooses their own sources and builds
+their own news tree, on a new deployment with a server. That file holds the
+idea and the design principles for the rebuild; the sections below are the
+notes it builds on.
+
 **Two big directions**, named 2026-09-23 once the redesign had landed: *"The big
 things I see now is multiple users, more data from topics outside AI (big
 change)."* Each has a section below, and neither is started until the owner

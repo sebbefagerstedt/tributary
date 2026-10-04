@@ -9,6 +9,11 @@ scan on a phone — live at https://sebbefagerstedt.github.io/tributary/.
 build next**; this file holds everything else: the ground rules, how the code
 fits together, and the decisions that should not be rediscovered.
 
+**`VISION.md` is where the project is going** (2026-10-04): a personal news
+platform where each reader finds and chooses their own sources, on a new
+deployment with a server. It holds the idea and design principles for that
+rebuild and is meant to outlive this code; read it before changing direction.
+
 ## Ground rules
 
 - **No LLM, no API key.** There is no `ANTHROPIC_API_KEY` and the owner does not
