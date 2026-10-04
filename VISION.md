@@ -140,6 +140,19 @@ important that this does not bloat your feed."* So:
   feed; a parent you visited, or a related topic you peeked at, adds nothing.
   The Related row lives on the topic page only, never in the feed, and nothing
   is ever followed on your behalf.
+- **An unfollowed topic opens as a preview** (decided 2026-10-04: *"I would
+  think that a user wants to explore the parent before deciding"*). A parent or
+  related topic you do not follow has no sources of yours, so its page is
+  filled cheapest first: (1) stories the backend already holds — from any source
+  someone uses, starter sources included — that fit the topic by embedding,
+  shown at once; (2) when that is thin, a **live preview**: the backend finds
+  the topic's suggested sources, as topic creation does, and fetches their
+  latest items right then, kept only briefly and never fetched on a schedule,
+  so "fetch only what someone uses" holds; (3) **Follow** turns the preview
+  into a real topic through the usual "Here's what we found" screen. The page
+  shows what is already there immediately and fills in the rest as it arrives;
+  the feed is untouched until you follow. Previews get better as Tributary
+  gets users, since more of the world is already fetched.
 - **Who decides the parent.** A topic from a starter tree knows its parent. A
   topic you made yourself gets one proposed by the embeddings — "This looks
   like part of AI. Show it as a subtopic?" — which you accept or decline, like
