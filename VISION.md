@@ -148,13 +148,16 @@ that topic.
 | **Profile** | A name you create, nothing else — no password for now (decided 2026-10-04: *"Keep it simple and let the user create a profile for now, no password yet"*). Version 1 already works this way. Real sign-in comes later. |
 
 **How a story gets into a topic.** A story is in your topic when it comes from
-one of the topic's sources; muted words then take out what you never want to
-see. **A general source is the reader's call** (decided 2026-10-04): Hacker
-News or a broad tech site writes about everything, and if it is suggested for a
-topic, the reader sees that in its preview — how much it publishes, what its
-headlines are about — and decides whether to include it. *"I guess if it comes
-as a suggestion it is up to the user."* An automatic "only what fits" filter
-by embedding can be added later if general sources turn out to flood topics.
+one of the topic's sources **and** fits the topic; muted words then take out
+what you never want to see. **The fit filter stays, always** — decided
+2026-10-04, replacing an earlier "general sources are the reader's call": *"Yes
+i want to keep the filter. This is really important."* It is what makes broad
+sources usable: add Hacker News to a language-models topic and you get its
+stories about language models, not its stories about databases. Fit is decided
+by the embeddings — the story's vector against the topic's description, as
+version 1 homes stories today. Because of it a source is never labelled "writes
+about everything": a broad source is safe to add, so the warning only added
+noise and was removed the same day.
 
 **A story can sit in several of your topics, and is read once** (decided
 2026-10-04). If it belongs to two of your topics it appears in both; once you

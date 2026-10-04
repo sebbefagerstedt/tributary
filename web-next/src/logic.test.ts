@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Bundle, Story, buildCatalog, isGeneral, shelves, sourcesForShelf } from './data';
+import { Bundle, Story, buildCatalog, shelves, sourcesForShelf } from './data';
 import { Topic, blankProfile, inTopic, isNew } from './state';
 
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3600e3).toISOString();
@@ -63,8 +63,5 @@ describe('the source catalogue', () => {
   });
   it('offers the spine shelves as starter subjects, each with its leaves', () => {
     expect(shelves(bundle).map((s) => [s.slug, s.leaves.length])).toEqual([['agents', 1], ['chips', 0]]);
-  });
-  it('calls a source on five shelves general', () => {
-    expect(isGeneral({ name: 'x', week: 1, latest: [], shelves: new Map([['a', 1], ['b', 1], ['c', 1], ['d', 1], ['e', 1]]) })).toBe(true);
   });
 });

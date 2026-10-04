@@ -1,4 +1,4 @@
-import { Source, Story, agoLabel, isBusy, isGeneral } from './data';
+import { Source, Story, agoLabel, isBusy } from './data';
 import { Profile, Topic, isNew, isSeen } from './state';
 
 export const ICON = {
@@ -63,7 +63,6 @@ export function SourceRow({ src, on, onToggle }: { src: Source; on: boolean; onT
           <div className="sub">
             {src.week.toLocaleString()} this week
             {isBusy(src) && <> · <span className="warn">very busy</span></>}
-            {isGeneral(src) && <> · <span className="warn">writes about everything</span></>}
           </div>
         </div>
         <span className="peek">Preview</span>
