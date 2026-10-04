@@ -13,11 +13,15 @@ There is no authentication, so do not bind it to a public interface.
 from __future__ import annotations
 
 import sqlite3
+import subprocess
+import sys
+import threading
 from contextlib import asynccontextmanager
 from dataclasses import asdict
+from datetime import UTC, datetime
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Body, FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -25,9 +29,14 @@ from tributary import config as config_mod
 from tributary import db as db_mod
 from tributary import export as export_mod
 from tributary import feed as feed_mod
-from tributary import triage
+from tributary import readers, suggest, triage
 
 WEB_DIR = Path(__file__).parent / "web"
+# The redesign's built frontend (`npm run build` in web-next/), served at /next/
+# when it is there. It lives in the repository, not the package: this is for
+# running from a checkout on your own computer (VISION.md, "Testing before
+# paying").
+NEXT_DIR = Path(__file__).resolve().parents[2] / "web-next" / "dist"
 VALID_ACTIONS = {"seen", "opened", "saved", "dismissed"}
 
 
@@ -158,6 +167,105 @@ def create_app(config_path: Path | None = None) -> FastAPI:
         return JSONResponse(
             {"stories": stories, "newest_item": newest, "broken_sources": broken, **counts}
         )
+
+    # --- The redesign's API (VISION.md, NEXT.md step 2) ----------------------
+    # Profiles are names with no password, and this server has no
+    # authentication: run it on your own machine, never on a public interface.
+
+    def _embed(texts):
+        from tributary import embeddings  # loads the model only when needed
+
+        return embeddings.embed(texts)
+
+    def _reader(fn, *args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except readers.ReaderError as exc:
+            raise HTTPException(400, str(exc)) from exc
+
+    @app.get("/api/next/ping")
+    def next_ping() -> JSONResponse:
+        return JSONResponse({"ok": True})
+
+    @app.get("/api/next/profiles")
+    def next_profiles() -> JSONResponse:
+        return JSONResponse({"profiles": readers.list_profiles(conn())})
+
+    @app.post("/api/next/profiles")
+    def next_create_profile(body: dict = Body(...)) -> JSONResponse:  # noqa: B008
+        _reader(readers.ensure_profile, conn(), body.get("name", ""))
+        return JSONResponse(readers.get_profile(conn(), body["name"].strip()[: readers.MAX_NAME]))
+
+    @app.get("/api/next/profiles/{name}")
+    def next_profile(name: str) -> JSONResponse:
+        return JSONResponse(_reader(readers.get_profile, conn(), name))
+
+    @app.patch("/api/next/profiles/{name}")
+    def next_update_profile(name: str, body: dict = Body(...)) -> JSONResponse:  # noqa: B008
+        _reader(readers.update_profile, conn(), name,
+                layout=body.get("layout"), onboarded=body.get("onboarded"))
+        return JSONResponse(readers.get_profile(conn(), name))
+
+    @app.post("/api/next/profiles/{name}/reset")
+    def next_reset(name: str) -> JSONResponse:
+        _reader(readers.reset_profile, conn(), name)
+        return JSONResponse(readers.get_profile(conn(), name))
+
+    @app.put("/api/next/profiles/{name}/topics/{key}")
+    def next_save_topic(name: str, key: str, body: dict = Body(...)) -> JSONResponse:  # noqa: B008
+        topic = _reader(readers.save_topic, conn(), name, {**body, "id": key}, embed=_embed)
+        return JSONResponse(topic)
+
+    @app.delete("/api/next/profiles/{name}/topics/{key}")
+    def next_delete_topic(name: str, key: str) -> JSONResponse:
+        _reader(readers.delete_topic, conn(), name, key)
+        return JSONResponse({"ok": True})
+
+    @app.post("/api/next/profiles/{name}/seen")
+    def next_seen(name: str, body: dict = Body(...)) -> JSONResponse:  # noqa: B008
+        _reader(readers.mark_seen, conn(), name, body.get("story_ids", []))
+        return JSONResponse({"ok": True})
+
+    @app.get("/api/next/discover")
+    def next_discover(q: str = Query(..., min_length=2, max_length=200)) -> JSONResponse:
+        """Sources for a pasted site (found and previewed live) or a subject."""
+        if suggest.looks_like_site(q):
+            return JSONResponse(suggest.for_site(conn(), q))
+        return JSONResponse(suggest.for_subject(conn(), q, _embed))
+
+    # Refresh: after a reader adds sources, fetch and process them now instead
+    # of waiting for the next scheduled run. One at a time, in the background,
+    # as the same `trib run` the schedule uses.
+    refresh: dict = {"running": False, "finished_at": None, "ok": None}
+    refresh_lock = threading.Lock()
+
+    def _run_pipeline() -> None:
+        cmd = [sys.executable, "-m", "tributary.cli", "run"]
+        if state["config"].path:
+            cmd += ["--config", str(state["config"].path)]
+        try:
+            done = subprocess.run(cmd, capture_output=True, text=True, timeout=1800, check=False)
+            refresh["ok"] = done.returncode == 0
+        except (OSError, subprocess.SubprocessError):
+            refresh["ok"] = False
+        finally:
+            refresh["finished_at"] = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+            refresh["running"] = False
+
+    @app.post("/api/next/refresh")
+    def next_refresh() -> JSONResponse:
+        with refresh_lock:
+            if not refresh["running"]:
+                refresh["running"] = True
+                threading.Thread(target=_run_pipeline, daemon=True).start()
+        return JSONResponse(refresh)
+
+    @app.get("/api/next/refresh")
+    def next_refresh_status() -> JSONResponse:
+        return JSONResponse(refresh)
+
+    if NEXT_DIR.is_dir():
+        app.mount("/next", StaticFiles(directory=NEXT_DIR, html=True), name="next")
 
     # The app shell. Mounted last so /api/* wins on any name collision.
     app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")

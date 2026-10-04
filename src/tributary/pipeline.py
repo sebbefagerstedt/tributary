@@ -75,6 +75,9 @@ def fetch_all(
         if only and only.lower() not in row.name.lower():
             continue
         config = by_key.get((row.kind, row.name))
+        if config is None and row.origin == "reader":
+            # A source a reader added lives only in the database.
+            config = SourceConfig(kind=row.kind, name=row.name, url=row.url, options=row.options)
         if config is None:  # disabled between sync and now; nothing to fetch
             continue
         outcomes.append(fetch_source(conn, row, config, dry_run=dry_run, force=force))
