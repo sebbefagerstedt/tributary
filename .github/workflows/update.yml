@@ -27,6 +27,7 @@ on:
     paths:
       - "config.toml"
       - "src/**"
+      - "web-next/**"
       - ".github/workflows/update.yml"
 
 concurrency:
@@ -93,6 +94,22 @@ jobs:
 
       - name: Build the site
         run: uv run trib export site --days 30
+
+      # The redesign (VISION.md), published next to version 1 at /next/ and
+      # reading the same data.json one level up.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web-next/package-lock.json
+
+      - name: Build the redesign
+        working-directory: web-next
+        env:
+          BASE: /tributary/next/
+        run: npm ci && npm run build && rm -f dist/dev-data.json
+
+      - run: cp -r web-next/dist site/next
 
       - uses: actions/upload-pages-artifact@v3
         with:
