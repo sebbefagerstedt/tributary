@@ -132,6 +132,84 @@ stay; the tab bar that separates them does not have to.
   `target_kind = 'source'`. It tests the feeling of choosing sources before
   anything is hosted.
 
+## Features for the first version — and what was left out on purpose
+
+From a scan of similar apps on 2026-10-04 (Feedly, Inoreader, NewsBlur, Ground
+News, Particle, Artifact, Bluesky), filtered by the owner's rule: *"the first
+version needs to be lightweight. I do not want unnecessary features."*
+
+**First version** — small, and each one serves the reader choosing for
+themselves:
+
+1. **Preview a source before following it** — its latest headlines and how
+   many items a week it publishes, so a source that posts forty times a day is
+   seen before it floods a subject. This is what makes "the reader chooses"
+   work: choosing well needs something to judge by.
+2. **Mute words and sources** — the opposite of a follow: hide anything that
+   mentions "crypto", or one source inside one subject. Feedly ships it as mute
+   filters, NewsBlur as "Hide". A word match, and the direct answer to "I got
+   too much".
+3. **Import and export sources as OPML**, the standard file every feed reader
+   speaks — a new reader brings their old sources in one go, and a tree is
+   never locked in.
+4. **"You're all caught up"** — a clear end once everything new is seen, as
+   Instagram added. The end of the feed is a place to stop, not a refill.
+
+**Later, once there are users:**
+
+5. **Shareable trees and starter packs** — share a tree, or one subject in it,
+   as a link others can adopt (Bluesky's custom feeds work this way). This is
+   also how "topics and sources many people follow" starts.
+6. **Opt-in alerts for one subject** — a push when something lands in a subject
+   marked important. Off by default: notifications are the classic hook.
+
+**Considered and left out**, so they are not reconsidered without a reason:
+
+- **AI summaries and rewritten headlines** (Artifact, Particle) need a paid
+  model. Particle's core — grouping articles about one event by embeddings —
+  is what Tributary's stories already do, without one.
+- **Bias ratings and "blindspots"** (Ground News) lean on outside rating
+  services, and are the "Verifierad" idea the owner removed on 2026-09-23.
+- **Rules engines** (Inoreader's auto-tag, auto-archive, send to Slack) are
+  heavy and built for analysts.
+- **Like/dislike training** (NewsBlur) is learning from behaviour, which
+  `CLAUDE.md` rules out.
+- **A warning from the scan:** Artifact, by Instagram's founders and full of AI
+  features, shut down in 2024 when growth stalled. Lightweight is the safer bet.
+
+## Technology
+
+**Decided 2026-10-04:**
+
+- **The backend stays Python.** The pipeline, the embedding model, clustering
+  and the measured thresholds all carry over as they are. *"Ok python is fine
+  for the backend."*
+- **The frontend is rebuilt in a real frontend stack**, replacing today's single
+  HTML file with no build step. *"The frontend needs to be a frontend language.
+  I do not want to lose functionality or design because it should be simple."*
+  Simple means a small, clear codebase — **not** fewer features or a plainer
+  look: everything the current page does and how it looks (`CLAUDE.md` records
+  each decision) is the floor for the new one. The JSON contract between
+  backend and page already exists and keeps the two independent. Which
+  framework is not decided yet.
+
+**Hosting — the leading option, not decided.** The cheapest setup that runs
+today's Python as it is: **one small rented Linux server** (Hetzner's smallest
+cloud server was about €4–5 a month — check the current price), running the
+API, the scheduled fetching and SQLite, with Caddy for HTTPS; nightly database
+backups to a free storage tier (Cloudflare R2 or Backblaze B2); email sign-in
+links through a free tier (e.g. Resend) or sign-in with Google or GitHub; and
+an optional domain. Roughly €5 a month in all. Serverless platforms are cheaper
+on paper but cannot run the embedding model, which would force a rewrite of the
+core. Oracle Cloud's free tier is the free alternative, at the price of a
+fiddlier signup. One caveat: a rented server is a cloud IP too, so sources that
+block GitHub Actions (Substack) may block it as well — discovery should say so
+rather than offer them.
+
+**If it is built in steps**, each is usable on its own: move today's app to the
+server unchanged; then accounts and follows stored per person; then source
+discovery in the app.
+
 ## What carries over from the current app
 
 Lessons that cost real work and should not be learned twice, all detailed in
