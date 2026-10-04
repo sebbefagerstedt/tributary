@@ -34,11 +34,12 @@ readers find their own sources, the app no longer has to guess.
 
 ## Design principles
 
-1. **The reader finds and chooses; the app suggests.** Search for a subject or
-   paste a site, get a few suggested sources, then take all of them, some or
-   none — and do it again at any time, not only at signup. Nothing joins a
-   reader's tree without their say-so. (The same propose-then-accept rule the
-   current app uses for topics and entities.)
+1. **You follow topics, and every topic shows its sources.** A topic is not a
+   black box: open it and see exactly which sources feed it. Search for new
+   sources and add them to the topic; remove the ones that do not fit. The app
+   suggests, the reader decides — nothing joins a topic without their say-so,
+   the same propose-then-accept rule the current app uses for topics and
+   entities. See "A topic is its sources, made visible" below.
 2. **Start from examples, never from nothing.** A new reader picks from starter
    trees — the AI tree that exists today, and others — so the first screen is
    news, not a form.
@@ -64,6 +65,37 @@ readers find their own sources, the app no longer has to guess.
 8. **No LLM by default.** Local embeddings do the understanding — grouping items
    into stories, matching subjects, judging whether a suggested source fits.
    Anything that needs a paid model is optional and priced.
+
+## A topic is its sources, made visible
+
+Clarified by the owner on 2026-10-04, correcting an earlier draft that had
+readers following *sources*: *"I do not want to follow sources. I want to follow
+topics, what i mean is that it should be possible to choose the sources tied to
+a topic. It is same as before but more transparent where the info comes from.
+The user should be able to search for new sources and add them to the topic and
+remove sources that does not fit."*
+
+So the unit you follow stays the **topic**, as in the current app. What changes
+is that a topic carries its **source list in the open**:
+
+- **Each topic lists the sources feeding it**, visible on the topic itself —
+  where the news comes from is never hidden.
+- **Search to add.** From inside a topic, search for sources (by subject, name
+  or pasted site), preview one, add it to that topic.
+- **Remove what does not fit.** One tap takes a source out of a topic; it stops
+  feeding that topic and nothing else changes.
+- **A source can feed several topics**, and the same source fetched once serves
+  every topic and every reader that uses it.
+- **Starter topics come with starter sources** — the AI tree today is such a
+  set — which the reader then edits.
+
+**Open question: what a general source puts in a topic.** A dedicated source
+(a lab's blog in "Frontier model releases") can feed its topic whole. A general
+one (Hacker News, a tech site) writes about everything, so its items should
+reach a topic only when they fit it — which is what the embedding match the
+current app uses for homing stories already decides. Whether that is automatic
+per source, or a per-source "everything / only what fits" choice the reader
+can see, is to be decided.
 
 ## The tree, and how you look at it
 
@@ -126,11 +158,15 @@ stay; the tab bar that separates them does not have to.
 - **Hosting and identity.** `NEXT.md` has the notes from the multiple-users work:
   a free tier (Cloudflare Workers with D1) has the headroom, and a login of some
   kind is unavoidable once trees live on a server.
-- **What can be tried before the rebuild.** Following *sources* (not only
-  topics) works in the current static app, from a larger fixed catalogue —
-  the database already has an unused `follows` table with
-  `target_kind = 'source'`. It tests the feeling of choosing sources before
-  anything is hosted.
+- **What can be tried before the rebuild, for free.** A prototype of the new
+  page on GitHub Pages, reading the `data.json` the current workflow already
+  publishes, with topics showing their sources and the reader editing which
+  sources a topic uses, from a larger catalogue the workflow fetches. Searching
+  the open web for brand-new sources needs a server, but that server can be
+  the owner's own computer: `trib serve` plus a discovery endpoint built on
+  `trib sources --suggest`, reachable from a phone through a free tunnel
+  (Cloudflare Tunnel or Tailscale) while the computer is on. Enough to learn
+  whether the design feels usable before paying for hosting.
 
 ## Features for the first version — and what was left out on purpose
 
@@ -141,17 +177,17 @@ version needs to be lightweight. I do not want unnecessary features."*
 **First version** — small, and each one serves the reader choosing for
 themselves:
 
-1. **Preview a source before following it** — its latest headlines and how
-   many items a week it publishes, so a source that posts forty times a day is
-   seen before it floods a subject. This is what makes "the reader chooses"
+1. **Preview a source before adding it to a topic** — its latest headlines and
+   how many items a week it publishes, so a source that posts forty times a
+   day is seen before it floods a topic. This is what makes "the reader chooses"
    work: choosing well needs something to judge by.
 2. **Mute words and sources** — the opposite of a follow: hide anything that
    mentions "crypto", or one source inside one subject. Feedly ships it as mute
    filters, NewsBlur as "Hide". A word match, and the direct answer to "I got
    too much".
 3. **Import and export sources as OPML**, the standard file every feed reader
-   speaks — a new reader brings their old sources in one go, and a tree is
-   never locked in.
+   speaks — its folders map onto topics, so a new reader brings their old
+   sources in one go, and a tree is never locked in.
 4. **"You're all caught up"** — a clear end once everything new is seen, as
    Instagram added. The end of the feed is a place to stop, not a refill.
 
@@ -188,8 +224,10 @@ themselves:
   HTML file with no build step. *"The frontend needs to be a frontend language.
   I do not want to lose functionality or design because it should be simple."*
   Simple means a small, clear codebase — **not** fewer features or a plainer
-  look: everything the current page does and how it looks (`CLAUDE.md` records
-  each decision) is the floor for the new one. The JSON contract between
+  look. **The current design itself is thrown away** (*"I want to throwaway
+  the current design"*, the same day): the new page is designed fresh rather
+  than ported, and the current page's behaviour, recorded decision by decision
+  in `CLAUDE.md`, is a checklist of lessons rather than a template. The JSON contract between
   backend and page already exists and keeps the two independent. Which
   framework is not decided yet.
 
