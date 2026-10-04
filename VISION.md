@@ -65,6 +65,43 @@ readers find their own sources, the app no longer has to guess.
    into stories, matching subjects, judging whether a suggested source fits.
    Anything that needs a paid model is optional and priced.
 
+## The tree, and how you look at it
+
+Added 2026-10-04, the same day.
+
+**The embedding layer stays, as the tree's engine.** The current app already
+builds an ontology from local embeddings — topics, the subtopics under them,
+names, and stories — and the owner wants it kept: *"The embedding layer we have
+now to create a ontology tree is very nice. I think it will be useful in some
+way, the relations can be used to find similar topics and of course to auto
+create the subtopics."* In a personal tree that becomes:
+
+- **Subtopics proposed automatically.** When a subject fills up, clustering what
+  sits in it (what `trib topics --suggest` does today) proposes the subtopics
+  under it. The reader names and accepts them; nothing is added silently.
+- **Similar topics from the relations.** Topic vectors sit in one space, so
+  "near this" is a cosine away: related subjects to explore, a synonym caught
+  before it becomes a duplicate, and a new source's items placed where they fit
+  in the tree.
+- **The same vectors judge suggestions.** A candidate source is embedded and
+  compared with the subject the reader asked for before it is offered.
+
+**A view where you explore your own tree.** *"I would actually like a view where
+you can explore your tree it would be cool."* The tree is the reader's own
+creation, so it deserves a place to be seen whole — subjects, their subtopics,
+the sources feeding each, and the related subjects around them — not only a
+list of follows. How it looks is open: an outline you fold, a map of nodes, or
+both.
+
+**Layouts, not tabs.** *"I want to keep a similar format with the topics and
+feed view, but it does not have to be in different tabs in the new app. Think
+like instagram and most sites where you can choose which layout you want."*
+Today Topics (circles and tiles, the map) and Feed (big cards, the reader) are
+separate tabs. In the rebuild they are **layouts of the same place**: wherever
+you stand — everything, a subject, a subtopic — you pick how to see it, the way
+Instagram switches a profile between a grid and a list. The formats themselves
+stay; the tab bar that separates them does not have to.
+
 ## What the rebuild needs
 
 | Piece | What it does |
@@ -74,7 +111,8 @@ readers find their own sources, the app no longer has to guess.
 | **Per-reader trees** | Which sources and subjects each reader follows, stored with an account rather than in one phone's `localStorage`. |
 | **The pipeline, per source** | Today's stages — fetch, describe, embed, cluster, label — still apply; they just run over the union of what readers follow. |
 | **Expiry** | Items deleted after a fixed window; sources nobody follows stop being fetched. |
-| **The reader** | Today's page shape is the starting point: Topics as the map, the Feed as the reader, circles that play what is new, "new" meaning unread and under 48 hours old. |
+| **The reader** | Today's formats are the starting point — tiles and circles, big cards, circles that play what is new, "new" meaning unread and under 48 hours old — but as switchable layouts of one place rather than tabs, plus a view to explore your whole tree. |
+| **The ontology** | Today's embedding layer: subtopics proposed from clusters, similar topics from vector relations, and candidate sources judged against the subject asked for. |
 
 ### Open questions to settle before building
 
