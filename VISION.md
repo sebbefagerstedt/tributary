@@ -9,6 +9,9 @@ owner, consolidated into one pass so nothing here contradicts anything else.
   building it taught. Where the two disagree, this file wins for the redesign;
   `CLAUDE.md` stays as the record of lessons.
 - `NEXT.md` is the roadmap: the steps from here to the redesign, in order.
+- **`docs/mockup/index.html` is the approved look** — a clickable mockup of
+  these flows, approved by the owner on 2026-10-04 (*"It looks perfect"*), also
+  published at https://claude.ai/artifact/1XeimYb1Q7VEdZJ6H6KnsG. Build to it.
 
 ## The idea
 

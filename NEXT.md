@@ -8,33 +8,16 @@ The redesign goes in steps, and **each step ends in something the owner can try
 and judge before the next one costs anything** — no hosting is paid for until
 the design feels usable.
 
-## 1. Mockups of the key screens
+## 1. The new frontend, on GitHub Pages
 
-A clickable mockup to try on a phone, before any app code:
-
-1. First run — what do you care about, here is what we found, Include all.
-2. Home, with the layout switch (overview and reading layouts).
-3. Reading one topic, and the full-screen player for its new stories.
-4. A topic's settings — its sources, remove, search to add, muted words.
-5. Exploring your tree.
-
-Cheap to change; the point is to find out whether it feels right. The tree
-view is an interactive graph like the reference in `docs/reference/`, but
-prettier.
-
-**First version built 2026-10-04:** `docs/mockup/index.html`, published as an
-artifact at https://claude.ai/artifact/1XeimYb1Q7VEdZJ6H6KnsG. Sample stories,
-nothing fetched. This step is done when the owner has tried it and the changes
-it prompts are in.
-
-## 2. The new frontend, on GitHub Pages
-
-Choose the framework (Svelte suggested), set it up in its own folder, and
+Build what the approved mockup shows (`docs/mockup/index.html`, approved by the
+owner 2026-10-04: *"It looks perfect"*). Choose the framework (Svelte
+suggested), set it up in its own folder, and
 publish it free on GitHub Pages next to version 1 (for example under `/next/`).
 It reads the bundle the current pipeline already produces. A profile is a name,
 no password; topics and their source lists live with it in the browser.
 
-## 3. The backend on the owner's computer, with real suggestions
+## 2. The backend on the owner's computer, with real suggestions
 
 No shortcuts: suggestions are built against real fetching (`VISION.md`).
 
@@ -48,7 +31,7 @@ No shortcuts: suggestions are built against real fetching (`VISION.md`).
 - The pipeline fetches the sources the profiles' topics use, and a story can
   sit in several topics, read once.
 
-## 4. Hosting, once it feels right
+## 3. Hosting, once it feels right
 
 The small server from `VISION.md`, accounts, and topics stored per person.
 
