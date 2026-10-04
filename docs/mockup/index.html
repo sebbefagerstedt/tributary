@@ -1,0 +1,681 @@
+<title>Tributary Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one phone-width column, centred on wider screens; screens swap in place,
+   sheets slide over them. River palette: sage-tinted ground, deep river ink, a
+   current-green accent, one warm signal colour for "new". */
+:root {
+  --bg: #f1f4f1;
+  --surface: #ffffff;
+  --surface-2: #e6ebe7;
+  --fg: #14211d;
+  --muted: #5f6e68;
+  --line: #d3dbd6;
+  --accent: #23735f;
+  --accent-ink: #ffffff;
+  --signal: #e0773a;
+  --k-paper: #4f58c9;
+  --k-article: #23735f;
+  --k-video: #b0457a;
+  --k-discussion: #b9731c;
+  --k-release: #3d6fa3;
+  --scrim: rgba(10, 20, 17, .55);
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --body: "Figtree", "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1614; --surface: #17211e; --surface-2: #213029; --fg: #e8efeb; --muted: #95a59e;
+    --line: #2b3b35; --accent: #4fb397; --accent-ink: #08130f; --signal: #f0915a;
+    --k-paper: #7d86ec; --k-article: #3e9c82; --k-video: #d16a9d; --k-discussion: #d89640; --k-release: #5f93c9;
+    --scrim: rgba(0, 0, 0, .65); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1614; --surface: #17211e; --surface-2: #213029; --fg: #e8efeb; --muted: #95a59e;
+  --line: #2b3b35; --accent: #4fb397; --accent-ink: #08130f; --signal: #f0915a;
+  --k-paper: #7d86ec; --k-article: #3e9c82; --k-video: #d16a9d; --k-discussion: #d89640; --k-release: #5f93c9;
+  --scrim: rgba(0, 0, 0, .65); color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.45 var(--body); }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.app { max-width: 430px; margin: 0 auto; min-height: 100%; position: relative; padding-inline: 16px; padding-block: 0 40px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: -.01em; }
+.eyebrow { font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.mock-note { font-size: 11.5px; color: var(--muted); text-align: center; padding: 10px 0 0; }
+
+/* Top bar */
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg);
+  display: flex; align-items: center; gap: 10px; padding: 12px 0 10px; }
+.bar .grow { flex: 1; min-width: 0; }
+.wordmark { font-family: var(--display); font-weight: 800; font-size: 22px; }
+.wordmark i { font-style: normal; color: var(--accent); }
+.icon-btn { width: 38px; height: 38px; border-radius: 50%; border: 0; background: var(--surface-2);
+  display: grid; place-items: center; flex: none; }
+.icon-btn svg { width: 18px; height: 18px; }
+.avatar { width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink);
+  font-weight: 700; flex: none; }
+.crumbs { font-size: 12.5px; color: var(--muted); }
+.title-sm { font-family: var(--display); font-weight: 700; font-size: 19px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Buttons */
+.btn { border: 0; border-radius: 999px; padding: 12px 18px; font-weight: 650; background: var(--surface-2); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); }
+.btn.wide { width: 100%; }
+.btn.ghost { background: transparent; color: var(--accent); padding-inline: 4px; }
+.row { display: flex; gap: 10px; align-items: center; }
+.stack { display: grid; gap: 14px; }
+
+/* Layout switch */
+.switch { display: inline-flex; background: var(--surface-2); border-radius: 999px; padding: 3px; gap: 2px; }
+.switch button { border: 0; background: transparent; border-radius: 999px; padding: 6px 12px; display: flex; gap: 6px;
+  align-items: center; font-size: 13px; font-weight: 600; color: var(--muted); }
+.switch button[aria-pressed="true"] { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.switch svg { width: 15px; height: 15px; }
+
+/* Circles */
+.rings { display: flex; gap: 14px; overflow-x: auto; padding: 4px 2px 12px; margin-inline: -16px; padding-inline: 16px; scrollbar-width: none; }
+.rings::-webkit-scrollbar { display: none; }
+.ring { border: 0; background: none; display: grid; justify-items: center; gap: 5px; width: 72px; flex: none; padding: 0; }
+.ring .disc { width: 66px; height: 66px; border-radius: 50%; padding: 3px; background: var(--line); }
+.ring.new .disc { background: conic-gradient(from 200deg, var(--signal), var(--accent), var(--signal)); }
+.ring .face { width: 100%; height: 100%; border-radius: 50%; border: 3px solid var(--bg); display: grid; place-items: center;
+  color: #fff; font-family: var(--display); font-weight: 800; font-size: 22px; }
+.ring .nm { font-size: 12px; font-weight: 600; max-width: 72px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ring .ct { font-size: 11px; color: var(--muted); margin-top: -4px; }
+.ring.new .ct { color: var(--signal); font-weight: 600; }
+.ring.add .disc { background: none; border: 2px dashed var(--line); padding: 0; }
+.ring.add .face { border: 0; color: var(--muted); }
+
+/* Tiles */
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tile { border: 0; padding: 0; text-align: left; border-radius: 16px; aspect-ratio: 4 / 5; position: relative; overflow: hidden;
+  color: #fff; display: flex; flex-direction: column; justify-content: flex-end; max-width: 100%; }
+.tile .shade { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,.62), rgba(0,0,0,0) 62%); }
+.tile .tx { position: relative; padding: 12px; display: grid; gap: 4px; }
+.tile .nw { font-size: 11.5px; font-weight: 700; background: var(--signal); color: #fff; border-radius: 999px; padding: 2px 8px; justify-self: start; }
+.tile .nm { font-family: var(--display); font-weight: 800; font-size: 20px; line-height: 1.1; }
+.tile .ld { font-size: 12.5px; opacity: .9; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tile .glyph { position: absolute; top: 10px; left: 12px; font-family: var(--display); font-weight: 800; font-size: 54px; opacity: .25; line-height: 1; }
+
+/* Cards */
+.card { background: var(--surface); border-radius: 18px; overflow: hidden; border: 1px solid var(--line); }
+.cover { aspect-ratio: 16 / 10; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; color: #fff; max-width: 100%; }
+.cover .kind { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; opacity: .9; }
+.cover h3 { font-size: 23px; line-height: 1.15; font-weight: 800; }
+.card .meta { padding: 12px 14px 14px; display: grid; gap: 8px; }
+.card .line1 { display: flex; gap: 8px; align-items: center; font-size: 12.5px; color: var(--muted); }
+.card .line1 .src { font-weight: 650; color: var(--fg); }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--signal); flex: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 0; border-radius: 999px; padding: 5px 11px; font-size: 12.5px; font-weight: 600; background: var(--surface-2); }
+.chip.place { color: var(--accent); }
+.card.read { opacity: .7; }
+.caught { text-align: center; padding: 26px 8px 18px; display: grid; gap: 4px; justify-items: center; }
+.caught .tick { width: 46px; height: 46px; border-radius: 50%; border: 2px solid var(--accent); display: grid; place-items: center; color: var(--accent); }
+.caught b { font-family: var(--display); font-size: 19px; }
+.caught span { color: var(--muted); font-size: 13.5px; }
+.older-label { margin: 6px 0 2px; }
+
+/* Onboarding */
+.hero { padding: 28px 0 8px; display: grid; gap: 10px; }
+.hero h1 { font-size: 34px; line-height: 1.05; font-weight: 800; }
+.hero p { margin: 0; color: var(--muted); font-size: 16px; max-width: 34ch; }
+.field { width: 100%; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); font: inherit; color: var(--fg); }
+.interest-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.interest { border: 2px solid transparent; border-radius: 14px; padding: 14px 6px 12px; background: var(--surface); display: grid; justify-items: center; gap: 6px;
+  font-weight: 650; font-size: 13.5px; }
+.interest .em { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: #fff; font-family: var(--display); font-weight: 800; }
+.interest[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
+.stepper { display: flex; gap: 6px; padding-top: 14px; }
+.stepper i { height: 4px; flex: 1; border-radius: 4px; background: var(--line); }
+.stepper i.on { background: var(--accent); }
+.found { background: var(--surface); border-radius: 18px; border: 1px solid var(--line); overflow: hidden; }
+.found-head { padding: 14px; display: flex; gap: 12px; align-items: center; }
+.found-head .sq { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; color: #fff; font-family: var(--display); font-weight: 800; font-size: 19px; flex: none; }
+.found-head h3 { font-size: 18px; }
+.found-head small { color: var(--muted); font-size: 12.5px; }
+.src-row { border-top: 1px solid var(--line); padding: 12px 14px; display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start; }
+.src-row .nm { font-weight: 650; }
+.src-row .sub { font-size: 12.5px; color: var(--muted); }
+.src-row .warn { color: var(--signal); font-weight: 600; }
+.src-row .pv { grid-column: 2 / 4; display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.src-row .pv div::before { content: "— "; }
+.check { width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--line); background: var(--surface); display: grid; place-items: center; padding: 0; margin-top: 1px; }
+.check[aria-checked="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.check svg { width: 14px; height: 14px; }
+.peek { border: 0; background: none; color: var(--accent); font-size: 12.5px; font-weight: 650; padding: 0; }
+.all-row { padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; background: var(--surface-2); font-size: 13px; }
+.sticky-cta { position: sticky; bottom: 0; padding: 14px 0 calc(14px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(to top, var(--bg) 70%, transparent); }
+
+/* Topic page */
+.topic-hero { border-radius: 20px; padding: 18px; color: #fff; display: grid; gap: 10px; margin-bottom: 14px; }
+.topic-hero h1 { font-size: 30px; font-weight: 800; }
+.topic-hero .stat { font-size: 13.5px; opacity: .92; }
+.topic-hero .row .btn { background: rgba(255,255,255,.18); color: #fff; padding: 9px 14px; font-size: 14px; }
+.topic-hero .row .btn.solid { background: #fff; color: #14211d; }
+.toolbar { display: flex; justify-content: space-between; align-items: center; margin: 4px 0 12px; gap: 10px; }
+
+/* Sheets */
+.scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 20; display: flex; justify-content: center; align-items: flex-end; }
+.sheet { background: var(--bg); width: 100%; max-width: 430px; max-height: 92%; border-radius: 22px 22px 0 0; overflow-y: auto;
+  padding-inline: 16px; padding-block: 8px calc(24px + env(safe-area-inset-bottom, 0px)); animation: up .22s ease-out; }
+@keyframes up { from { transform: translateY(30px); opacity: .6; } }
+.grab { width: 40px; height: 5px; border-radius: 5px; background: var(--line); margin: 4px auto 10px; }
+.section { display: grid; gap: 8px; margin-top: 18px; }
+.section h3 { font-size: 15px; }
+.set-list { background: var(--surface); border-radius: 16px; border: 1px solid var(--line); overflow: hidden; }
+.set-item { display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-top: 1px solid var(--line); }
+.set-item:first-child { border-top: 0; }
+.set-item .grow { flex: 1; min-width: 0; }
+.set-item .sub { font-size: 12.5px; color: var(--muted); }
+.x { border: 0; background: var(--surface-2); border-radius: 999px; padding: 6px 12px; font-size: 12.5px; font-weight: 650; }
+.x.add { background: var(--accent); color: var(--accent-ink); }
+.muted-chip { display: inline-flex; gap: 6px; align-items: center; }
+.muted-chip button { border: 0; background: none; padding: 0; color: var(--muted); font-size: 15px; line-height: 1; }
+.proposal { border: 1px dashed var(--accent); border-radius: 14px; padding: 12px 14px; display: flex; gap: 10px; align-items: center; }
+.proposal .grow { flex: 1; min-width: 0; }
+.proposal small { color: var(--muted); }
+
+/* Player */
+.player { position: fixed; inset: 0; z-index: 30; display: flex; justify-content: center; background: #000; }
+.player .stage { width: 100%; max-width: 430px; position: relative; color: #fff; display: flex; flex-direction: column;
+  padding-inline: 18px; padding-block: calc(12px + env(safe-area-inset-top, 0px)) calc(26px + env(safe-area-inset-bottom, 0px)); }
+.bars { display: flex; gap: 4px; }
+.bars i { height: 3px; flex: 1; background: rgba(255,255,255,.3); border-radius: 3px; }
+.bars i.on { background: #fff; }
+.player .top { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.player .top .face { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-family: var(--display); font-weight: 800; border: 2px solid #fff; }
+.player .top b { flex: 1; }
+.player .close { border: 0; background: rgba(255,255,255,.15); color: #fff; width: 36px; height: 36px; border-radius: 50%; }
+.player .body { margin-top: auto; display: grid; gap: 12px; position: relative; z-index: 2; }
+.player .body h2 { font-size: 30px; line-height: 1.1; font-weight: 800; }
+.player .body p { margin: 0; opacity: .9; }
+.player .tap { position: absolute; top: 90px; bottom: 150px; width: 40%; z-index: 1; border: 0; background: none; }
+.player .tap.l { left: 0; } .player .tap.r { right: 0; width: 60%; }
+.player .hint { font-size: 12px; opacity: .7; }
+
+/* Tree */
+.tree-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; overflow: auto; }
+.tree-wrap svg { display: block; width: 100%; height: auto; min-width: 560px; }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12.5px; color: var(--muted); margin: 10px 2px 0; }
+.legend span { display: inline-flex; gap: 6px; align-items: center; }
+.legend i { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
+.node { cursor: pointer; }
+.node text { font-family: var(--body); font-weight: 650; }
+.edge { fill: none; stroke: var(--line); stroke-width: 1.6; }
+.edge.src { stroke-dasharray: 4 4; }
+.edge.rel { stroke: var(--signal); stroke-dasharray: 2 5; stroke-width: 1.4; opacity: .8; }
+
+.toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 40;
+  background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-size: 13.5px; font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .sheet { animation: none; } }
+</style>
+
+<div class="app" id="app"></div>
+<div id="layer"></div>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+/* ---------- Sample data (a mockup: none of this is fetched) ---------- */
+const HUE = { ai: '#4f58c9', climate: '#23735f', football: '#c24a2c', space: '#2b4f8f', gaming: '#8a3fb0', design: '#b5527c', finance: '#3d6a5a', health: '#c0761b', music: '#7a5230' };
+const INTERESTS = [
+  ['ai', 'AI'], ['climate', 'Climate'], ['football', 'Football'], ['space', 'Space'], ['gaming', 'Gaming'],
+  ['design', 'Design'], ['finance', 'Finance'], ['health', 'Health'], ['music', 'Music'],
+];
+const CATALOG = {
+  ai: [
+    { id: 'openai', name: 'OpenAI News', site: 'openai.com', week: 3, pv: ['A new reasoning model for long tasks', 'How we test models before release'] },
+    { id: 'deepmind', name: 'Google DeepMind', site: 'deepmind.google', week: 4, pv: ['Weather forecasts from a learned model', 'A robotics model that learns from video'] },
+    { id: 'hf', name: 'Hugging Face Blog', site: 'huggingface.co', week: 8, pv: ['Running a 7B model on a laptop', 'An open video model, explained'] },
+    { id: 'verge-ai', name: 'The Verge — AI', site: 'theverge.com', week: 25, pv: ['The AI video tools creators actually use', 'What changed in this week\'s model launches'] },
+    { id: 'arxiv', name: 'arXiv — AI papers', site: 'arxiv.org', week: 1050, flood: true, pv: ['Sparse attention for million-token contexts', 'Benchmarks that agents still fail'] },
+    { id: 'hn', name: 'Hacker News', site: 'news.ycombinator.com', week: 900, general: true, pv: ['Show HN: a tiny search engine', 'Why my database got slower'] },
+  ],
+  climate: [
+    { id: 'carbonbrief', name: 'Carbon Brief', site: 'carbonbrief.org', week: 12, pv: ['Analysis: emissions in the power sector', 'Q&A: what the new climate pledges mean'] },
+    { id: 'insideclimate', name: 'Inside Climate News', site: 'insideclimatenews.org', week: 30, pv: ['A town rebuilds after the flood', 'The grid is not ready for heat waves'] },
+    { id: 'nasa-climate', name: 'NASA Earth', site: 'earthobservatory.nasa.gov', week: 6, pv: ['Sea ice from above', 'Smoke over the Atlantic'] },
+  ],
+  football: [
+    { id: 'bbc-football', name: 'BBC Sport — Football', site: 'bbc.co.uk', week: 140, pv: ['Late winner settles the derby', 'Manager under pressure after third defeat'] },
+    { id: 'athletic', name: 'The Athletic — Football', site: 'nytimes.com/athletic', week: 90, pv: ['Tactics: why the high press is back', 'The academy that keeps producing strikers'] },
+    { id: 'rsoccer', name: 'r/soccer', site: 'reddit.com', week: 600, general: true, pv: ['Post-match thread', 'Goal of the week poll'] },
+  ],
+  space: [
+    { id: 'nasa', name: 'NASA', site: 'nasa.gov', week: 20, pv: ['A new look at Europa', 'Crew returns after six months'] },
+    { id: 'esa', name: 'ESA', site: 'esa.int', week: 8, pv: ['A telescope maps the dark universe', 'Launch window confirmed'] },
+    { id: 'spacenews', name: 'SpaceNews', site: 'spacenews.com', week: 45, pv: ['Launch market in numbers', 'A startup tests a reusable stage'] },
+  ],
+  gaming: [
+    { id: 'polygon', name: 'Polygon', site: 'polygon.com', week: 70, pv: ['The best indie games this month', 'A sequel nobody expected'] },
+    { id: 'eurogamer', name: 'Eurogamer', site: 'eurogamer.net', week: 60, pv: ['Review: a quiet puzzle game', 'Inside a studio\'s first year'] },
+  ],
+  design: [{ id: 'itsnice', name: 'It\'s Nice That', site: 'itsnicethat.com', week: 35, pv: ['A type foundry\'s new release', 'Posters from a student show'] }],
+  finance: [{ id: 'ft-markets', name: 'FT — Markets', site: 'ft.com', week: 120, pv: ['Bonds rally after rate decision', 'What the earnings season says'] }],
+  health: [{ id: 'statnews', name: 'STAT', site: 'statnews.com', week: 50, pv: ['A trial result explained', 'Why drug prices differ'] }],
+  music: [{ id: 'pitchfork', name: 'Pitchfork', site: 'pitchfork.com', week: 80, pv: ['Album of the week', 'A label turns twenty'] }],
+};
+/* What "search the web" would find from inside a topic's settings. On the owner's
+   computer this is real discovery; here it is a fixed list to click through. */
+const DISCOVER = [
+  { id: 'runway', name: 'Runway Blog', site: 'runwayml.com', week: 2, topics: ['ai'], q: 'video runway generation', pv: ['A new video model for filmmakers', 'Camera control, explained'] },
+  { id: 'aivideo', name: 'r/aivideo', site: 'reddit.com', week: 300, topics: ['ai'], q: 'video ai generation reddit', pv: ['Made this short with a text prompt', 'Which tool keeps faces consistent?'] },
+  { id: 'simonw', name: 'Simon Willison', site: 'simonwillison.net', week: 15, topics: ['ai'], q: 'llm blog tools models', pv: ['Notes on a new model release', 'A small tool I built this week'] },
+  { id: 'guardian-env', name: 'Guardian — Environment', site: 'theguardian.com', week: 85, topics: ['climate'], q: 'climate environment guardian', pv: ['Heat records broken again', 'Rewilding a river valley'] },
+  { id: 'arstech-space', name: 'Ars Technica — Space', site: 'arstechnica.com', week: 18, topics: ['space'], q: 'space launch rockets', pv: ['The rocket that keeps landing', 'Why the mission slipped a year'] },
+];
+const ALL_SOURCES = {};
+Object.values(CATALOG).flat().concat(DISCOVER).forEach((s) => { ALL_SOURCES[s.id] = s; });
+
+const H = 3600e3, now = Date.now();
+const STORIES = [
+  { id: 1, topics: ['ai'], sub: 'AI video', kind: 'article', src: 'verge-ai', h: 2, title: 'The video tools creators actually use, tested side by side', sum: 'Six AI video generators, one brief, and a lot of melting hands.' },
+  { id: 2, topics: ['ai'], sub: 'Language models', kind: 'article', src: 'openai', h: 5, title: 'A new reasoning model built for long tasks', sum: 'Longer context and fewer dropped steps, with pricing to match.' },
+  { id: 3, topics: ['ai', 'climate'], sub: 'Language models', kind: 'paper', src: 'deepmind', h: 9, title: 'A learned model beats physics forecasts on heat waves', sum: 'Ten-day forecasts at a fraction of the compute. One story, two of your topics.' },
+  { id: 4, topics: ['ai'], sub: 'Agents', kind: 'paper', src: 'arxiv', h: 14, title: 'Benchmarks that today\'s agents still fail', sum: 'Long multi-step tasks remain hard for every model tested.' },
+  { id: 5, topics: ['ai'], sub: 'AI video', kind: 'video', src: 'hf', h: 20, title: 'An open video model you can run yourself', sum: 'Weights, a demo and the training recipe, all public.' },
+  { id: 6, topics: ['ai'], sub: 'Agents', kind: 'discussion', src: 'hn', h: 30, title: 'Ask HN: what are you actually using agents for?', sum: '400 comments, mostly about code review and email.' },
+  { id: 7, topics: ['ai'], sub: 'Language models', kind: 'release', src: 'hf', h: 70, title: 'A small model that runs on a laptop, quantised', sum: 'Older than 48 hours, so no longer counted as new.' },
+  { id: 8, topics: ['climate'], kind: 'article', src: 'carbonbrief', h: 4, title: 'Analysis: power-sector emissions fell for a third year', sum: 'Solar and wind growth outpaced demand in most large markets.' },
+  { id: 9, topics: ['climate'], kind: 'article', src: 'insideclimate', h: 16, title: 'A town rebuilds after the flood, and moves uphill', sum: 'Buyouts, new zoning and a long argument about the river.' },
+  { id: 10, topics: ['climate'], kind: 'article', src: 'nasa-climate', h: 60, title: 'Smoke over the Atlantic, seen from orbit', sum: 'A plume large enough to tint sunsets two continents away.' },
+  { id: 11, topics: ['football'], kind: 'article', src: 'bbc-football', h: 3, title: 'Late winner settles the derby in stoppage time', sum: 'A header in the 94th minute and a pitch invasion after.' },
+  { id: 12, topics: ['football'], kind: 'article', src: 'athletic', h: 11, title: 'Why the high press is back in fashion', sum: 'Three teams, one idea, and the numbers behind it.' },
+  { id: 13, topics: ['football'], kind: 'discussion', src: 'rsoccer', h: 26, title: 'Goal of the week: vote for your favourite', sum: 'A volley, a solo run and an own goal from 40 yards.' },
+  { id: 14, topics: ['space'], kind: 'article', src: 'nasa', h: 6, title: 'A new look at Europa\'s cracked ice shell', sum: 'Fresh images hint at water close to the surface.' },
+  { id: 15, topics: ['space'], kind: 'article', src: 'spacenews', h: 22, title: 'A startup tests a reusable second stage', sum: 'The test lasted 90 seconds and ended upright.' },
+  { id: 16, topics: ['gaming'], kind: 'article', src: 'polygon', h: 8, title: 'The best indie games of the month', sum: 'A quiet puzzle game leads a strong list.' },
+];
+const KIND_WORD = { paper: 'Paper', article: 'Article', video: 'Video', discussion: 'Discussion', release: 'Release' };
+const SUBS = { ai: ['Language models', 'AI video', 'Agents'] };
+
+/* ---------- State ---------- */
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('trib-mock:' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('trib-mock:' + k, JSON.stringify(v)); } catch (e) { /* storage off: still works for this visit */ } },
+};
+let state = store.get('state', null) || { profile: '', topics: [], seen: [], layout: 'grid', step: 'profile', picks: [], drafts: {} };
+const save = () => store.set('state', state);
+const stack = [];   // screens, for the back arrow
+let player = null;
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const topicById = (id) => state.topics.find((t) => t.id === id);
+const seen = (s) => state.seen.includes(s.id);
+const isNew = (s) => !seen(s) && s.h < 48;   // new = unread and under 48 hours old
+const ago = (h) => (h < 24 ? h + 'h' : Math.round(h / 24) + 'd');
+function storiesFor(t, sub) {
+  return STORIES.filter((s) => s.topics.includes(t.id) && t.sources.includes(s.src)
+    && (!sub || s.sub === sub)
+    && !t.muted.some((w) => (s.title + ' ' + s.sum).toLowerCase().includes(w.toLowerCase())))
+    .sort((a, b) => a.h - b.h);
+}
+function myStories() {
+  const out = new Map();
+  state.topics.forEach((t) => storiesFor(t).forEach((s) => out.set(s.id, s)));
+  return [...out.values()].sort((a, b) => a.h - b.h);
+}
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => { t.hidden = true; }, 1800); }
+
+const ICON = {
+  back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
+  grid: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>',
+  cards: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3.5" width="16" height="10" rx="2"/><path d="M4 17.5h16M4 20.5h10"/></svg>',
+  gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>',
+  tree: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="2.2"/><circle cx="5" cy="18" r="2.2"/><circle cx="19" cy="18" r="2.2"/><circle cx="12" cy="18" r="2.2"/><path d="M12 7.2v8.6M10.6 6.6 6.2 16M13.4 6.6l4.4 9.4"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>',
+};
+
+/* ---------- Navigation ---------- */
+function go(screen, push = true) { if (push) stack.push(state.screen || null); state.screen = screen; save(); render(); window.scrollTo(0, 0); }
+function back() { const prev = stack.pop(); state.screen = prev || { name: 'home' }; save(); render(); }
+
+/* ---------- Screens ---------- */
+function render() {
+  const app = $('app');
+  if (state.step !== 'done') { app.innerHTML = onboarding(); return; }
+  const s = state.screen || { name: 'home' };
+  app.innerHTML = s.name === 'topic' ? topicScreen(s) : s.name === 'tree' ? treeScreen() : homeScreen();
+}
+
+function onboarding() {
+  if (state.step === 'profile') return `
+    <div class="stepper"><i class="on"></i><i></i><i></i></div>
+    <div class="hero"><span class="eyebrow">Welcome to</span><h1>Tributary<span style="color:var(--accent)">.</span></h1>
+      <p>Your own news, from sources you choose. Start with a name — no password.</p></div>
+    <form class="stack" data-form="profile" style="margin-top:18px">
+      <label class="eyebrow" for="name">Your name</label>
+      <input class="field" id="name" autocomplete="nickname" placeholder="e.g. Sebastian" value="${esc(state.profile)}">
+      <button class="btn primary wide" type="submit">Continue</button>
+    </form>
+    <p class="mock-note">A clickable mockup with sample stories. Nothing is fetched.</p>`;
+  if (state.step === 'interests') return `
+    <div class="stepper"><i class="on"></i><i class="on"></i><i></i></div>
+    <div class="hero"><h1>What do you care about, ${esc(state.profile)}?</h1><p>Pick a few. Each becomes a topic you can shape later.</p></div>
+    <div class="interest-grid" style="margin-top:14px">${INTERESTS.map(([id, nm]) => `
+      <button class="interest" data-pick="${id}" aria-pressed="${state.picks.includes(id)}">
+        <span class="em" style="background:${HUE[id]}">${nm[0]}</span>${nm}</button>`).join('')}</div>
+    <input class="field" id="own" placeholder="Or type your own — e.g. AI video" style="margin-top:12px">
+    <p class="mock-note">Typing your own searches the web on the real backend.</p>
+    <div class="sticky-cta"><button class="btn primary wide" data-act="to-found" ${state.picks.length ? '' : 'disabled style="opacity:.5"'}>
+      ${state.picks.length ? `Find sources for ${state.picks.length} topic${state.picks.length > 1 ? 's' : ''}` : 'Pick at least one'}</button></div>`;
+  // found
+  return `
+    <div class="stepper"><i class="on"></i><i class="on"></i><i class="on"></i></div>
+    <div class="hero" style="padding-bottom:4px"><h1>Here's what we found</h1><p>Sources for each topic. Keep them all, or pick a few — you can change this any time.</p></div>
+    <div class="stack" style="margin-top:12px">${state.picks.map((id) => foundCard(id)).join('')}</div>
+    <div class="sticky-cta"><button class="btn primary wide" data-act="finish">Show me my news</button></div>`;
+}
+
+function foundCard(id) {
+  const name = INTERESTS.find((i) => i[0] === id)[1];
+  const list = CATALOG[id] || [];
+  const chosen = state.drafts[id] || [];
+  const all = chosen.length === list.length;
+  return `<div class="found">
+    <div class="found-head"><span class="sq" style="background:${HUE[id]}">${name[0]}</span>
+      <div class="grow"><h3>${name}</h3><small>${list.length} sources found · ${chosen.length} selected</small></div></div>
+    <div class="all-row"><span>${all ? 'All sources included' : 'Some sources selected'}</span>
+      <button class="btn ghost" data-all="${id}">${all ? 'Pick a few' : 'Include all'}</button></div>
+    ${list.map((s) => srcRow(id, s, chosen.includes(s.id))).join('')}</div>`;
+}
+function srcRow(topic, s, on) {
+  return `<div class="src-row">
+    <button class="check" role="checkbox" aria-checked="${on}" aria-label="Include ${esc(s.name)}" data-toggle="${topic}:${s.id}">${on ? ICON.check : ''}</button>
+    <div><div class="nm">${esc(s.name)}</div>
+      <div class="sub">${esc(s.site)} · ${s.week.toLocaleString()} a week${s.flood ? ' · <span class="warn">very busy</span>' : ''}${s.general ? ' · <span class="warn">writes about everything</span>' : ''}</div></div>
+    <button class="peek" data-peek="${topic}:${s.id}">Preview</button>
+    <div class="pv" id="pv-${topic}-${s.id}" hidden>${s.pv.map((t) => `<div>${esc(t)}</div>`).join('')}</div>
+  </div>`;
+}
+
+function layoutSwitch() {
+  return `<div class="switch" role="group" aria-label="Layout">
+    <button data-layout="grid" aria-pressed="${state.layout === 'grid'}">${ICON.grid}Overview</button>
+    <button data-layout="cards" aria-pressed="${state.layout === 'cards'}">${ICON.cards}Read</button></div>`;
+}
+
+function homeScreen() {
+  const mine = myStories();
+  const fresh = mine.filter(isNew).length;
+  return `
+    <div class="bar"><div class="wordmark grow">Tributary<i>.</i></div>
+      <button class="icon-btn" data-act="tree" aria-label="Explore your tree">${ICON.tree}</button>
+      <button class="avatar" data-act="profile" aria-label="Profile">${esc(state.profile[0] || '?').toUpperCase()}</button></div>
+    ${rings()}
+    <div class="toolbar"><div><div class="eyebrow">Everything you follow</div>
+      <div style="font-size:13px;color:var(--muted)">${fresh} new · ${mine.length} stories</div></div>${layoutSwitch()}</div>
+    ${state.layout === 'grid' ? tiles() : cards(mine)}`;
+}
+
+function rings() {
+  return `<div class="rings">${state.topics.map((t) => {
+    const n = storiesFor(t).filter(isNew).length;
+    return `<button class="ring ${n ? 'new' : ''}" data-ring="${t.id}">
+      <span class="disc"><span class="face" style="background:${t.hue}">${esc(t.name[0])}</span></span>
+      <span class="nm">${esc(t.name)}</span><span class="ct">${n ? n + ' new' : 'all read'}</span></button>`;
+  }).join('')}
+    <button class="ring add" data-act="new-topic"><span class="disc"><span class="face">+</span></span><span class="nm">New topic</span><span class="ct">&nbsp;</span></button></div>`;
+}
+
+function tiles() {
+  return `<div class="tiles">${state.topics.map((t) => {
+    const list = storiesFor(t); const n = list.filter(isNew).length;
+    return `<button class="tile" data-topic="${t.id}" style="background:${t.hue}">
+      <span class="glyph">${esc(t.name[0])}</span><span class="shade"></span>
+      <span class="tx">${n ? `<span class="nw">${n} new</span>` : ''}<span class="nm">${esc(t.name)}</span>
+      <span class="ld">${list[0] ? esc(list[0].title) : 'Quiet right now'}</span></span></button>`;
+  }).join('')}</div>`;
+}
+
+function cardHTML(s, here) {
+  const t = topicById(here || s.topics.find((id) => topicById(id)));
+  const col = `var(--k-${s.kind})`;
+  const places = s.topics.map(topicById).filter(Boolean);
+  return `<article class="card ${seen(s) ? 'read' : ''}">
+    <div class="cover" style="background:${col}" data-open="${s.id}"><span class="kind">${KIND_WORD[s.kind]}</span><h3>${esc(s.title)}</h3></div>
+    <div class="meta"><div class="line1">${isNew(s) ? '<span class="dot" title="New"></span>' : ''}<span class="src">${esc(ALL_SOURCES[s.src].name)}</span><span>${ago(s.h)}</span></div>
+      <div style="font-size:14px">${esc(s.sum)}</div>
+      <div class="chips">${places.map((p) => `<button class="chip place" data-topic="${p.id}">${esc(p.name)}${s.sub && p.id === 'ai' ? ' › ' + esc(s.sub) : ''}</button>`).join('')}</div></div>
+  </article>`;
+}
+function cards(list, here) {
+  const fresh = list.filter(isNew), rest = list.filter((s) => !isNew(s));
+  return `<div class="stack">${fresh.map((s) => cardHTML(s, here)).join('')}</div>
+    <div class="caught"><span class="tick">${ICON.check}</span><b>You're all caught up</b><span>Nothing new from the last 48 hours${fresh.length ? '' : ' here'}.</span></div>
+    ${rest.length ? `<div class="eyebrow older-label">Earlier</div><div class="stack">${rest.map((s) => cardHTML(s, here)).join('')}</div>` : ''}`;
+}
+
+function topicScreen(sc) {
+  const t = topicById(sc.id);
+  if (!t) return homeScreen();
+  const list = storiesFor(t, sc.sub);
+  const n = list.filter(isNew).length;
+  const subs = (SUBS[t.id] || []).concat(t.subs || []);
+  return `
+    <div class="bar"><button class="icon-btn" data-act="back" aria-label="Back">${ICON.back}</button>
+      <div class="grow"><div class="crumbs">${sc.sub ? `<button class="chip place" style="padding:0;background:none" data-topic="${t.id}">${esc(t.name)}</button> ›` : 'Topic'}</div>
+        <div class="title-sm">${esc(sc.sub || t.name)}</div></div>
+      <button class="icon-btn" data-act="settings" aria-label="Topic settings">${ICON.gear}</button></div>
+    <div class="topic-hero" style="background:${t.hue}">
+      <h1>${esc(sc.sub || t.name)}</h1>
+      <div class="stat">${n} new · ${list.length} stories · ${t.sources.length} sources</div>
+      <div class="row"><button class="btn solid" data-act="play">${n ? 'Play new' : 'Play latest'}</button>
+        <button class="btn" data-act="settings">Sources & settings</button></div></div>
+    ${subs.length && !sc.sub ? `<div class="chips" style="margin-bottom:12px">${subs.map((x) => `<button class="chip" data-sub="${esc(x)}">${esc(x)}</button>`).join('')}</div>` : ''}
+    <div class="toolbar"><div class="eyebrow">Stories</div>${layoutSwitch()}</div>
+    ${state.layout === 'grid' ? gridStories(list) : cards(list, t.id)}`;
+}
+function gridStories(list) {
+  return `<div class="tiles">${list.map((s) => `
+    <button class="tile" data-open="${s.id}" style="background:var(--k-${s.kind});${seen(s) ? 'opacity:.6' : ''}">
+      <span class="shade"></span><span class="tx">${isNew(s) ? '<span class="nw">New</span>' : ''}
+      <span class="ld" style="-webkit-line-clamp:4;font-size:14px;font-weight:650">${esc(s.title)}</span>
+      <span class="ld">${esc(ALL_SOURCES[s.src].name)} · ${ago(s.h)}</span></span></button>`).join('')}</div>
+    <div class="caught"><span class="tick">${ICON.check}</span><b>You're all caught up</b></div>`;
+}
+
+/* ---------- Tree ---------- */
+function treeScreen() {
+  const W = 620, HT = 620, cx = W / 2, cy = HT / 2;
+  const topics = state.topics;
+  const nodes = [], edges = [];
+  const R1 = 110, R2 = 205;
+  topics.forEach((t, i) => {
+    const a = -Math.PI / 2 + (i / Math.max(topics.length, 1)) * Math.PI * 2;
+    const x = cx + Math.cos(a) * R1, y = cy + Math.sin(a) * R1;
+    nodes.push({ id: t.id, kind: 'topic', x, y, label: t.name, hue: t.hue });
+    edges.push({ a: [cx, cy], b: [x, y], cls: '' });
+    const subs = (SUBS[t.id] || []).concat(t.subs || []);
+    const outer = subs.map((s) => ({ kind: 'sub', label: s })).concat(t.sources.slice(0, 3).map((s) => ({ kind: 'src', label: ALL_SOURCES[s].name })));
+    const spread = Math.min(1.9, (Math.PI * 2) / Math.max(topics.length, 1) * .68);
+    outer.forEach((o, j) => {
+      const aa = a + (outer.length > 1 ? (j / (outer.length - 1) - .5) * spread : 0);
+      const rr = R2 + (j % 2) * 48;
+      const ox = cx + Math.cos(aa) * rr, oy = cy + Math.sin(aa) * rr;
+      nodes.push({ id: t.id, kind: o.kind, x: ox, y: oy, label: o.label, hue: t.hue, sub: o.kind === 'sub' ? o.label : '' });
+      edges.push({ a: [x, y], b: [ox, oy], cls: o.kind === 'src' ? 'src' : '' });
+    });
+  });
+  // related topics: a dotted line between neighbours the embeddings think are close
+  if (topicById('ai') && topicById('climate')) {
+    const A = nodes.find((n) => n.kind === 'topic' && n.id === 'ai'), B = nodes.find((n) => n.kind === 'topic' && n.id === 'climate');
+    edges.push({ a: [A.x, A.y], b: [B.x, B.y], cls: 'rel', bend: 60 });
+  }
+  const curve = (e) => { const mx = (e.a[0] + e.b[0]) / 2, my = (e.a[1] + e.b[1]) / 2; const dx = e.b[1] - e.a[1], dy = e.a[0] - e.b[0]; const k = (e.bend || 14) / Math.hypot(dx, dy || 1);
+    return `M${e.a[0].toFixed(1)},${e.a[1].toFixed(1)} Q${(mx + dx * k).toFixed(1)},${(my + dy * k).toFixed(1)} ${e.b[0].toFixed(1)},${e.b[1].toFixed(1)}`; };
+  const box = (n) => {
+    const fs = n.kind === 'topic' ? 13 : 10.5, w = Math.min(n.label.length * fs * .58 + 18, 130), h = n.kind === 'topic' ? 30 : 22;
+    const fill = n.kind === 'topic' ? n.hue : n.kind === 'sub' ? n.hue : 'var(--surface-2)';
+    const op = n.kind === 'sub' ? .55 : 1;
+    const color = n.kind === 'src' ? 'var(--fg)' : '#fff';
+    const label = n.label.length > 20 ? n.label.slice(0, 19) + '…' : n.label;
+    return `<g class="node" data-tnode="${n.id}" data-tsub="${esc(n.sub || '')}" tabindex="0">
+      <rect x="${(n.x - w / 2).toFixed(1)}" y="${(n.y - h / 2).toFixed(1)}" width="${w.toFixed(1)}" height="${h}" rx="${h / 2}" fill="${fill}" fill-opacity="${op}" ${n.kind === 'src' ? 'stroke="var(--line)"' : ''}/>
+      <text x="${n.x.toFixed(1)}" y="${(n.y + fs * .36).toFixed(1)}" text-anchor="middle" font-size="${fs}" fill="${color}">${esc(label)}</text></g>`;
+  };
+  return `
+    <div class="bar"><button class="icon-btn" data-act="back" aria-label="Back">${ICON.back}</button>
+      <div class="grow"><div class="crumbs">${esc(state.profile)}</div><div class="title-sm">Your tree</div></div></div>
+    <div class="tree-wrap"><svg viewBox="0 0 ${W} ${HT}" role="img" aria-label="Your topics, subtopics and sources as a graph">
+      ${edges.map((e) => `<path class="edge ${e.cls}" d="${curve(e)}"/>`).join('')}
+      <circle cx="${cx}" cy="${cy}" r="26" fill="var(--fg)"/><text x="${cx}" y="${cy + 5}" text-anchor="middle" font-size="14" font-weight="800" fill="var(--bg)" font-family="Bricolage Grotesque, system-ui">${esc(state.profile[0] || '?').toUpperCase()}</text>
+      ${nodes.filter((n) => n.kind !== 'topic').map(box).join('')}${nodes.filter((n) => n.kind === 'topic').map(box).join('')}
+    </svg></div>
+    <div class="legend"><span><i style="background:var(--accent)"></i>Topic</span><span><i style="background:var(--accent);opacity:.55"></i>Subtopic</span>
+      <span><i style="background:var(--surface-2);border:1px solid var(--line)"></i>Source</span><span><i style="border-top:2px dotted var(--signal);height:0;border-radius:0"></i>Related</span></div>
+    <p class="mock-note">Swipe sideways to explore; tap a topic or subtopic to open it. The real one can be dragged and zoomed.</p>`;
+}
+
+/* ---------- Sheets ---------- */
+function openSheet(html) { $('layer').innerHTML = `<div class="scrim" data-scrim><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div></div>`; }
+function closeSheet() { $('layer').innerHTML = ''; }
+
+function settingsSheet(t, q = '') {
+  const found = q.trim() ? DISCOVER.concat(Object.values(CATALOG).flat())
+    .filter((s) => !t.sources.includes(s.id))
+    .filter((s) => (s.name + ' ' + s.site + ' ' + (s.q || '')).toLowerCase().includes(q.toLowerCase())) : [];
+  openSheet(`
+    <div class="row"><h2 style="font-size:22px;flex:1">${esc(t.name)}</h2><button class="x" data-act="close">Done</button></div>
+    <div class="section"><h3>Sources · ${t.sources.length}</h3>
+      <div class="set-list">${t.sources.map((id) => { const s = ALL_SOURCES[id]; return `
+        <div class="set-item"><div class="grow"><div style="font-weight:650">${esc(s.name)}</div><div class="sub">${esc(s.site)} · ${s.week.toLocaleString()} a week</div></div>
+          <button class="x" data-remove="${id}">Remove</button></div>`; }).join('') || '<div class="set-item sub">No sources. Add one below.</div>'}</div></div>
+    <div class="section"><h3>Add sources</h3>
+      <input class="field" id="q" placeholder="Search a subject, name or paste a site" value="${esc(q)}" autocomplete="off">
+      ${q.trim() ? `<div class="set-list">${found.map((s) => `
+        <div class="set-item" style="flex-wrap:wrap"><div class="grow"><div style="font-weight:650">${esc(s.name)}</div>
+          <div class="sub">${esc(s.site)} · ${s.week.toLocaleString()} a week${s.general ? ' · writes about everything' : ''}</div>
+          <div class="sub" style="margin-top:4px">${s.pv.map(esc).join(' · ')}</div></div>
+          <button class="x add" data-addsrc="${s.id}">Add</button></div>`).join('') || '<div class="set-item sub">Nothing in the sample. On the real backend this searches the web.</div>'}</div>`
+        : '<div class="sub" style="font-size:12.5px;color:var(--muted)">Try "video", "reddit" or "space".</div>'}</div>
+    <div class="section"><h3>Muted words</h3>
+      <div class="chips">${t.muted.map((w) => `<span class="chip muted-chip">${esc(w)}<button data-unmute="${esc(w)}" aria-label="Unmute ${esc(w)}">×</button></span>`).join('') || '<span style="color:var(--muted);font-size:13px">Nothing muted.</span>'}</div>
+      <form data-form="mute" class="row"><input class="field" id="mute" placeholder="Hide stories that mention…" style="flex:1"><button class="btn" type="submit">Mute</button></form></div>
+    ${t.id === 'ai' && !(t.subs || []).includes('Robotics') ? `<div class="section"><h3>Suggested subtopic</h3>
+      <div class="proposal"><div class="grow"><b>Robotics</b><br><small>5 recent stories in ${esc(t.name)} cluster together</small></div>
+        <button class="x add" data-acceptsub="Robotics">Add</button></div></div>` : ''}
+    <p class="mock-note">Changes here affect only this topic.</p>`);
+  const input = $('q');
+  if (input && q) { input.focus(); input.setSelectionRange(q.length, q.length); }
+}
+
+function profileSheet() {
+  openSheet(`<div class="row"><span class="avatar" style="display:grid;place-items:center">${esc(state.profile[0] || '?').toUpperCase()}</span>
+      <h2 style="font-size:22px;flex:1">${esc(state.profile)}</h2><button class="x" data-act="close">Done</button></div>
+    <div class="section"><h3>Your topics</h3><div class="set-list">${state.topics.map((t) => `
+      <div class="set-item"><span class="ring" style="width:auto"><span class="face" style="width:30px;height:30px;font-size:14px;border:0;background:${t.hue}">${esc(t.name[0])}</span></span>
+        <div class="grow" style="font-weight:650">${esc(t.name)}</div><span class="sub">${t.sources.length} sources</span></div>`).join('')}</div></div>
+    <div class="section"><button class="btn wide" data-act="reset">Start over (reset the mockup)</button></div>
+    <p class="mock-note">A profile is just a name for now — no password.</p>`);
+}
+
+function newTopicSheet(q = '') {
+  const hits = q.trim() ? INTERESTS.filter(([id, nm]) => !topicById(id) && nm.toLowerCase().includes(q.toLowerCase())) : INTERESTS.filter(([id]) => !topicById(id));
+  openSheet(`<div class="row"><h2 style="font-size:22px;flex:1">New topic</h2><button class="x" data-act="close">Cancel</button></div>
+    <div class="section"><input class="field" id="nt" placeholder="A subject, or paste a site" value="${esc(q)}" autocomplete="off">
+      <div class="chips">${hits.map(([id, nm]) => `<button class="chip" data-newtopic="${id}">${nm}</button>`).join('')}</div>
+      <p class="mock-note" style="text-align:left">In the mockup, pick one of the samples. On the real backend anything you type is searched.</p></div>`);
+  const input = $('nt'); if (input && q) { input.focus(); input.setSelectionRange(q.length, q.length); }
+}
+function createTopicSheet(id) {
+  state.drafts[id] = state.drafts[id] || CATALOG[id].map((s) => s.id);
+  openSheet(`<div class="row"><h2 style="font-size:22px;flex:1">Here's what we found</h2><button class="x" data-act="close">Cancel</button></div>
+    <div style="margin-top:12px">${foundCard(id)}</div>
+    <div class="sticky-cta"><button class="btn primary wide" data-create="${id}">Create topic</button></div>`);
+}
+
+/* ---------- Player ---------- */
+function openPlayer(t) {
+  const fresh = storiesFor(t).filter(isNew).sort((a, b) => b.h - a.h);  // oldest first
+  const queue = fresh.length ? fresh : storiesFor(t).slice(0, 5);
+  player = { t, queue, i: 0 };
+  drawPlayer();
+}
+function drawPlayer() {
+  const { t, queue, i } = player; const s = queue[i];
+  if (!s.seen && !state.seen.includes(s.id)) { state.seen.push(s.id); save(); }
+  $('layer').innerHTML = `<div class="player"><div class="stage" style="background:linear-gradient(170deg, var(--k-${s.kind}), #0b1210 85%)">
+    <div class="bars">${queue.map((_, j) => `<i class="${j <= i ? 'on' : ''}"></i>`).join('')}</div>
+    <div class="top"><span class="face" style="background:${t.hue}">${esc(t.name[0])}</span><b>${esc(t.name)}</b>
+      <button class="close" data-act="close-player" aria-label="Close">✕</button></div>
+    <button class="tap l" data-step="-1" aria-label="Previous story"></button><button class="tap r" data-step="1" aria-label="Next story"></button>
+    <div class="body"><span class="eyebrow" style="color:rgba(255,255,255,.75)">${KIND_WORD[s.kind]} · ${esc(ALL_SOURCES[s.src].name)} · ${ago(s.h)}</span>
+      <h2>${esc(s.title)}</h2><p>${esc(s.sum)}</p>
+      <button class="btn" style="background:#fff;color:#14211d" data-act="close-player">Read the story</button>
+      <span class="hint">Tap the right side for the next story. No timer — it waits for you.</span></div></div></div>`;
+}
+
+/* ---------- Events ---------- */
+document.addEventListener('click', (e) => {
+  const el = (sel) => e.target.closest(sel);
+  let x;
+  if ((x = el('[data-scrim]')) && e.target === x) { closeSheet(); render(); return; }
+  if ((x = el('[data-pick]'))) { const id = x.dataset.pick; state.picks = state.picks.includes(id) ? state.picks.filter((p) => p !== id) : state.picks.concat(id); save(); render(); return; }
+  if ((x = el('[data-toggle]'))) { const [tp, sid] = x.dataset.toggle.split(':'); const d = state.drafts[tp] || []; state.drafts[tp] = d.includes(sid) ? d.filter((s) => s !== sid) : d.concat(sid); save(); rerenderFound(tp); return; }
+  if ((x = el('[data-all]'))) { const tp = x.dataset.all; const all = (state.drafts[tp] || []).length === CATALOG[tp].length; state.drafts[tp] = all ? [] : CATALOG[tp].map((s) => s.id); save(); rerenderFound(tp); return; }
+  if ((x = el('[data-peek]'))) { const [tp, sid] = x.dataset.peek.split(':'); const pv = $(`pv-${tp}-${sid}`); pv.hidden = !pv.hidden; x.textContent = pv.hidden ? 'Preview' : 'Hide'; return; }
+  if ((x = el('[data-layout]'))) { state.layout = x.dataset.layout; save(); render(); return; }
+  if ((x = el('[data-ring]'))) { const t = topicById(x.dataset.ring); if (storiesFor(t).some(isNew)) openPlayer(t); else go({ name: 'topic', id: t.id }); return; }
+  if ((x = el('[data-topic]'))) { closeSheet(); go({ name: 'topic', id: x.dataset.topic }); return; }
+  if ((x = el('[data-sub]'))) { go({ name: 'topic', id: state.screen.id, sub: x.dataset.sub }); return; }
+  if ((x = el('[data-tnode]'))) { go({ name: 'topic', id: x.dataset.tnode, sub: x.dataset.tsub || undefined }); return; }
+  if ((x = el('[data-open]'))) { const id = +x.dataset.open; if (!state.seen.includes(id)) state.seen.push(id); save(); render(); toast('Opened — marked read in every topic'); return; }
+  if ((x = el('[data-remove]'))) { const t = topicById(state.screen.id); t.sources = t.sources.filter((s) => s !== x.dataset.remove); save(); settingsSheet(t, $('q') ? $('q').value : ''); render(); toast('Removed from ' + t.name); return; }
+  if ((x = el('[data-addsrc]'))) { const t = topicById(state.screen.id); t.sources.push(x.dataset.addsrc); save(); settingsSheet(t, $('q').value); render(); toast('Added to ' + t.name); return; }
+  if ((x = el('[data-unmute]'))) { const t = topicById(state.screen.id); t.muted = t.muted.filter((w) => w !== x.dataset.unmute); save(); settingsSheet(t); render(); return; }
+  if ((x = el('[data-acceptsub]'))) { const t = topicById(state.screen.id); t.subs = (t.subs || []).concat(x.dataset.acceptsub); save(); settingsSheet(t); render(); toast('Subtopic added'); return; }
+  if ((x = el('[data-newtopic]'))) { createTopicSheet(x.dataset.newtopic); return; }
+  if ((x = el('[data-create]'))) { const id = x.dataset.create; addTopic(id); closeSheet(); go({ name: 'topic', id }); toast('Topic created'); return; }
+  if ((x = el('[data-step]'))) { const n = player.i + +x.dataset.step; if (n >= player.queue.length) { player = null; closeSheet(); render(); toast("You're all caught up"); } else { player.i = Math.max(0, n); drawPlayer(); } return; }
+  if ((x = el('[data-act]'))) {
+    const act = x.dataset.act;
+    if (act === 'to-found') { state.picks.forEach((id) => { state.drafts[id] = state.drafts[id] || CATALOG[id].map((s) => s.id); }); state.step = 'found'; save(); render(); window.scrollTo(0, 0); }
+    else if (act === 'finish') { state.picks.forEach(addTopic); state.step = 'done'; state.screen = { name: 'home' }; save(); render(); window.scrollTo(0, 0); }
+    else if (act === 'back') back();
+    else if (act === 'tree') go({ name: 'tree' });
+    else if (act === 'profile') profileSheet();
+    else if (act === 'settings') settingsSheet(topicById(state.screen.id));
+    else if (act === 'close') { closeSheet(); render(); }
+    else if (act === 'play') openPlayer(topicById(state.screen.id));
+    else if (act === 'close-player') { player = null; closeSheet(); render(); }
+    else if (act === 'new-topic') newTopicSheet();
+    else if (act === 'reset') { state = { profile: '', topics: [], seen: [], layout: 'grid', step: 'profile', picks: [], drafts: {} }; stack.length = 0; save(); closeSheet(); render(); }
+  }
+});
+document.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const f = e.target.dataset.form;
+  if (f === 'profile') { const v = $('name').value.trim(); if (!v) { $('name').focus(); return; } state.profile = v; state.step = 'interests'; save(); render(); }
+  if (f === 'mute') { const v = $('mute').value.trim(); const t = topicById(state.screen.id); if (v && !t.muted.includes(v)) t.muted.push(v); save(); settingsSheet(t); render(); }
+});
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'q') settingsSheet(topicById(state.screen.id), e.target.value);
+  if (e.target.id === 'nt') newTopicSheet(e.target.value);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { player = null; closeSheet(); render(); }
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-tnode]')) { e.preventDefault(); e.target.dispatchEvent(new MouseEvent('click', { bubbles: true })); }
+});
+
+function rerenderFound(tp) {
+  const sheet = document.querySelector('.sheet');
+  if (sheet && sheet.querySelector('[data-create]')) createTopicSheet(tp); else render();
+}
+function addTopic(id) {
+  if (topicById(id)) return;
+  const name = INTERESTS.find((i) => i[0] === id)[1];
+  const chosen = state.drafts[id] && state.drafts[id].length ? state.drafts[id] : CATALOG[id].map((s) => s.id);
+  state.topics.push({ id, name, hue: HUE[id], sources: chosen.slice(), muted: [], subs: [] });
+}
+
+render();
+</script>

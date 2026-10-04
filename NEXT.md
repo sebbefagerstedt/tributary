@@ -22,6 +22,11 @@ Cheap to change; the point is to find out whether it feels right. The tree
 view is an interactive graph like the reference in `docs/reference/`, but
 prettier.
 
+**First version built 2026-10-04:** `docs/mockup/index.html`, published as an
+artifact at https://claude.ai/artifact/1XeimYb1Q7VEdZJ6H6KnsG. Sample stories,
+nothing fetched. This step is done when the owner has tried it and the changes
+it prompts are in.
+
 ## 2. The new frontend, on GitHub Pages
 
 Choose the framework (Svelte suggested), set it up in its own folder, and
