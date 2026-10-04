@@ -19,26 +19,29 @@ A clickable mockup to try on a phone, before any app code:
 5. Exploring your tree.
 
 Cheap to change; the point is to find out whether it feels right. The tree
-view's shape (outline, map, or both) is decided here.
+view is an interactive graph like the reference in `docs/reference/`, but
+prettier.
 
 ## 2. The new frontend, on GitHub Pages
 
 Choose the framework (Svelte suggested), set it up in its own folder, and
 publish it free on GitHub Pages next to version 1 (for example under `/next/`).
-It reads the bundle the current pipeline already produces. Topics and their
-source lists live in the browser, so every new device is a new reader and the
-first run can be tested over and over.
+It reads the bundle the current pipeline already produces. A profile is a name,
+no password; topics and their source lists live with it in the browser.
 
-## 3. Small backend changes for the prototype
+## 3. The backend on the owner's computer, with real suggestions
 
-- The bundle says which source each story came from, and carries a catalogue of
-  sources to choose from, with what a preview needs (latest headlines, items a
-  week).
-- The scheduled job fetches a wider starter catalogue across several subjects,
-  so the first run has more than AI to offer.
-- A discovery endpoint in `trib serve`, built on `trib sources --suggest`, so the
-  owner can test real discovery of any subject or site from their own computer
-  (see "Testing before paying" in `VISION.md`).
+No shortcuts: suggestions are built against real fetching (`VISION.md`).
+
+- `trib serve` serves the new page and the API from one place, on the owner's
+  computer, reachable from a phone (same Wi-Fi, or a free tunnel).
+- Profiles (a name, no password) and their topics with source lists, stored by
+  the backend.
+- Discovery: from a subject or a pasted site to candidate sources, each with a
+  preview (latest headlines, items a week) — built on `trib sources --suggest`.
+  Where subject suggestions come from is worked out here.
+- The pipeline fetches the sources the profiles' topics use, and a story can
+  sit in several topics, read once.
 
 ## 4. Hosting, once it feels right
 
