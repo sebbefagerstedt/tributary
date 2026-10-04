@@ -589,7 +589,10 @@ def test_a_circle_plays_its_new_stories_then_moves_on(page_bundle):
       a.topics = [{ slug: 'chips', name: 'Chips' }];
       b.topics = [{ slug: 'chips', name: 'Chips' }];
       c.topics = [{ slug: 'rag', name: 'RAG' }];
-      a.published_at = '2026-09-20T10:00:00Z'; b.published_at = '2026-09-21T10:00:00Z';
+      // Inside the 48 hours that make a story new, and a before b.
+      a.published_at = new Date(Date.now() - 20 * 3600e3).toISOString();
+      b.published_at = new Date(Date.now() - 10 * 3600e3).toISOString();
+      c.published_at = new Date(Date.now() - 5 * 3600e3).toISOString();
       follows.clear(); follows.add('topic:chips'); follows.add('topic:rag');
       marks.seen.clear();
       openViewer('topic:chips');
@@ -753,3 +756,23 @@ def test_a_long_surface_draws_fifty_cards_and_a_button_for_more(page_bundle):
       }));
     """)
     assert out == {"first": 50, "more": True, "left": True, "second": 100, "reset": 50}, out
+
+
+@needs_node
+def test_only_unread_stories_from_the_last_48_hours_count_as_new(page_bundle):
+    """Reported 2026-10-04: a circle played two hundred stories to reach today's."""
+    out = boot(page_bundle, """
+      const agents = { slug: 'agents', name: 'AI agents' };
+      const hours = (h) => new Date(Date.now() - h * 3600e3).toISOString();
+      bundle.stories[0].topics = [agents]; bundle.stories[0].published_at = hours(3);
+      bundle.stories[1].topics = [agents]; bundle.stories[1].published_at = hours(72);
+      follows.clear(); follows.add('topic:agents');
+      const row = subjectRow('topic:agents');
+      console.log(JSON.stringify({
+        n: row.n, unseen: row.unseen,
+        plays: playlist(row).map((s) => s.story_id),
+        fresh: bundle.stories[0].story_id,
+      }));
+    """)
+    assert out["n"] == 2 and out["unseen"] == 1, out
+    assert out["plays"] == [out["fresh"]], out

@@ -1184,7 +1184,7 @@ function followRows() {
       key: k,
       name: topical ? topicName(id) : id,
       unseen: live.filter((s) => (topical ? hasTopic(s, id) : hasEntity(s, id))
-        && !marks.seen.has(s.story_id)).length,
+        && isNew(s)).length,
       n: live.filter((s) => (topical ? hasTopic(s, id) : hasEntity(s, id))).length,
     };
   }).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
@@ -1337,6 +1337,19 @@ function topicChip(s) {
 /* A cover, then the words, then where it lives and what you can do with it.
    With art the cover is the picture and the headline sits under it; without,
    the headline *is* the cover, so it is not printed twice. */
+/* New means unread *and* from the last 48 hours. Unread alone made every
+   circle and tile count everything the bundle held -- thirty days of it once
+   the bundle grew (2026-09-25) -- so a circle played two hundred stories to
+   reach today's. Older unread stories are still there to scroll to; they are
+   just not news any more (reported 2026-10-04: "news should not be marked as
+   new unless they are under 48 hours old"). */
+const NEW_HOURS = 48;
+function isNew(s) {
+  if (marks.seen.has(s.story_id)) return false;
+  const at = Date.parse(s.published_at || s.last_activity || '');
+  return Number.isFinite(at) && Date.now() - at < NEW_HOURS * 3600e3;
+}
+
 function cardHTML(s) {
   const colour = KINDS[s.kind] || 'var(--muted)';
   const label = KIND_WORD[s.kind] || s.kind;
@@ -1559,7 +1572,7 @@ function digestRows(live) {
       }
       const row = shelves.get(shelf.slug);
       row.n += 1;
-      if (!marks.seen.has(story.story_id)) row.unseen += 1;
+      if (isNew(story)) row.unseen += 1;
       if (!row.lead || (story.published_at || '') > (row.lead.published_at || '')) {
         row.lead = story;
       }
@@ -1661,7 +1674,7 @@ function subjectRow(key) {
   const name = subjectName(key);
   if (!name) return null;
   const stories = subjectStories(entry);
-  const unseen = stories.filter((s) => !marks.seen.has(s.story_id)).length;
+  const unseen = stories.filter((s) => isNew(s)).length;
   return {
     key, name, stories, n: stories.length, unseen,
     art: artOf(stories), lead: stories[0] || null,
@@ -2191,10 +2204,10 @@ function openStory(id) {
 let viewer = null;   // { queue: [{ key, name, art, play }], s, i }
 const viewerEl = document.getElementById('viewer');
 
-/* What a circle plays: its unread stories, oldest first so they read in order;
-   or, when it is all read, its latest few again. */
+/* What a circle plays: its new stories (unread, last 48 hours), oldest first
+   so they read in order; or, when there are none, its latest few again. */
 function playlist(row) {
-  const unseen = row.stories.filter((s) => !marks.seen.has(s.story_id));
+  const unseen = row.stories.filter((s) => isNew(s));
   return unseen.length ? [...unseen].reverse() : row.stories.slice(0, 10);
 }
 
@@ -2353,7 +2366,7 @@ function subjectLeaves(slug, stories) {
       const row = rows.get(label.slug)
         || { slug: label.slug, name: label.name, n: 0, unseen: 0 };
       row.n += 1;
-      if (!marks.seen.has(story.story_id)) row.unseen += 1;
+      if (isNew(story)) row.unseen += 1;
       rows.set(label.slug, row);
     }
   }
@@ -2401,7 +2414,7 @@ function fillLens(entry) {
     return;
   }
   const stories = subjectStories(entry);
-  const unseen = stories.filter((s) => !marks.seen.has(s.story_id)).length;
+  const unseen = stories.filter((s) => isNew(s)).length;
   const key = lensKey(lens);
   const on = followed(key);
 
@@ -2510,7 +2523,7 @@ function fillSubject(entry) {
   if (entry.kind === 'lens') { fillLens(entry); return; }
   if (entry.kind === 'unsorted') { fillUnsorted(); return; }
   const stories = subjectStories(entry);
-  const unseen = stories.filter((s) => !marks.seen.has(s.story_id)).length;
+  const unseen = stories.filter((s) => isNew(s)).length;
   const key = subjectKey(entry);
   const on = followed(key);
   const covered = on ? '' : coveringShelf(key);
