@@ -92,6 +92,4 @@ export function sourcesForShelf(catalog: Map<string, Source>, shelf: string): So
     .sort((a, b) => (b.shelves.get(shelf) || 0) - (a.shelves.get(shelf) || 0));
 }
 
-/* A source that puts stories on many shelves writes about everything. */
-export const isGeneral = (s: Source) => s.shelves.size >= 5;
 export const isBusy = (s: Source) => s.week >= 300;

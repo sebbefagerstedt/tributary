@@ -2,7 +2,7 @@
    your profile, and a story. Each is one level of "back". */
 
 import { FormEvent, ReactNode, useMemo, useState } from 'react';
-import { Bundle, Source, Story, agoLabel, isBusy, isGeneral, shelves, sourcesForShelf } from './data';
+import { Bundle, Source, Story, agoLabel, isBusy, shelves, sourcesForShelf } from './data';
 import { Profile, Topic } from './state';
 import { FoundCard, KIND_WORD, hueOf } from './ui';
 
@@ -15,7 +15,7 @@ export function Sheet({ onClose, children }: { onClose: () => void; children: Re
 }
 
 const sourceLine = (s: Source | undefined) => (s
-  ? `${s.week.toLocaleString()} this week${isBusy(s) ? ' · very busy' : ''}${isGeneral(s) ? ' · writes about everything' : ''}`
+  ? `${s.week.toLocaleString()} this week${isBusy(s) ? ' · very busy' : ''}`
   : 'Nothing from it in the last 30 days');
 
 /* After creation, sources step back into settings: remove with a tap, search to

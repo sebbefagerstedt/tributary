@@ -391,7 +391,7 @@ function srcRow(topic, s, on) {
   return `<div class="src-row">
     <button class="check" role="checkbox" aria-checked="${on}" aria-label="Include ${esc(s.name)}" data-toggle="${topic}:${s.id}">${on ? ICON.check : ''}</button>
     <div><div class="nm">${esc(s.name)}</div>
-      <div class="sub">${esc(s.site)} · ${s.week.toLocaleString()} a week${s.flood ? ' · <span class="warn">very busy</span>' : ''}${s.general ? ' · <span class="warn">writes about everything</span>' : ''}</div></div>
+      <div class="sub">${esc(s.site)} · ${s.week.toLocaleString()} a week${s.flood ? ' · <span class="warn">very busy</span>' : ''}</div></div>
     <button class="peek" data-peek="${topic}:${s.id}">Preview</button>
     <div class="pv" id="pv-${topic}-${s.id}" hidden>${s.pv.map((t) => `<div>${esc(t)}</div>`).join('')}</div>
   </div>`;
@@ -553,7 +553,7 @@ function settingsSheet(t, q = '') {
       <input class="field" id="q" placeholder="Search a subject, name or paste a site" value="${esc(q)}" autocomplete="off">
       ${q.trim() ? `<div class="set-list">${found.map((s) => `
         <div class="set-item" style="flex-wrap:wrap"><div class="grow"><div style="font-weight:650">${esc(s.name)}</div>
-          <div class="sub">${esc(s.site)} · ${s.week.toLocaleString()} a week${s.general ? ' · writes about everything' : ''}</div>
+          <div class="sub">${esc(s.site)} · ${s.week.toLocaleString()} a week</div>
           <div class="sub" style="margin-top:4px">${s.pv.map(esc).join(' · ')}</div></div>
           <button class="x add" data-addsrc="${s.id}">Add</button></div>`).join('') || '<div class="set-item sub">Nothing in the sample. On the real backend this searches the web.</div>'}</div>`
         : '<div class="sub" style="font-size:12.5px;color:var(--muted)">Try "video", "reddit" or "space".</div>'}</div>
