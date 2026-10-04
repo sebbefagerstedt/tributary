@@ -36,6 +36,9 @@ No shortcuts: suggestions are built against real fetching (`VISION.md`).
   Where subject suggestions come from is worked out here.
 - The pipeline fetches the sources the profiles' topics use, and a story can
   sit in several topics, read once.
+- Topic relations for "Up and related" (`VISION.md`): a topic's parent, and a
+  short Related row from the embeddings — browsing only, never adding to the
+  feed.
 
 ## 3. Hosting, once it feels right
 
