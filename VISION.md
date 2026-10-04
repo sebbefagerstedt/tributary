@@ -122,6 +122,31 @@ more at any time (by subject, name or pasted site, with the same preview);
 **muted words**, to hide anything mentioning, say, "crypto" in this topic; and
 the topic's name. Removing a source from a topic affects only that topic.
 
+### Up and related, on every topic page
+
+Decided 2026-10-04: from a topic you can step **up** to the broader topic it
+belongs to, and **sideways** to related topics — *"I like both. But it is
+important that this does not bloat your feed."* So:
+
+- **Up:** a topic page shows "Part of **AI**". Tapping it opens AI whether or
+  not you follow it — its stories, its other subtopics, and a Follow button.
+  This is how you find the siblings of something you already like.
+- **Related:** a short row of topics close to this one but not above or below
+  it (AI video beside Film & VFX), from the embeddings: topics whose
+  descriptions sit near each other. A handful at most — three or four.
+- **Your feed never grows by itself.** Walking up or sideways is looking, not
+  following — the rule version 1 learned (*follows gate the feed; they do not
+  gate a place you walked into*). Only a topic you follow puts stories in your
+  feed; a parent you visited, or a related topic you peeked at, adds nothing.
+  The Related row lives on the topic page only, never in the feed, and nothing
+  is ever followed on your behalf.
+- **Who decides the parent.** A topic from a starter tree knows its parent. A
+  topic you made yourself gets one proposed by the embeddings — "This looks
+  like part of AI. Show it as a subtopic?" — which you accept or decline, like
+  every suggestion.
+
+It needs the backend's topic relations, so it belongs with step 2 or just after.
+
 ### Exploring your tree
 
 *"I would actually like a view where you can explore your tree it would be
