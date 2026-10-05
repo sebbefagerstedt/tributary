@@ -153,13 +153,13 @@ accept or reject.
 ## Reading it on a phone
 
 ```bash
+cd web-next && npm ci && npm run build && cd ..   # the page, once and after each pull
 trib serve --host 0.0.0.0
 ```
 
-Open the printed address on your phone and add it to the home screen. It
-installs as an app, and caches its own shell so it opens instantly on a bad
-connection. The feed itself is never cached: a stale feed is worse than an
-honest error.
+Open the printed address on your phone and add it to the home screen. Served
+this way the page keeps profiles and topics on your computer, and can search a
+pasted site for sources; `web-next/README.md` has the details.
 
 **There is no authentication.** Run it over [Tailscale](https://tailscale.com),
 which reaches your machine from your phone privately with nothing exposed to the
@@ -168,7 +168,8 @@ public interface.
 
 ## Hosting it free on GitHub Pages
 
-`trib export site/` writes a self-contained static site, and
+`trib export site/` writes a static site (the bundle, plus the page when
+`web-next` has been built), and
 `.github/workflows/update.yml` runs the pipeline every three hours and publishes
 it. To set it up: push to GitHub, then **Settings → Pages → Source: GitHub
 Actions**. The first run takes a few minutes; later ones about one.
@@ -191,6 +192,8 @@ uv run ruff check .
 Migrations are plain SQL in `src/tributary/migrations/`, applied in filename
 order. Add a numbered file and it applies on the next command.
 
-The page is one self-contained file, `src/tributary/web/index.html` — no build
-step. It reads one JSON bundle whether `trib serve` built it just now or a
-scheduled job wrote it hours ago, so both deployments share one frontend.
+The page is a React app in `web-next/` (Vite, TypeScript); `npm test` there runs
+its logic tests. It reads one JSON bundle whether `trib serve` built it just now
+or a scheduled job wrote it hours ago, so both deployments share one frontend.
+The single-file page that came before it was retired on 2026-10-05 and is in git
+history.

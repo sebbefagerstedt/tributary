@@ -34,6 +34,11 @@ def export_cmd(
         f"[green]Wrote {result['stories']} stories[/] to {result['path']} "
         f"([dim]data.json {size:.0f} KB[/])"
     )
+    if not result["page"]:
+        console.print(
+            "[yellow]No page copied[/]: build it first with "
+            "[bold]cd web-next && npm ci && npm run build[/]."
+        )
 
 
 @app.command(rich_help_panel=PANEL)
@@ -60,6 +65,11 @@ def serve(
         os.environ["TRIBUTARY_CONFIG"] = str(config.resolve())
 
     console.print(f"[green]Tributary[/] on [bold]http://{host}:{port}[/]")
+    if not export_mod.APP_DIR.is_dir():
+        console.print(
+            "  [yellow]The page is not built[/] — run [bold]cd web-next && npm ci && "
+            "npm run build[/] first; the API works without it."
+        )
     if host in ("0.0.0.0", "::"):
         addresses = _local_addresses()
         for address in addresses:

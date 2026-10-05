@@ -2,7 +2,7 @@
 
 Only upcoming work lives here. **When a step is done, delete it** — history is in
 git. The design these steps build is in **`VISION.md`**; read it first.
-`CLAUDE.md` describes version 1, the app running today.
+`CLAUDE.md` holds the pipeline's rules and lessons; version 1's page is retired.
 
 The redesign goes in steps, and **each step ends in something the owner can try
 and judge before the next one costs anything** — no hosting is paid for until
@@ -12,12 +12,12 @@ the design feels usable.
 
 Build what the approved mockup shows (`docs/mockup/index.html`, approved by the
 owner 2026-10-04: *"It looks perfect"*). React with Vite (decided 2026-10-04), in its own folder,
-published free on GitHub Pages next to version 1 (for example under `/next/`).
+published free on GitHub Pages.
 It reads the bundle the current pipeline already produces. A profile is a name,
 no password; topics and their source lists live with it in the browser.
 
-**Built 2026-10-04 in `web-next/`** and published at
-https://sebbefagerstedt.github.io/tributary/next/: profile, first run, home with
+**Built 2026-10-04 in `web-next/`**, and since 2026-10-05 the site itself at
+https://sebbefagerstedt.github.io/tributary/ (version 1's page is retired): profile, first run, home with
 the layout switch, topic pages with subtopics, the player, topic settings, new
 topics, the story sheet and the tree. Starter subjects are the spine's shelves
 and the sources offered are the ones the pipeline already reads, until step 2.
@@ -27,7 +27,7 @@ This step is done when the owner has used it on a phone and its fixes are in.
 
 No shortcuts: suggestions are built against real fetching (`VISION.md`).
 
-**Built 2026-10-04, first half.** `trib serve` serves the new page at `/next/`
+**Built 2026-10-04, first half.** `trib serve` serves the new page at `/`
 beside the API (`/api/next/…`), and the page notices it and switches from the
 browser to the server: profiles and topics with their source lists are stored
 in the database (`readers.py`, migration 009), a typed subject or a pasted site

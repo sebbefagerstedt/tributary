@@ -9,15 +9,15 @@ scan on a phone — live at https://sebbefagerstedt.github.io/tributary/.
 build next**; this file holds everything else: the ground rules, how the code
 fits together, and the decisions that should not be rediscovered.
 
-**This file describes version 1 — the app that runs today — and what building
-it taught.** The app is being redesigned (decided 2026-10-04): **`VISION.md` is
+**This file describes version 1 — the pipeline that runs today — and what
+building it taught.** The app is being redesigned (decided 2026-10-04): **`VISION.md` is
 the spec for the redesign and wins wherever the two disagree**, and `NEXT.md` is
-its roadmap. Superseded for the redesign, but true of the code here: sources are
-fixed in `config.toml`; topics are one shared spine for everyone; the page is
-one HTML file with no build step, split into tabs; deployment is a static site
-rebuilt every three hours. What carries over — the story as the unit, the
-clustering and its measured thresholds, the source findings, the page lessons —
-is listed at the end of `VISION.md`.
+its roadmap. Version 1's page (one HTML file with tabs, follows, lenses) was
+**retired on 2026-10-05**; the site is now the React app in `web-next/`, and the
+page decisions that carry over are listed at the end of `VISION.md` — the rest
+are in git history, in this file before the commit that retired the page. Still
+true of the code here: sources in `config.toml` are fetched for everyone; topics
+are one shared spine; deployment is a static site rebuilt every three hours.
 
 ## Ground rules
 
@@ -84,29 +84,21 @@ Actions cache). **Open it with `tributary.db.connect()`**, never
 `sqlite3.connect()`: vectors live in a sqlite-vec `vec0` table, and a plain
 connection fails with `no such module: vec0`.
 
-**Testing the page:** `tests/test_lens.py` boots the whole script under **node**
-against a real exported bundle, with a thirty-line DOM stub and a fake `fetch`,
-and then calls into it — so `render()`, `visible()` and the lens maths are
-covered without a browser, a build step or an npm dependency. It skips where
-node is absent. Prefer extending it over adding another string assertion on the
-exported HTML: those catch a renamed class and nothing else.
-
-It also slices the block between `/* LENS_MATHS_START */` and
-`/* LENS_MATHS_END */` out of the page and runs it alone, which is why
-everything in there must stay pure — no DOM, no `localStorage`, no globals.
-That is what lets the page's cosine be checked against the numpy that packed
-the vectors it reads.
+**Testing the page:** `cd web-next && npm test` runs its logic under vitest —
+what a topic holds, "new", the source catalogue, and the int8 vectors checked
+against the numbers `readers.pack` wrote in Python. Keep that logic in pure
+functions (`state.ts`, `data.ts`, `vectors.ts`) so it stays testable without a
+browser.
 
 **For layout, screenshot it.** On the dev machine headless Chromium still needs
 `sudo .venv/bin/playwright install-deps chromium` first. In a Claude Code remote
-container it is already there and the note above used to say otherwise: pass
-`executable_path="/opt/pw-browsers/chromium"` and `args=["--no-sandbox"]`,
-because the pinned Playwright asks for a build number the image does not carry
-and otherwise tells you to run `playwright install`, which is wrong. Serve the
-exported site over HTTP rather than `file://` — the page fetches `data.json`,
-and CORS blocks that on a file URL. Screenshot at 390×844, and **not**
-`full_page`: `.sheet` is `position: fixed`, so a full-page capture renders the
-chrome underneath it and invents a bug that is not there.
+container it is already there: pass `executable_path="/opt/pw-browsers/chromium"`
+and `args=["--no-sandbox"]`, because the pinned Playwright asks for a build
+number the image does not carry and otherwise tells you to run `playwright
+install`, which is wrong. `npm run dev` in `web-next/` serves the page on sample
+data (`scripts/make_dev_data.py` writes it); `trib serve` serves the built page
+with the API. Screenshot at 390×844, and emulate touch (`has_touch=True`) when
+checking gestures: the player and sheets are driven by touch and pointer events.
 
 ## Architecture
 
@@ -124,7 +116,7 @@ chrome underneath it and invents a bug that is not there.
 
 The read side runs at request or export time: `feed.py` ranks stories,
 `export.py` builds one JSON bundle, `api.py` serves it and `export` writes it to
-disk, and `web/index.html` renders it.
+disk, and the page in `web-next/` renders it.
 
 ### Mechanics that span several files
 
@@ -154,12 +146,12 @@ disk, and `web/index.html` renders it.
 - **One bundle, two deployments.** Every read endpoint is a slice of a database
   that only changes when the pipeline runs, so the whole API collapses into
   `data.json`. `trib serve` builds it live, `trib export` writes it to disk, and
-  the page cannot tell the difference. Seen, saved and dismissed live in
-  `localStorage` — they are preferences, and a static host has nowhere else.
-- **The page is one file with no build step.** The JSON bundle is the contract,
-  so replacing the frontend later touches nothing else. The service worker
-  caches the shell only, never the feed: a stale feed is worse than an honest
-  error.
+  the page cannot tell the difference. On a static host a reader's profile
+  lives in `localStorage`; served by `trib serve` it lives in the database.
+- **The JSON bundle is the contract**, so the frontend was replaced (2026-10-05)
+  without touching the pipeline. The page registers no service worker: a stale
+  page or feed is worse than an honest error. `web-next/public/sw.js` exists
+  only to retire version 1's worker on phones that installed it.
 - **The CLI is a package**, one module per `trib --help` panel. Importing a
   module registers its commands, so `cli/__init__.py` fences the import order
   off from the import sorter — alphabetised, it buries `run` mid-list.
@@ -179,33 +171,19 @@ Every item gets a role — `seed`, `paper`, `code`, `video`, `coverage`,
 `discussion` — which is what renders as the story's "wake". Roles are stored,
 not recomputed, so changing `role_for` needs `trib cluster --reset`.
 
-### Four surfaces, and what orders each
+### What the bundle holds, and the reading rules that outlived version 1's page
 
-The page is **Topics, Feed, Trending, Saved**. What separates them is only the
-order and the scope; all four read the same bundle.
-
-| Surface | Order | Scope |
-|---|---|---|
-| Topics | most unread first | every subject in the bundle |
-| Feed | newest first, by the date on the card | what you follow, and nothing else |
-| Trending *(beta)* | the ranking below | everything, or what you follow |
-| Saved | newest first | what you starred |
-
-**Topics is the front door.** Decided 2026-09-23, once it had circles and
-tiles: *"I agree that the topic is more of a better home."* The page always
-opens there rather than on the tab you left (`view` is no longer stored), and
-it is first in the tab bar. It is the overview — what is new, where — and the
-Feed is where you go to read everything you follow. The circles sit directly
-under the top bar with no heading, as Instagram's do: a "Following" title under
-"Tributary" was two titles stacked, reported the same day.
+Version 1's page had four surfaces (Topics, Feed, Trending, Saved), follows,
+circles and lenses; it was retired on 2026-10-05 and its decisions are in git
+history. These are the ones the pipeline and the new page still act on.
 
 **Triage scores; it does not gate.** Changed 2026-09-19, on the owner's call:
 *"I have solved filtering with following instead. It is a much more basic and
 better solution since everyone has their own preferences."* So `enrich.pending`
 and `cluster.unclustered` no longer filter on `triage_state`, and everything
 fetched becomes a story. Triage still runs, and its score is still `relevance`
-in the ranking — so what the profile dislikes sinks in Trending rather than
-never existing. Trending is marked **beta** in the UI while that is judged.
+in the ranking — so what the profile dislikes sinks in the ranking rather than
+never existing.
 
 **The topic floor was re-measured on everything, and stays at 0.55.** Topics
 have no relevance threshold by design — a story goes to its single best leaf —
@@ -240,196 +218,6 @@ as about AI or not.
   column as "short or off the profile", never as "not AI"; what a topic holds
   is in its headlines.
 
-**The profile chooser lists what that profile follows.** Asked for 2026-09-21:
-*"In the profiles, I would also like to see the topics i follow"* — and it is
-where the apps this borrows from keep it. Reddit's "Your communities" sits in
-the drawer behind the avatar; X keeps "Topics" in the profile menu. A follow
-belongs to whoever is reading, and the chooser is the only surface that is about
-them: every other list of subjects on the page is built from the stories in the
-bundle, so it can only show follows the news happens to be covering. Rows carry
-the same count and the same follow button as the subject panel, and tapping one
-opens it. **The rows are a snapshot taken when the chooser opened**, not the
-live set — unfollowing leaves the row in place reading `Follow`, because a row
-that vanishes under the thumb that tapped it leaves nothing to undo with.
-
-**Profiles are a namespace, not a login.** Asked for 2026-09-19: *"a Login that
-is just a selection of choosing a profile or creating a new profile which only
-is a name. No password."* So a profile prefixes every `localStorage` key this
-device already wrote — `p:<name>:seen`, `p:<name>:follows` and so on — and the
-chooser stands in for a login screen because writing one person's marks into
-another's bucket is worse than making them tap a name. It protects nothing and
-syncs nothing: the same name on a laptop is a different profile, since a static
-host has nowhere to put a server. Turning it on adopts whatever the device
-already stored into the first profile created, so nobody's follows vanish on
-upgrade. The one seam is `trib serve`: `interactions` has no column for a
-person, so on a local server every profile's marks land in one bucket. On Pages
-there is no server and the profiles are cleanly separate.
-
-**Following is the filter, not the source list.** The owner's rule: *"I want to
-be able to choose what news/topics to follow, that is exactly what I was
-missing."* So model cards and release notes stay in the pipeline and are
-filtered by what you follow, rather than dropped from config. Follows are
-`topic:<slug>` and `entity:<name>` in `localStorage` beside seen and saved.
-
-**An empty follow set means an empty feed.** Reversed 2026-09-19, on the
-owner's call: *"feed should be empty if you do not follow anything. That is the
-whole point."* It had been the opposite — following nothing showed everything,
-on the reasoning that an empty feed on a new device looked like a fault. But a
-feed that is full before you have chosen anything is the habit the project is
-replacing, and it hides the one action that makes the app yours. So the Feed
-filters on `isFollowed` unconditionally, and following nothing gets an empty
-state pointing at Topics, which is where you choose. Saved and search are
-deliberately outside this — both are ways back to something you already have —
-and Trending is still everything, since it is a place you go to look around.
-
-**A follow is a preference, not a view of the corpus.** Topics die by dormancy
-— the filter rows are built from the stories loaded, so a quiet one vanishes —
-and that is right for a filter and wrong for a follow. A followed subject with
-nothing in the bundle had no row anywhere, so it could not be seen or turned
-off, while still counting in `follows` and still deciding what the feed held:
-an invisible follow, and (once follows gated the feed) an empty feed with no
-reachable cause. So the Topics page's **Following** row lists *every* follow,
-quiet ones faded but still there to tap — it replaced a separate "Followed, but
-quiet" section on 2026-09-23. Naming those needs the
-spine, since no story carries the name: `export.build_bundle` passes the whole
-spine as `bundle.spine`, for the reason it already passed `facets` by name.
-An old bundle without the key falls back to the slug.
-
-**Following is reachable from the place you are in.** `topicHead` and
-`entityHead` carry a follow button. It used to live only in the digest, so the
-subject you were actually reading was the one subject you could not act on.
-
-**A leaf under a followed shelf says it is covered, and stays followable.**
-`isFollowed` counts a shelf follow for every leaf under it, but each button was
-drawn from its own key, so a covered leaf offered `Follow` as if it were not in
-the feed. `coveringShelf` gives it a third state — a hollow tick on its tile,
-`Covered` on its page and in its banner — that is still a button, on the
-owner's call 2026-09-23: *"it should still be possible to follow a subtopic. I
-might be specially interested in some subtopic so I do not want to miss news
-there."* A leaf followed on its own gets its own circle and new count, and
-survives unfollowing the shelf.
-
-**Search inside a place names the place when it finds nothing.** `visible()`
-scopes before it searches, deliberately, and *"Nothing matches google"* once
-made a story one shelf away look absent. Decided 2026-09-23 to say where it
-looked rather than widen the search, since that keeps the place you chose.
-
-**Follows gate the feed; they do not gate a place you walked into.** A topic or
-an entity reached deliberately — from a story's chip — shows what is in it
-whether or not you follow it. Requiring both emptied every subject you had not
-already chosen, which is precisely the subject you went to look at, and the
-banner saying "0 stories" sat above a digest row that had just counted them.
-So `visible()` applies `isFollowed` only when nothing is scoped.
-
-**A place you walked into hides the filter row.** Reported 2026-09-21: *"it now
-shows the filters I follow even though i clicked on a topic"* — and they were
-never filters on that place. Standing in `Industry & policy`, the row offered
-`Language models` and `AI agents`: neither in the feed below, neither lit, and
-the subject actually on screen missing from the row because it is not followed.
-Tapping one would not narrow the place, it would leave it for another. So
-`renderFilters` draws nothing while `narrowed()`, and the row carries no pressed
-state or `Clear` any more — it cannot show a lit chip, because it is gone the
-moment you are inside a subject. It is a way *in* to what you follow, and the
-banner is the place's own chrome.
-
-**Every part of the banner's name is a way somewhere.** Asked for 2026-09-21:
-*"I also want to be able to click on e.g Ai agent-> coding agents to browse
-other topics deeper and to go back to ai agents"*. `AI agents › Coding agents`
-was plain text, so a leaf was a dead end: the only moves were back to the feed
-or into a story. **Since 2026-09-23 the banner moves you within the feed**:
-the parent segment is a `data-filter` crumb that goes up a level and stays in
-the feed, and below the follow button the banner shows the level beneath as
-the same round chips as the filter row (`placeChildren`: the leaves, then any
-subject you made inside this topic) — reported that day: *"in the feed when I
-click Language models, I cannot go any deeper right now or even see the
-subtopics"*. The current segment is plain text: you are already there. Opening
-a subject's page, the map, is what its name does everywhere else.
-
-**Which is why `topicHead` carries `Back to feed`.** `entityHead` always had
-one; a topic's only exit was the `Clear` chip in that row, which renders only
-when you follow something — so following nothing and walking into a topic left
-no way back to the feed at all, on the one path (an empty feed, then Topics,
-then a subject) a new reader is most likely to take.
-
-**Tapping a subject opens it.** Everywhere — the digest, a story's chips, a name
-on a card — `data-subject` opens a panel for that topic or entity. Asked for
-2026-09-21: *"I can not see topics when I click them now. It just navigates me
-to an empty feed. I would also like to get a popup when I click a topic and a
-chance to follow (similar to an instagram profile)."* Both halves were one gap.
-Nothing in the digest opened anything: the shelf name (`data-to-feed`) went to
-the feed and cleared the scope on the way, which for anyone following nothing is
-an empty feed, and a leaf chip toggled a follow without moving at all. Before
-that, the name had set the topic on the way out, which left the feed filtered
-days later with no memory of setting it — so the fix for *that* was right about
-the filter and wrong about the name. A name should open its subject; neither
-navigating nowhere nor leaving a filter behind is that.
-
-**The panel is shaped like a profile**, which is what was asked for: the name and
-the follow control together at the top, then what sits under it, then its
-stories. Following is a button rather than a chip's tint — that is what makes it
-*clear what is followed*, and it ends the collision where one chip shape
-navigated in the Trending sheet and followed in the digest. A shelf's panel
-lists its leaves with a follow each, so the two levels are visibly separate
-choices; a leaf you follow is listed even when the bundle is quiet about it,
-for the reason quiet follows stay in the Following row.
-
-**Topics is the map and the Feed is the reader.** Decided 2026-09-23, on the
-owner's call: *"The feed should be the only place a feed like design pops up …
-On the topics page, I want the current design to follow all layers down"*. So
-a subject's page lists no stories. It has the banner, the name, **Follow**,
-**See in feed** (into the feed, scoped to it, which works for a topic, a name,
-one of yours and the stories no topic caught) and **▶**, which plays its
-stories in the full-screen viewer (`openViewer(key, true)`: that subject only,
-followed or not). Below that, the level beneath as the same tiles as Explore —
-leaves, then subjects you made there, tagged *yours* — and a field to make one
-here. For a morning the page listed its stories as the feed's own cards
-(*"It should not need to route to the feed"*); that made two surfaces with one
-job, and it was reversed the same day in favour of this split.
-
-**A shelf's leaves need not add up to its total, and the panel does not say
-why.** A shelf saying 24 stories over leaves adding to 21 is **parking** — a
-story whose top two leaves share a shelf and sit within `park_margin` stays on
-the shelf, so `hasTopic` counts it in the shelf's total and no leaf row can
-(~13% of the corpus). From 2026-09-21 the panel ended its list with a **Not
-under a subtopic** row and a note explaining this; removed 2026-09-23 on the
-owner's call — *"That should not matter to the user."* Parked stories still
-appear among the shelf's cards, and following the shelf still collects them.
-The mismatch is only visible to someone adding the numbers up.
-
-**The panel is a page wearing a sheet, and that is deliberate.** Checked against
-how other apps do this, 2026-09-21, because the brief was "a popup … similar to
-an instagram profile" and the two halves of that pull in different directions.
-What the survey said:
-
-- **Every app opens a subject as a page, not an overlay.** An Instagram profile,
-  a Reddit community, a YouTube channel and an X trend are all full pages in a
-  navigation stack. None of them is a transient sheet.
-- **Apple's rule for a sheet** is that it "helps people perform a *scoped task*
-  that's closely related to their current context". Browsing a subject that has
-  levels under it is not a scoped task.
-- **Nielsen Norman on bottom sheets**: an expanded one looks like an ordinary
-  page, so people reach for the back gesture — and are disoriented when the
-  sheet has not wired it up. The fix they give is to support Back.
-- **Nested modals are the named anti-pattern**: layers stacked on layers, no
-  single exit, and no way to tell where you are.
-
-Tributary's `.sheet` is `position: fixed; inset: 0` — full screen, with a back
-arrow and one history entry per level. So it already *is* a pushed page in
-everything but the entrance animation, and the back gesture that the sheet
-literature says is usually missing is the mechanism this was built on. The one
-finding that did apply: stacked layers were indistinguishable, all bar and no
-label. Each panel now names itself in its bar (`#subject-where`, a leaf naming
-its shelf), which is what a pushed page does and what makes depth legible.
-Nothing else from the survey argued for changing the shape.
-
-**Back climbs one level.** `panels` is a stack — a subject, a leaf inside it, a
-story opened from either — and each entry pushes one history entry, so the back
-arrow, Escape and the phone's own gesture are one path. *"När man klickar
-tillbaka ska man komma upp en nivå liksom."* The story sheet already did this
-for one level, on purpose: without it, back left the site. The panel on top is
-drawn on show rather than on push, so one you return to reflects what changed
-while you were deeper — a follow toggled, a story read.
-
 **The feed orders by when the news broke, not by the story's clock.** A story's
 clock restarts when its wake grows (see `trib renewal`), and a chronological
 feed where a three-day-old paper jumps the queue because someone commented is
@@ -440,7 +228,7 @@ minutes apart and that is one event, not a wake.
 **The bundle is selected by date** (`feed.recent`), not by rank. Taking the
 top-ranked N and sorting those by date would silently drop a recent story the
 ranking did not rate, and the reader would never learn it existed. Every card
-still carries `score`, which is all Trending needs. **And it is bounded by time, not by count.** The
+still carries `score`, which is all a ranked view needs. **And it is bounded by time, not by count.** The
 workflow exported `--limit 120`, which at this corpus's rate — about 1,300
 stories a month — was two or three days deep: on 2026-09-25 AI video news was
 "at the most 24h old" on the page while thirty days of it sat in the database.
@@ -448,79 +236,6 @@ The limit is gone (`export.DEFAULT_LIMIT = 0`, every story in `--days 30`),
 about 1 MB gzipped, and the page draws fifty cards at a time behind a **Show
 more** button — a button, never loading on scroll, because a feed that refills
 as you reach the end is a hook.
-
-**There is no kind row.** Facets had their own filter row under the Feed's
-subjects and their own `Kind` group in Trending's sheet. Removed 2026-09-21, on
-the owner's call: *"I would also like to remove the subtopics/kind (code,
-agents, multimodal etc.) which lie under general topics. They do not make sense
-right now."* The axes were being offered as siblings when they are not: under
-one home the topic shelves *partition* the corpus, while facets are any number
-per story and exist to cut across it, so the kind chips overlapped and their
-counts summed past the pool. Offered before any subject was chosen, `Kind` asked
-you to slice everything by a property built for narrowing somewhere you had
-already walked into. Facets are still matched, still fingerprinted by
-`Config.label_fingerprint`, and still in the bundle as `bundle.facets` — nothing
-in the UI reads them. Putting a row back means deciding what it is subordinate
-to first.
-
-**Each surface filters the way its own size allows.** The Feed's chip row shows
-only the subjects you follow — the feed already holds nothing else, so offering
-the other forty topics is offering forty empty filters — and only while you are
-not inside a place (above). **The chips are the Topics page's circles made
-small** (2026-09-23, *"could look cooler"*): the same `ringRows`, so the same
-subjects in the same order, each with its picture in a ring lit while
-something in it is new, and the new count where there is one. They had been
-grey pills counting totals, and they left out followed names entirely. There used to be a second row — the whole spine,
-shelf then leaf — for the case where you followed nothing and the feed was
-therefore everything; that case no longer exists, so neither does the row. Trending is everything, where the same rows are forty-odd
-chips over four lines before a headline, so it collapses to one bar reading its
-own state (`Everything · AI agents`) that opens a filter sheet — the
-same gesture the story detail and the profile chooser use. **The sheet lists shelves, not leaves.** Showing
-all forty-odd subjects at once only moved the wall of chips behind a tap, so a
-shelf opens on tap and one is open at a time, with `Everything` inside it
-standing for the shelf itself; a shelf with nothing under it picks instead of
-expanding. The sheet opens with the shelf holding the current selection already
-open, and a collapsed shelf lights up for a leaf chosen inside it. So scope and
-opening a shelf keep the sheet open, because neither finishes the choice; a
-subject is the answer, so it applies and closes.
-
-**No chip means "no filter", and the word is gone from the UI.** `All`,
-`Everything`, `Anything` and `Any kind` were each the first chip of a row, lit
-whenever nothing else was — which is only ever a restatement of the row's own
-state. The owner's call, 2026-09-19: *"All and Everything is unecessary since it
-is true if no filter is active. But a way to 'clear' all selected filters is
-better UX."* So the rows hold subjects only; tapping a lit chip turns it off,
-and `Clear` appears beside Trending's bar and in the sheet's header only when
-something is on. The Feed's row no longer carries one: it is hidden whenever
-there is anything to clear, and `Back to feed` in the banner is what clears it.
-
-Three `Everything`s outlived that pass and were removed 2026-09-21 — *"There is
-an 'everything' filter. That is unecessary"* — because each was the same
-restatement in a different costume:
-
-- **The sheet's `Show` row** was `Everything` / `What I follow`, a pair where
-  one chip meant "no scope". It is now the one chip that means something, and
-  tapping it while lit turns it off. Off is everything.
-- **Trending's bar** opened with `Everything`, so the unfiltered state had a
-  name where it needed a way in. With nothing on it now reads `Filter`; with
-  something on it lists what is on.
-- **The first chip inside an open shelf** now carries the shelf's own name.
-  Unlike the other two this is a real selection and had to stay: under one home
-  it is not the same as picking every leaf, because about 13% of stories are
-  *parked* on a shelf and belong to no leaf, so it is the only way to reach
-  them. Only the label was wrong. An open shelf's header drops its count, so
-  the header and the chip below it do not read as one thing printed twice.
-
-**A card says where its story lives.** Reported 2026-09-21: *"it is a bit
-strange that e.g. the openai tag shows but you cannot see industry and policy
-until you click on the news"*. The card carried who a story was about and not
-where it sat, so the one axis that decides what the feed holds was the one you
-had to open a story to see. `topicChip` now leads the signal row, in the accent
-the page uses for a place you can walk into, with names after it in neutral —
-an entity is a different cut of the feed, not where this story lives. Under one
-home there is exactly one, and a parked story names its shelf, so it is always
-one chip and never a row. It is shown even inside that subject: scoped to a
-shelf, the chip names the *leaf*, which is the thing the banner cannot say.
 
 **Google Discover's card is an image contract, and this corpus cannot sign
 it.** Offered 2026-09-22 as the target for Trending, as a screenshot. Discover
@@ -535,74 +250,6 @@ exist: a paper and a release have no image, ever, so imageless kinds get a
 typographic cover (built 2026-09-22, below). Discover's
 uniformity comes from a uniform corpus — publisher articles and nothing else —
 and "do not cut arXiv" is the rule that makes this corpus the other kind.
-
-**Big cards are wanted, and the old density rule is withdrawn.** The screenshot
-holds two stories on a whole phone screen, and that was raised as a cost before
-the owner corrected it, 2026-09-22: *"Jag har inga problem med att nyheter tar
-upp för stor plats på sidan, det är snarare bra då det är svårare att missa."* A
-card that fills the screen is harder to skip, which is the point; the earlier
-"dense card list" framing treated size as waste and had it backwards. **What is
-waste is chrome** — a 182px header is rows nobody asked for, while a large card
-is the thing they came for. So the Discover shape is not a reversal to weigh
-against anything, it is the target.
-
-**The redesign, built overnight on 2026-09-22 without the owner present.** Asked
-for in those words — *"do the redesign now during the night"* — so the open
-questions in `NEXT.md` were decided here rather than in an interview, and each
-decision is one piece that can be reverted alone:
-
-- **The tabs are a bottom bar** (`.tabbar`), icon over word. Instagram, TikTok,
-  X and Reddit all keep primary navigation there, where the thumb already is.
-  It stays fixed while the header hides, because it is where you go next.
-- **The top is one line** — wordmark, freshness, a search icon, the avatar —
-  and it **slides away while you scroll down**, back the moment you scroll up.
-  That is form, not a hook: it is what the reader's own gesture already means.
-- **Search is an icon until wanted** (`body.searching`). Closing it clears the
-  query, because a hidden search still narrowing the feed is a filter nobody
-  can see — the same reason the page has kept removing silent narrowing.
-- **Every card has a cover.** Art edge to edge when the story has it; otherwise
-  a **typographic cover** — the headline set large on its kind's colour, the
-  kind named at the top — and then the headline is not printed again below. A
-  hotlinked image that fails redraws its card with a typographic cover, rather
-  than leaving a hole in a wall where every card has one.
-- **The wake is one quiet line** (`wakeHTML`): a dot in the kind's colour and a
-  count, then sources and engagement. The coloured pills it replaces wrapped a
-  busy card onto three rows; the colour language is kept, the chrome is not.
-- **Save, More like this and Dismiss sit on the meta line**, top right of the
-  words, so the topic and name chips below them can wrap instead of clipping.
-- **A subject's panel has a banner**, the way a profile has one: the newest
-  picture among its stories, or an accent wash. Borrowed — a subject has no art
-  of its own. This was the untried "hero image" idea from the survey.
-- **The Topics page is a row of circles and a grid of tiles** — added
-  2026-09-23, on *"the Topics page is still kind of boring"*. It had been ten
-  text sections of name, count, headline and grey chips. Now: **Following**, the
-  subjects you follow as Instagram-style circles wearing their newest picture,
-  with a gradient ring when something in them is new and faded when the bundle
-  is quiet about them; **Explore**, every shelf as a 4:5 tile wearing its newest
-  picture (or a colour hashed from its slug, so it is recognisable before it is
-  read) with its new count, latest headline and a follow toggle in the corner;
-  then **Names in play** as one sideways row and **Your own subjects** last.
-  Leaf chips left the page: a tile opens the shelf's panel, which lists them.
-- **A circle plays its subject full screen** (`openViewer`), asked 2026-09-23:
-  *"I was expecting the new stories to popup full screen and I can swipe like on
-  instagram to see the next"*. One story at a time over its picture or its
-  kind's colour, a bar per story, tap right/left for next/previous, swipe
-  sideways for the next subject, swipe down or back to close, "Read the story"
-  opening the sheet above it. It plays unread stories oldest first, marks each
-  seen as it is shown, and after the last moves to the next circle with
-  something new. **It has no timer** — Instagram advances on its own, which
-  paces the reader instead of letting them read, and that is the hook the
-  ground rules keep out. A quiet circle has nothing to play, so it opens the
-  subject's panel instead.
-
-Measured at 390×844 against the page before it, with five follows: the first
-card starts at 108px instead of 159. **While reading down the chrome is 63px
-instead of 145** — only the bottom bar. At rest it is 96 + 63 = 159 against 145,
-because the tabs moved rather than vanished; that is the price of having them
-under the thumb, and it is only paid at the top of the page. Cards are larger,
-so about two start on the first screen instead of three — which is the point,
-not a regression (see above). `tests/test_lens.py` checks the cover contract:
-art or a typographic cover, never neither, and the headline exactly once.
 
 **One word per kind.** The badge on a card and the line counting what else is
 attached to it were two tables, and they drifted: the same kind was badged
@@ -628,9 +275,8 @@ stories several sources covered (`SOURCE_BONUS`, `MAX_CORROBORATION`). It must
 resist volume: arXiv publishes ~150 papers a day where a blog publishes one, and
 recency-times-relevance alone handed it 47 of the first 50 cards. The feed damps
 each *repeat* of a source or kind as it is built (`SOURCE_DECAY`, `KIND_DECAY`),
-which restores a mix with no hard quota. This is what **Trending** now is; the
-default feed is chronological. The page is a card list and a card may be large:
-size is not the cost, chrome is — see "Big cards are wanted" above.
+which restores a mix with no hard quota. It was version 1's **Trending**; the
+bundle still carries each story's `score`, while the new page reads in date order.
 
 **The ranking does not learn from what you do.** Ruled out 2026-09-23, in the
 review of `NEXT.md`; it was the last of an old "Phase 5", which would have let
@@ -757,68 +403,18 @@ across rather than partitioning — which is a facet matched by embedding instea
 of regex. A saved query. Nothing competes, nothing is re-labelled, and
 multi-label is fine precisely because it is not a home.
 
-**Which is why a personal lens needs no server — and it is built, 2026-09-22.**
-It is the shape `isFollowed` already has: a `localStorage` predicate over the
-shared bundle, so per-reader filtering happens in the page and never in the
-pipeline. A lens is `{id, name, terms, vector, seeds, parent, created}` under the
-profile's `lenses` key, followed as `lens:<id>` in the same set as
-`topic:<slug>` and `entity:<name>`, and **it is a subject like any other**: it
-fills the feed through `isFollowed`, sits in the chip row, opens as a panel, and
-is a place you can walk into. Nothing in the UI knows it is yours except the
-panel, which says so and offers to delete it.
-
-**A lens filters everything, unless it was made inside a topic.** It is an
-extra filter across the whole bundle — a story keeps its topic and also shows
-in every lens it matches — not a home for the stories without one. Asked
-2026-09-23 that a subject can be made *"under a topic in all layers it may
-have"*: every topic's panel, shelf or leaf, now has a create field, and a lens
-made there records the topic as `parent` and filters only that topic's stories
-(`lensHit` wraps the pure `lensMatcher` in `hasTopic`), listed under it as a
-tile tagged *yours* beside the spine's leaves, and in the feed as a chip in
-that topic's banner. `parent` is also what a shared version
-will need: several readers naming the same thing in the same place is the
-signal the spine is missing a leaf. **Stories no topic caught** (below the
-floor, ~2% of the corpus) were unreachable by browsing; the Topics page now has
-a **Not in any topic** tile, whose page has a create field and See in feed —
-the fourth kind of place in the feed (`unsortedScope`), beside a topic, a name
-and a lens. `enterPlace` and `leavePlace` are the only ways in and out of all
-four, which is what fixed a lens you could not leave.
-
-**Words first, then the vector.** `lensMatcher` asks the lexical question before
-the semantic one, the order and for the reason the clusterer uses. **The words
-are whole words** (`matchesWord`), with the plural either way round — a lens
-called "test" filled up with *testimony* while it was a substring match
-(reported 2026-09-23). Search keeps the substring test, which is right while
-you are still typing. They are looked for in the title, summary, source, topic
-and entity names, and the titles of every item in the story. The vector half is
-what **+** on a card (More like this) teaches, and is what lets a lens catch
-stories that never use its word. That is what
-makes `LENS_FLOOR = 0.72` safe to ship **unmeasured** — bge puts unrelated text
-near 0.5 and a story's own members merge at 0.92, so it is a guess in the gap
-between them, and a lens always matches its own name whatever the floor does. A
-floor set badly makes a lens narrow, never broken. Measure it against a real
-corpus before trusting the vector half on its own.
-
-**Teaching folds earlier seeds in by their number.** `addSeed` blends the stored
-vector against the new story weighted by how many seeds it already stands for,
-rather than averaging the two — otherwise the fifth story you point at would
-weigh as much as the four before it. It deliberately does *not* recompute from
-`seeds`: a story leaves the bundle after thirty days, and a lens must not
-quietly forget what it was taught. The bundle carries
-story centroids as of 2026-09-22, quantised to int8 and base64-encoded
-(`export._centroids`): measured at `--limit 120` that is **+60KB raw, +40KB
-gzipped**, against four times that for float32. The error it costs, over a
-bge-shaped spread of 2000 cosines: mean 0.0026, worst 0.011, nine of the top
-ten by similarity keeping their places, one story in two thousand crossing a
-0.75 threshold it should not have — the same order as `park_margin`, so this is
-fine for ranking and filtering and is *not* precise enough to re-derive a
-topic's home from. The lens vector itself is cheapest as the re-normalised mean
-of two or three stories the reader picks: no model in the browser, and it makes
-"more like this" and a saved filter the same build. A lexical lens is cheaper
-still and often better, for the reason facets are regexes. Running the real
-model in the browser (transformers.js, `Xenova/bge-small-en-v1.5`, the same 384
-dimensions) is the only way to accept a *written* description, and costs a
-download not worth paying until the other two prove insufficient.
+**The bundle carries story centroids**, quantised to int8 and base64-encoded
+(`export._centroids`, decided 2026-09-22 for version 1's lenses): measured at
+`--limit 120` that is **+60KB raw, +40KB gzipped**, against four times that for
+float32. The error it costs, over a bge-shaped spread of 2000 cosines: mean
+0.0026, worst 0.011, nine of the top ten by similarity keeping their places, one
+story in two thousand crossing a 0.75 threshold it should not have — the same
+order as `park_margin`, so this is fine for ranking and filtering and is *not*
+precise enough to re-derive a topic's home from. The new page's fit filter
+(`fits` in `web-next/src/state.ts`) reads them against a reader topic's embedded
+description, packed the same way by `readers.pack`, with an unmeasured
+`FIT_FLOOR = 0.62`. A reader's topic asks its words first and the vector
+second, the order version 1's lenses used and for the reason the clusterer does.
 
 **But the destination is real accounts and a server, not personal lenses.**
 Stated 2026-09-22: the next big step is proper login and topics that are shared
@@ -1083,7 +679,7 @@ disables `config` sources**, so a config edit cannot switch off a reader's;
 `readers.reconcile_sources` enables a reader source while some topic uses it.
 `readers.py` holds profiles and topics, `suggest.py` turns a subject or a site
 into candidate sources with previews, and `api.py` serves both under
-`/api/next/` plus the built page (`web-next/dist`) at `/next/`. The embedding
+`/api/next/` plus the built page (`web-next/dist`) at `/`. The embedding
 model is injected, as everywhere: `save_topic` embeds a topic's description only
 after its sources validate, and a model that cannot load leaves the topic saved
 without a vector rather than failing the request.

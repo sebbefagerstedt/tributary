@@ -70,95 +70,34 @@ def test_bundle_surfaces_a_broken_source(conn, source_id):
     assert broken[0]["error"] == "HTTP 404"
 
 
-def test_write_site_produces_a_self_contained_directory(conn, source_id, tmp_path):
+def test_write_site_writes_the_bundle_and_copies_the_built_page(
+    conn, source_id, tmp_path, monkeypatch
+):
     seed(conn, source_id)
+    page = tmp_path / "dist"
+    (page / "assets").mkdir(parents=True)
+    (page / "index.html").write_text("<title>Tributary</title>")
+    (page / "assets" / "app.js").write_text("")
+    (page / "dev-data.json").write_text("{}")
+    monkeypatch.setattr(export, "APP_DIR", page)
+
     result = export.write_site(conn, tmp_path / "site")
     site = tmp_path / "site"
 
-    for name in ("index.html", "manifest.json", "sw.js", "icon.svg", "data.json"):
+    for name in ("index.html", "assets/app.js", "data.json"):
         assert (site / name).is_file(), name
+    assert not (site / "dev-data.json").exists(), "sample data is for npm run dev only"
     # Without this GitHub Pages runs the output through Jekyll.
     assert (site / ".nojekyll").is_file()
+    assert result["page"] is True
     assert result["stories"] == len(json.loads((site / "data.json").read_text())["stories"])
 
 
-def test_site_assets_use_relative_paths(conn, source_id, tmp_path):
-    """GitHub Pages serves a project repo under /<repo>/, not at the root."""
+def test_without_a_built_page_the_bundle_is_still_written(conn, source_id, tmp_path, monkeypatch):
     seed(conn, source_id)
-    export.write_site(conn, tmp_path / "site")
-    site = tmp_path / "site"
-
-    page = (site / "index.html").read_text()
-    assert 'href="manifest.json"' in page
-    assert "fetch('data.json'" in page
-
-    manifest = json.loads((site / "manifest.json").read_text())
-    assert manifest["start_url"] == "./"
-    assert manifest["icons"][0]["src"].startswith("./")
-
-    worker = (site / "sw.js").read_text()
-    assert "'./index.html'" in worker
-
-
-def test_the_page_opens_a_subject_and_offers_no_kind_row(conn, source_id, tmp_path):
-    """Both halves of the owner's call on 2026-09-21.
-
-    Tapping a subject has to open it -- it used to clear the scope and land on
-    the feed, which for anyone following nothing is an empty one -- and the
-    facet row ("code, agents, multimodal") is gone from the UI. Facets are
-    still labelled and still in the bundle; nothing reads them.
-    """
-    seed(conn, source_id)
-    export.write_site(conn, tmp_path / "site")
-    page = (tmp_path / "site" / "index.html").read_text()
-
-    assert 'id="subject-sheet"' in page
-    assert "data-subject=" in page
-    # A subject's page is the map and the feed is the reader (2026-09-23), so
-    # the page offers a way into the feed rather than listing stories itself.
-    assert "data-see-feed=" in page
-    # The chooser is the surface a follow belongs to, so it lists them.
-    assert "followsHTML" in page
-    # The digest hid the chooser's name field until this rule was scoped.
-    assert "body.digest-view > header .search" in page
-    # Parked stories are the pipeline's business, not the reader's (2026-09-23).
-    assert "Not under a subtopic" not in page
-    # A card names where its story lives, not just who it is about.
-    assert "topicChip" in page and "topic-chip" in page
-    # A place you walked into is escapable whether or not you follow anything.
-    assert page.count("data-leave") >= 3  # both banners, and the handler
-    # Both breadcrumb segments navigate; a leaf is not a dead end.
-    assert 'class="crumb"' in page and 'class="crumb here"' in page
-
-
-def test_the_page_never_offers_everything_as_a_filter(conn, source_id, tmp_path):
-    """No chip, bar or label names the unfiltered state.
-
-    "All and Everything is unecessary since it is true if no filter is active"
-    (2026-09-19), applied to the three that outlived that pass (2026-09-21).
-    Comments in the source explain why, so only rendered strings are checked.
-    """
-    seed(conn, source_id)
-    export.write_site(conn, tmp_path / "site")
-    page = (tmp_path / "site" / "index.html").read_text()
-
-    rendered = [line for line in page.splitlines() if "Everything" in line]
-    assert all("*" in line or "//" in line or "`Everything`" in line for line in rendered), (
-        rendered
-    )
-    # The scope row is one chip now, so the pair's other half is gone.
-    assert "data-scope=\"all\"" not in page
-    # The attributes that navigated nowhere, and the row that has gone with them.
-    for gone in ("data-to-feed", "data-goto", 'id="facetfilters"', "data-facet="):
-        assert gone not in page, gone
-
-
-def test_the_service_worker_never_caches_the_feed_data(conn, source_id, tmp_path):
-    """A stale feed is worse than an honest error."""
-    seed(conn, source_id)
-    export.write_site(conn, tmp_path / "site")
-    worker = (tmp_path / "site" / "sw.js").read_text()
-    assert "data.json" in worker and "isData" in worker
+    monkeypatch.setattr(export, "APP_DIR", tmp_path / "not-built")
+    result = export.write_site(conn, tmp_path / "site")
+    assert (tmp_path / "site" / "data.json").is_file() and result["page"] is False
 
 
 def test_bundle_json_is_serialisable(conn, source_id):
