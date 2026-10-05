@@ -4,7 +4,8 @@
 
 export interface Label {
   slug: string; name: string; parent?: string | null; parent_name?: string | null;
-  description?: string | null; // shelves only: what the subject holds, in a line
+  path?: string[];             // every topic above this one, the top first
+  description?: string | null; // topics with others under them: what they hold
 }
 export interface Item {
   role: string; kind: string; title: string; url: string; author: string | null;
@@ -27,7 +28,7 @@ export interface Source {
   name: string;
   week: number;          // items in the last seven days
   latest: string[];      // its newest headlines, for the preview
-  shelves: Map<string, number>; // shelf slug -> stories it put there
+  places: Map<string, number>; // topic slug -> stories it put there or below
 }
 
 export const HOUR = 3600e3;
@@ -52,14 +53,17 @@ export const agoLabel = (iso: string | null) => {
   return h < 24 ? `${Math.floor(h)}h` : `${Math.floor(h / 24)}d`;
 };
 
-/* The shelf a story lives on: its label's parent, or the label itself. */
-export const shelfOf = (l: Label) => l.parent || l.slug;
+/* Every topic a label puts a story in: the one it was filed under and all
+   those above it. A bundle from before the tree had depth has no `path`, and
+   then the parent is all there is. */
+export const placesOf = (l: Label) => [...(l.path ?? (l.parent ? [l.parent] : [])), l.slug];
+export const inPlace = (story: Story, slug: string) => story.topics.some((l) => placesOf(l).includes(slug));
 export const storySources = (s: Story) => [...new Set([s.source, ...s.items.map((i) => i.source)])];
 
 export function buildCatalog(bundle: Bundle): Map<string, Source> {
   const out = new Map<string, Source>();
   const get = (name: string) => {
-    if (!out.has(name)) out.set(name, { name, week: 0, latest: [], shelves: new Map() });
+    if (!out.has(name)) out.set(name, { name, week: 0, latest: [], places: new Map() });
     return out.get(name)!;
   };
   const byDate = [...bundle.stories].sort((a, b) => ageHours(a.published_at) - ageHours(b.published_at));
@@ -72,32 +76,46 @@ export function buildCatalog(bundle: Bundle): Map<string, Source> {
     for (const name of storySources(story)) {
       const src = get(name);
       for (const label of story.topics) {
-        const shelf = shelfOf(label);
-        src.shelves.set(shelf, (src.shelves.get(shelf) || 0) + 1);
+        for (const place of placesOf(label)) src.places.set(place, (src.places.get(place) || 0) + 1);
       }
     }
   }
   return out;
 }
 
-/* What every starter subject is part of. Version 1's spine is an AI spine, and
-   the page says so: a reader new to it cannot tell from "Safety & security"
-   alone that it means AI safety. Subjects outside AI come with the server. */
-export const STARTER_AREA = 'AI';
+/* The hub of the tree. The topics are general news since 2026-10-05; AI is
+   one branch, under Technology. */
+export const ROOT = 'News';
 
-/* The starter subjects: the spine's shelves, each with the leaves under it. */
-export function shelves(bundle: Bundle) {
-  const tops = bundle.spine.filter((t) => !t.parent);
-  return tops.map((t) => ({ ...t, leaves: bundle.spine.filter((l) => l.parent === t.slug) }));
+/* The tree, read from the bundle's spine. */
+export const childrenOf = (bundle: Bundle, slug: string | null) =>
+  bundle.spine.filter((t) => (t.parent ?? null) === slug);
+export const nodeOf = (bundle: Bundle, slug: string) => bundle.spine.find((t) => t.slug === slug);
+/* The topics above one, the top first. */
+export function pathTo(bundle: Bundle, slug: string): Label[] {
+  const out: Label[] = [];
+  let at = nodeOf(bundle, slug)?.parent;
+  while (at && !out.some((l) => l.slug === at)) {
+    const n = nodeOf(bundle, at);
+    if (!n) break;
+    out.unshift(n);
+    at = n.parent;
+  }
+  return out;
 }
 
-/* What the first run and "new topic" suggest for a shelf: the sources that
-   put stories there, busiest first. On the backend this becomes real
-   discovery; here it is only what the pipeline already reads. */
-export function sourcesForShelf(catalog: Map<string, Source>, shelf: string): Source[] {
+/* The starter subjects: the categories at the top, each with what is under it. */
+export function categories(bundle: Bundle) {
+  return childrenOf(bundle, null).map((t) => ({ ...t, leaves: childrenOf(bundle, t.slug) }));
+}
+
+/* What the first run and "new topic" suggest for a topic: the sources that
+   put stories in it or below it, busiest first. On the backend this becomes
+   real discovery; here it is only what the pipeline already reads. */
+export function sourcesFor(catalog: Map<string, Source>, slug: string): Source[] {
   return [...catalog.values()]
-    .filter((s) => (s.shelves.get(shelf) || 0) > 0)
-    .sort((a, b) => (b.shelves.get(shelf) || 0) - (a.shelves.get(shelf) || 0));
+    .filter((s) => (s.places.get(slug) || 0) > 0)
+    .sort((a, b) => (b.places.get(slug) || 0) - (a.places.get(slug) || 0));
 }
 
 export const isBusy = (s: Source) => s.week >= 300;

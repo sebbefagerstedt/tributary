@@ -11,7 +11,7 @@ import { FoundCard } from './ui';
 export const slugOf = (text: string) =>
   text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'topic';
 
-export const asSource = (c: Candidate): Source => ({ name: c.name, week: c.week, latest: c.latest, shelves: new Map() });
+export const asSource = (c: Candidate): Source => ({ name: c.name, week: c.week, latest: c.latest, places: new Map() });
 /* A source the server does not know yet travels whole, so it can be added. */
 export const specsOf = (cs: Candidate[]): Record<string, SourceSpec> =>
   Object.fromEntries(cs.filter((c) => !c.known && c.url).map((c) => [c.name, { name: c.name, url: c.url!, kind: c.kind }]));

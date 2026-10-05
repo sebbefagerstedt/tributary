@@ -49,6 +49,14 @@ arrives at once. How to run it is in `web-next/README.md`. What is left:
   feed. An unfollowed topic opens as a preview: stories already held that fit,
   then a live fetch of its suggested sources, kept only briefly.
 
+## Now: check the general news sources
+
+Added 2026-10-05 without being reachable from where they were written. After the
+first Actions run, read `trib status` in its log (or the failing sources at the
+foot of the page) and drop any feed that failed there. Then look at what landed
+in each category: if one holds stories that belong elsewhere, its subtopics'
+descriptions are what to reword, and `trib topics --why "…"` shows the scores.
+
 ## 3. Hosting, once it feels right
 
 The small server from `VISION.md`, accounts, and topics stored per person.

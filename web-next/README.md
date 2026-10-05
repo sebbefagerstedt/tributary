@@ -50,10 +50,12 @@ What the server adds:
 
 - **Profiles are names**, with no password; topics, seen stories and the
   layout belong to a profile.
-- **Starter subjects are the spine's shelves**, and the sources a topic is
-  offered are the ones the pipeline already reads that put stories there.
+- **Starter subjects are the top of the shared tree** — News: Technology,
+  Culture, Sport and the rest, with AI under Technology — and the sources a
+  topic is offered are the ones the pipeline already reads that put stories in
+  it or below it.
 - **A story is in a topic** when it fits it, came from one of its sources, and
   mentions none of its muted words; it can sit in several topics and is read
-  once. A starter topic fits a story on its shelf; a topic of your own fits a
-  story that names it, or whose vector is near its description
+  once. A topic from the tree fits a story filed in it or anywhere below it; a
+  topic of your own fits a story that names it, or whose vector is near its description
   (`FIT_FLOOR`, unmeasured).

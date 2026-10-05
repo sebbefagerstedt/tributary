@@ -156,3 +156,24 @@ export function StarterList({ subjects, picked, onPick, single }: {
     </div>
   );
 }
+
+/* Below the categories, the topics one level down -- AI, Football, Elections
+   -- for following one thing rather than a whole category. */
+export function SpecificChips({ subjects, picked, onPick }: {
+  subjects: { slug: string; name: string; parent?: string | null }[];
+  picked: string[]; onPick: (slug: string) => void;
+}) {
+  if (!subjects.length) return null;
+  return (
+    <>
+      <div className="area"><b>More specific</b><span>one thing inside a category</span></div>
+      <div className="chips">
+        {subjects.map((s) => (
+          <button key={s.slug} className="chip" aria-pressed={picked.includes(s.slug)} onClick={() => onPick(s.slug)}>
+            <i className="dot-hue" style={{ background: hueOf(s.parent || s.slug) }} />{s.name}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}

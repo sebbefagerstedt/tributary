@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bundle, Story, buildCatalog, loadBundle, shelves, sourcesForShelf } from './data';
+import { Bundle, Story, buildCatalog, loadBundle, nodeOf, sourcesFor } from './data';
 import { InterestsAndFound, ProfileStep } from './Onboarding';
 import { Player } from './Player';
 import { Home, Nav, TopicPage, storiesOf } from './Screens';
@@ -27,7 +27,11 @@ export default function App() {
   useEffect(() => { hasServer().then(setServer); }, []);
 
   const reload = useCallback(() => loadBundle()
-    .then((b) => { setHueOrder(shelves(b).map((s) => s.slug)); setBundle(b); })
+    .then((b) => {
+      // Categories take the first colours, so eight of them never share one.
+      setHueOrder([...b.spine.filter((s) => !s.parent), ...b.spine.filter((s) => s.parent)].map((s) => s.slug));
+      setBundle(b);
+    })
     .catch((e) => setError(String(e.message || e))), []);
   useEffect(() => { reload(); }, [reload]);
 
@@ -153,11 +157,11 @@ export default function App() {
       {screen.name === 'tree'
         ? <Tree bundle={bundle} profile={profile} onBack={() => back()} onOpen={nav.openTopic}
             onAdd={(slug) => {
-              const shelf = shelves(bundle).find((s) => s.slug === slug);
-              if (!shelf || profile.topics.some((t) => t.spine === slug)) return;
-              update((p) => ({ ...p, topics: [...p.topics, { id: slug, name: shelf.name, spine: slug,
-                sources: sourcesForShelf(catalog, slug).map((s) => s.name), muted: [] }] }));
-              flash(`${shelf.name} added`);
+              const node = nodeOf(bundle, slug);
+              if (!node || profile.topics.some((t) => t.spine === slug)) return;
+              update((p) => ({ ...p, topics: [...p.topics, { id: slug, name: node.name, spine: slug,
+                sources: sourcesFor(catalog, slug).map((s) => s.name), muted: [] }] }));
+              flash(`${node.name} added`);
             }} />
         : currentTopic
           ? <TopicPage bundle={bundle} profile={profile} topic={currentTopic} leaf={screen.name === 'topic' ? screen.leaf : undefined}

@@ -283,6 +283,131 @@ repos = [
 ]
 per_page = 5
 
+# --- General news (2026-10-05) ------------------------------------------------
+# Two or three section feeds per category, so the topics outside AI have news
+# in them on the published site. Added unverified from a sandbox that could not
+# reach them; the first Actions run is the check, as for every source here.
+
+# Technology
+[[sources]]
+kind = "rss"
+name = "The Verge"
+url = "https://www.theverge.com/rss/index.xml"
+
+[[sources]]
+kind = "rss"
+name = "BBC Technology"
+url = "https://feeds.bbci.co.uk/news/technology/rss.xml"
+
+
+# Culture
+[[sources]]
+kind = "rss"
+name = "Guardian Culture"
+url = "https://www.theguardian.com/culture/rss"
+
+[[sources]]
+kind = "rss"
+name = "BBC Entertainment & Arts"
+url = "https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml"
+
+[[sources]]
+kind = "rss"
+name = "Polygon"
+url = "https://www.polygon.com/rss/index.xml"
+
+
+# Sport
+[[sources]]
+kind = "rss"
+name = "BBC Sport"
+url = "https://feeds.bbci.co.uk/sport/rss.xml"
+
+[[sources]]
+kind = "rss"
+name = "Guardian Sport"
+url = "https://www.theguardian.com/sport/rss"
+
+[[sources]]
+kind = "rss"
+name = "ESPN"
+url = "https://www.espn.com/espn/rss/news"
+
+
+# Politics
+[[sources]]
+kind = "rss"
+name = "BBC Politics"
+url = "https://feeds.bbci.co.uk/news/politics/rss.xml"
+
+[[sources]]
+kind = "rss"
+name = "BBC World"
+url = "https://feeds.bbci.co.uk/news/world/rss.xml"
+
+[[sources]]
+kind = "rss"
+name = "Guardian World"
+url = "https://www.theguardian.com/world/rss"
+
+
+# Security
+[[sources]]
+kind = "rss"
+name = "The Record"
+url = "https://therecord.media/feed"
+
+[[sources]]
+kind = "rss"
+name = "Krebs on Security"
+url = "https://krebsonsecurity.com/feed/"
+
+[[sources]]
+kind = "rss"
+name = "BleepingComputer"
+url = "https://www.bleepingcomputer.com/feed/"
+
+
+# Economy
+[[sources]]
+kind = "rss"
+name = "BBC Business"
+url = "https://feeds.bbci.co.uk/news/business/rss.xml"
+
+[[sources]]
+kind = "rss"
+name = "Guardian Business"
+url = "https://www.theguardian.com/business/rss"
+
+
+# Environment
+[[sources]]
+kind = "rss"
+name = "Guardian Environment"
+url = "https://www.theguardian.com/environment/rss"
+
+[[sources]]
+kind = "rss"
+name = "BBC Science & Environment"
+url = "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml"
+
+[[sources]]
+kind = "rss"
+name = "Carbon Brief"
+url = "https://www.carbonbrief.org/feed/"
+
+
+# Health
+[[sources]]
+kind = "rss"
+name = "BBC Health"
+url = "https://feeds.bbci.co.uk/news/health/rss.xml"
+
+[[sources]]
+kind = "rss"
+name = "STAT"
+url = "https://www.statnews.com/feed/"
+
 # --- Triage ------------------------------------------------------------------
 # A relevance *score*, not a gate. Every item is scored by its highest cosine
 # similarity to the interest sentences below, and everything fetched becomes a
@@ -364,9 +489,217 @@ floor = 0.55
 # where `/suggest-topics` looks for a leaf that is missing.
 park_margin = 0.02
 
+# How many days of a topic's stories the published site carries. General news
+# arrives many times faster than AI news, so it is kept for days rather than a
+# month; a topic inherits this from the nearest one above it that sets it, and
+# AI sets thirty below. Only the bundle is trimmed -- the database keeps every
+# story for `store.MAX_ITEM_AGE_DAYS` whatever this says.
+keep_days = 4
+
+# The tree may be any depth (2026-10-05): News -> Technology -> AI -> AI agents
+# -> Coding agents. The root, News, is not an entry -- it is the hub the page
+# draws. Every rule above holds at any depth: only topics nothing sits under
+# are scored, and parking stops at the parent the top two share.
+
+# ===== Technology =============================================================
+[[topics.spine]]
+slug = "technology"
+name = "Technology"
+description = "the technology industry and the products, platforms and hardware it makes"
+
+[[topics.spine]]
+slug = "ai"
+parent = "technology"
+name = "AI"
+description = "artificial intelligence: the models, the research behind them, and what people build and argue about with them"
+keep_days = 30
+
+[[topics.spine]]
+slug = "social-media"
+parent = "technology"
+name = "Social media"
+description = "social networks and apps such as TikTok, Instagram, X and YouTube: their features, their moderation, and the rules made for them"
+
+[[topics.spine]]
+slug = "tech-chips"
+parent = "technology"
+name = "Chips"
+description = "semiconductors and the companies that design and make them, from phone processors to export controls on chipmaking"
+
+# ===== Culture ================================================================
+[[topics.spine]]
+slug = "culture"
+name = "Culture"
+description = "music, film, television and games, and the people who make them"
+
+[[topics.spine]]
+slug = "music"
+parent = "culture"
+name = "Music"
+description = "new albums, tours, artists and the music industry"
+
+[[topics.spine]]
+slug = "film-tv"
+parent = "culture"
+name = "Film and TV"
+description = "films, television series and streaming: releases, reviews, box office and awards"
+
+[[topics.spine]]
+slug = "gaming"
+parent = "culture"
+name = "Gaming"
+description = "video games and the games industry: releases, reviews, consoles and studios"
+
+# ===== Sport ==================================================================
+[[topics.spine]]
+slug = "sport"
+name = "Sport"
+description = "sport: matches, results, players and the business around them"
+
+[[topics.spine]]
+slug = "esports"
+parent = "sport"
+name = "Esports"
+description = "competitive video gaming: esports tournaments, teams and professional players"
+
+[[topics.spine]]
+slug = "football"
+parent = "sport"
+name = "Football"
+description = "football matches, results, transfers, managers and leagues"
+
+[[topics.spine]]
+slug = "olympics"
+parent = "sport"
+name = "Olympics"
+description = "the Olympic and Paralympic Games, their athletes and the events around them"
+
+# ===== Politics ===============================================================
+[[topics.spine]]
+slug = "politics"
+name = "Politics"
+description = "governments, parties and the decisions they make"
+
+[[topics.spine]]
+slug = "diplomacy"
+parent = "politics"
+name = "Diplomacy"
+description = "relations between countries: summits, treaties, sanctions and talks between leaders"
+
+[[topics.spine]]
+slug = "elections"
+parent = "politics"
+name = "Elections"
+description = "elections and campaigns: candidates, polls, votes and results"
+
+[[topics.spine]]
+slug = "migration"
+parent = "politics"
+name = "Migration"
+description = "migration and asylum: people crossing borders, and the policies that govern it"
+
+# ===== Security ===============================================================
+[[topics.spine]]
+slug = "security"
+name = "Security"
+description = "conflict, defence and the security of countries and computer systems"
+
+[[topics.spine]]
+slug = "defense"
+parent = "security"
+name = "Defense"
+description = "armed forces and defence policy: military spending, weapons and alliances such as NATO"
+
+[[topics.spine]]
+slug = "wars"
+parent = "security"
+name = "Wars"
+description = "wars and armed conflicts: fighting, casualties, ceasefires and the people caught in them"
+
+[[topics.spine]]
+slug = "cybersecurity"
+parent = "security"
+name = "Cybersecurity"
+description = "hacking and cybersecurity: breaches, ransomware, vulnerabilities and the attackers behind them"
+
+# ===== Economy ================================================================
+[[topics.spine]]
+slug = "economy"
+name = "Economy"
+description = "the economy: business, markets, prices and work"
+
+[[topics.spine]]
+slug = "trade"
+parent = "economy"
+name = "Trade"
+description = "trade between countries: tariffs, trade deals, exports and supply chains"
+
+[[topics.spine]]
+slug = "energy"
+parent = "economy"
+name = "Energy"
+description = "energy markets and supply: oil, gas and electricity prices, and the companies that produce them"
+
+[[topics.spine]]
+slug = "inflation"
+parent = "economy"
+name = "Inflation"
+description = "inflation, interest rates and central banks: what prices do and how the cost of living changes"
+
+# ===== Environment ============================================================
+[[topics.spine]]
+slug = "environment"
+name = "Environment"
+description = "the natural world and what is happening to it"
+
+[[topics.spine]]
+slug = "climate-change"
+parent = "environment"
+name = "Climate"
+description = "climate change: rising temperatures, emissions, climate policy and international climate talks"
+
+[[topics.spine]]
+slug = "renewables"
+parent = "environment"
+name = "Renewables"
+description = "renewable energy: solar, wind, batteries and the move away from fossil fuels"
+
+[[topics.spine]]
+slug = "weather"
+parent = "environment"
+name = "Weather"
+description = "weather and natural disasters: storms, floods, heatwaves, droughts and wildfires"
+
+# ===== Health =================================================================
+[[topics.spine]]
+slug = "health"
+name = "Health"
+description = "health, medicine and the systems that provide care"
+
+[[topics.spine]]
+slug = "healthcare"
+parent = "health"
+name = "Healthcare"
+description = "hospitals, doctors, health services and new treatments and drugs"
+
+[[topics.spine]]
+slug = "pandemics"
+parent = "health"
+name = "Pandemics"
+description = "infectious disease outbreaks and pandemics: viruses, vaccines and public health responses"
+
+[[topics.spine]]
+slug = "mental-health"
+parent = "health"
+name = "Mental health"
+description = "mental health: anxiety, depression, therapy and wellbeing"
+
+# ===== AI, under Technology ===================================================
+
 # --- Language models ---
 [[topics.spine]]
 slug = "models"
+parent = "ai"
 name = "Language models"
 description = "the models themselves, as things that get released and used"
 
@@ -411,6 +744,7 @@ description = "small models built to run on a laptop or a phone rather than a da
 # --- Training & architecture ---
 [[topics.spine]]
 slug = "training"
+parent = "ai"
 name = "Training & architecture"
 description = "how a model is built and improved before anyone serves it"
 
@@ -435,6 +769,7 @@ description = "adapting an existing model to a narrower task with fine-tuning, L
 # --- Inference & hardware ---
 [[topics.spine]]
 slug = "inference"
+parent = "ai"
 name = "Inference & hardware"
 description = "what it takes to actually run a model, and on what"
 
@@ -459,6 +794,7 @@ description = "the hardware AI runs on: accelerators, GPU supply and datacenter 
 # --- AI agents ---
 [[topics.spine]]
 slug = "agents"
+parent = "ai"
 name = "AI agents"
 description = "models given a job to carry out rather than a question to answer"
 
@@ -495,6 +831,7 @@ description = "agents that cheat, stall or act unsupervised, and the oversight t
 # --- Building with AI ---
 [[topics.spine]]
 slug = "building"
+parent = "ai"
 name = "Building with AI"
 description = "what developers put around a model to make something useful"
 
@@ -519,6 +856,7 @@ description = "the SDKs, APIs and protocols developers build on top of models"
 # --- Images, video & audio ---
 [[topics.spine]]
 slug = "media"
+parent = "ai"
 name = "Images, video & audio"
 description = "everything that is not text: pictures, video, speech and 3D"
 
@@ -549,6 +887,7 @@ description = "generating 3D scenes and models that simulate an environment to a
 # --- Benchmarks & evaluation ---
 [[topics.spine]]
 slug = "evals"
+parent = "ai"
 name = "Benchmarks & evaluation"
 description = "measuring what models do, and whether the measurement means anything"
 
@@ -573,6 +912,7 @@ description = "knowing when a model's answer can be trusted: uncertainty estimat
 # --- Safety & security ---
 [[topics.spine]]
 slug = "safety"
+parent = "ai"
 name = "Safety & security"
 description = "the ways models go wrong, and the work to stop them"
 
@@ -597,6 +937,7 @@ description = "models used for harm: bio, cyber and influence operations, and wh
 # --- AI in the real world ---
 [[topics.spine]]
 slug = "applied"
+parent = "ai"
 name = "AI in the real world"
 description = "AI applied to a field that existed before it did"
 
@@ -639,6 +980,7 @@ description = "AI applied to money: predicting markets, trading, credit risk and
 # --- Industry & policy ---
 [[topics.spine]]
 slug = "industry"
+parent = "ai"
 name = "Industry & policy"
 description = "the business and politics around the technology"
 

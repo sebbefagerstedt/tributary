@@ -27,7 +27,8 @@ def export_cmd(
     """Write a static site that needs no server. For GitHub Pages and friends."""
     cfg, conn = open_config(config)
     result = export_mod.write_site(
-        conn, out, limit=limit, days=days, facet_names=cfg.facets, spine=cfg.topics.spine
+        conn, out, limit=limit, days=days, facet_names=cfg.facets, spine=cfg.topics.spine,
+        keep_days_for=cfg.topics.keep_days_for,
     )
     size = result["bytes"] / 1024
     console.print(

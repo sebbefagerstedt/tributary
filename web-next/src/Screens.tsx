@@ -1,7 +1,7 @@
 /* Home and a topic's page. Each has two views of one place, not separate tabs
    (VISION.md): Topics, the boxes of what is under it, and Feed, its stories. */
 
-import { Bundle, Label, STARTER_AREA, Story } from './data';
+import { Bundle, ROOT, Story, childrenOf, nodeOf, pathTo } from './data';
 import { Profile, Topic, byNewest, inTopic, isNew } from './state';
 import { Caught, ICON, LayoutSwitch, StoryCard, hueOf } from './ui';
 
@@ -131,28 +131,36 @@ export function TopicPage({ bundle, profile, topic, leaf, nav, shown, more }: {
 }) {
   const list = storiesOf(bundle, topic, leaf);
   const n = list.filter((s) => isNew(profile, s)).length;
-  const leaves: Label[] = topic.spine ? bundle.spine.filter((l) => l.parent === topic.spine) : [];
-  const leafName = leaf && leaves.find((l) => l.slug === leaf)?.name;
-  const subs = leaf ? [] : leaves;
+  // Where you are: the topic you follow, or a place somewhere below it.
+  const here = leaf || topic.spine || null;
+  const node = here ? nodeOf(bundle, here) : undefined;
+  const leafName = leaf ? node?.name : undefined;
+  const subs = here ? childrenOf(bundle, here) : [];
   const view = subs.length ? profile.layout : 'cards';
-  // What the topic holds: a starter's shelf description, or what you typed.
-  const shelfAbout = topic.spine ? bundle.spine.find((l) => l.slug === topic.spine)?.description : null;
-  const raw = shelfAbout ? `${STARTER_AREA}: ${shelfAbout}` : topic.description && topic.description !== topic.name ? topic.description : null;
+  // The way back up: from the topic you follow down to where you stand.
+  const above = leaf && topic.spine ? pathTo(bundle, leaf).filter((l) => pathTo(bundle, l.slug).some((a) => a.slug === topic.spine) || l.slug === topic.spine) : [];
+  // What it holds: the tree's own description, or what you typed.
+  const raw = node?.description ?? (topic.description && topic.description !== topic.name ? topic.description : null);
   const about = raw && raw[0].toUpperCase() + raw.slice(1);
+  const context = topic.spine ? (pathTo(bundle, topic.spine).map((l) => l.name).join(' › ') || ROOT) : 'Your topic';
   return (
     <>
       <div className="bar">
         <button className="icon-btn" onClick={nav.back} aria-label="Back">{ICON.back}</button>
         <div className="grow">
           <div className="crumbs">{leafName
-            ? <button className="crumb" onClick={() => nav.openTopic(topic.id)}>{topic.name}</button> : topic.spine ? STARTER_AREA : 'Your topic'}</div>
+            ? above.map((l, i) => (
+                <span key={l.slug}>{i > 0 && ' › '}
+                  <button className="crumb" onClick={() => nav.openTopic(topic.id, l.slug === topic.spine ? undefined : l.slug)}>{l.name}</button>
+                </span>))
+            : context}</div>
           <div className="title-sm">{leafName || topic.name}</div>
         </div>
         <button className="icon-btn" onClick={() => nav.openSettings(topic)} aria-label="Topic settings">{ICON.gear}</button>
       </div>
       <div className="topic-hero" style={{ background: hueOf(topic.id) }}>
         <h1>{leafName || topic.name}</h1>
-        {!leaf && about && <p className="about">{about}</p>}
+        {about && <p className="about">{about}</p>}
         <div className="stat">{n} new · {list.length} stories · {topic.sources.length} sources</div>
         <div className="row">
           <button className="btn solid" onClick={() => nav.play(topic, leaf)} disabled={!list.length}>{n ? 'Play new' : 'Play latest'}</button>
@@ -162,7 +170,7 @@ export function TopicPage({ bundle, profile, topic, leaf, nav, shown, more }: {
       {/* Topics shows the subtopics as boxes; a place with none under it only
           has a feed, so it shows that without offering a switch. */}
       <div className="toolbar">
-        <div className="eyebrow">{view === 'grid' ? 'Subtopics' : 'Stories'}</div>
+        <div className="eyebrow">{view === 'grid' ? 'Inside' : 'Stories'}</div>
         {subs.length > 0 && <LayoutSwitch value={profile.layout} onChange={nav.setLayout} />}
       </div>
       {view === 'grid'

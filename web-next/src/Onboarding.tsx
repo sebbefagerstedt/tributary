@@ -4,10 +4,10 @@
    also type any subject or paste a site, and it is searched for real. */
 
 import { FormEvent, useMemo, useState } from 'react';
-import { Bundle, STARTER_AREA, Source, shelves, sourcesForShelf } from './data';
+import { Bundle, ROOT, Source, categories, childrenOf, nodeOf, sourcesFor } from './data';
 import { DiscoveredCard, slugOf } from './Discovery';
 import { Profile, SourceSpec, Topic } from './state';
-import { FoundCard, StarterList } from './ui';
+import { FoundCard, SpecificChips, StarterList } from './ui';
 
 export function ProfileStep({ names, onChoose }: { names: string[]; onChoose: (n: string) => void }) {
   const [name, setName] = useState('');
@@ -39,7 +39,10 @@ export function ProfileStep({ names, onChoose }: { names: string[]; onChoose: (n
 export function InterestsAndFound({ bundle, catalog, profile, server, onDone }: {
   bundle: Bundle; catalog: Map<string, Source>; profile: Profile; server: boolean; onDone: (topics: Topic[]) => void;
 }) {
-  const subjects = useMemo(() => shelves(bundle), [bundle]);
+  const subjects = useMemo(() => categories(bundle), [bundle]);
+  const specific = useMemo(() => subjects.flatMap((c) => childrenOf(bundle, c.slug)), [bundle, subjects]);
+  const nameOf = (slug: string) => nodeOf(bundle, slug)?.name || slug;
+  const toggle = (slug: string) => setPicks((p) => (p.includes(slug) ? p.filter((x) => x !== slug) : [...p, slug]));
   const [picks, setPicks] = useState<string[]>([]);
   const [own, setOwn] = useState<string[]>([]);       // subjects you typed
   const [typed, setTyped] = useState('');
@@ -58,14 +61,14 @@ export function InterestsAndFound({ bundle, catalog, profile, server, onDone }: 
   const toFound = () => {
     setChosen((c) => {
       const next = { ...c };
-      for (const id of picks) next[id] = next[id] || sourcesForShelf(catalog, id).map((s) => s.name);
+      for (const id of picks) next[id] = next[id] || sourcesFor(catalog, id).map((s) => s.name);
       return next;
     });
     setStep('found');
     window.scrollTo(0, 0);
   };
   const finish = () => onDone([
-    ...picks.map((id) => ({ id, name: subjects.find((s) => s.slug === id)!.name, spine: id, sources: chosen[id] || [], muted: [] })),
+    ...picks.map((id) => ({ id, name: nameOf(id), spine: id, sources: chosen[id] || [], muted: [] })),
     ...own.map((q) => {
       const sources = chosen[`own:${q}`] || [];
       const found = Object.fromEntries(Object.entries(specs[`own:${q}`] || {}).filter(([n]) => sources.includes(n)));
@@ -80,9 +83,9 @@ export function InterestsAndFound({ bundle, catalog, profile, server, onDone }: 
         <div className="stepper"><i className="on" /><i className="on" /><i /></div>
         <div className="hero"><h1>What do you care about, {profile.name}?</h1>
           <p>Pick a few. Each becomes a topic you can shape later.</p></div>
-        <div className="area"><b>{STARTER_AREA}</b><span>the subjects Tributary reads today</span></div>
-        <StarterList subjects={subjects} picked={picks}
-          onPick={(slug) => setPicks((p) => (p.includes(slug) ? p.filter((x) => x !== slug) : [...p, slug]))} />
+        <div className="area"><b>{ROOT}</b><span>the subjects Tributary reads today</span></div>
+        <StarterList subjects={subjects} picked={picks} onPick={toggle} />
+        <SpecificChips subjects={specific} picked={picks} onPick={toggle} />
         {server ? (
           <>
             <form className="row" style={{ marginTop: 12 }} onSubmit={addOwn}>
@@ -97,7 +100,7 @@ export function InterestsAndFound({ bundle, catalog, profile, server, onDone }: 
             )}
           </>
         ) : (
-          <p className="mock-note">Subjects outside {STARTER_AREA}, with sources found on the web, come with the server.</p>
+          <p className="mock-note">Any other subject, with sources found on the web, comes with the server.</p>
         )}
         <div className="sticky-cta">
           <button className="btn primary wide" disabled={!count} onClick={toFound}>
@@ -114,8 +117,8 @@ export function InterestsAndFound({ bundle, catalog, profile, server, onDone }: 
         <p>Sources for each topic. Keep them all, or pick a few — you can change this any time.</p></div>
       <div className="stack" style={{ marginTop: 12 }}>
         {picks.map((id) => (
-          <FoundCard key={id} id={id} name={subjects.find((s) => s.slug === id)!.name}
-            sources={sourcesForShelf(catalog, id)} chosen={chosen[id] || []}
+          <FoundCard key={id} id={id} name={nameOf(id)}
+            sources={sourcesFor(catalog, id)} chosen={chosen[id] || []}
             setChosen={(next) => setChosen((c) => ({ ...c, [id]: next }))} />
         ))}
         {own.map((q) => {

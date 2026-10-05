@@ -33,17 +33,24 @@ sources = [s for s in cfg.sources if s.enabled]
 # so the tree's related links have something to find.
 vrng = np.random.default_rng(7)
 DIM = 384
-shelf_vec = {t.slug: vrng.normal(size=DIM) for t in cfg.topics.spine if not t.parent}
-leaf_vec = {}
-for leaf in leaves:
-    base = shelf_vec.get(leaf.parent) if leaf.parent else vrng.normal(size=DIM)
-    leaf_vec[leaf.slug] = base + vrng.normal(size=DIM) * 0.8
+node_vec: dict[str, np.ndarray] = {}
+
+
+def vec(slug: str) -> np.ndarray:
+    # Each topic near the one above it, so a branch points one way.
+    if slug not in node_vec:
+        parent = next((t.parent for t in cfg.topics.spine if t.slug == slug), None)
+        node_vec[slug] = (vec(parent) * 0.8 if parent else 0) + vrng.normal(size=DIM)
+    return node_vec[slug]
+
+
+leaf_vec = {leaf.slug: vec(leaf.slug) for leaf in leaves}
 for leaf in rng.sample(leaves, k=len(leaves) // 3):
     other = rng.choice(leaves)
     leaf_vec[leaf.slug] = leaf_vec[leaf.slug] + leaf_vec[other.slug] * 0.9
 
 stories = []
-for n in range(240):
+for n in range(480):
     leaf = rng.choice(leaves)
     src = rng.choice(sources)
     kind = KIND_BY_SOURCE.get(src.kind, "article")
@@ -54,7 +61,8 @@ for n in range(240):
     title = f"{leaf.name}: sample story {n + 1} from {src.name}"
     label = {"slug": leaf.slug, "name": leaf.name}
     if leaf.parent:
-        label |= {"parent": leaf.parent, "parent_name": names[leaf.parent]}
+        label |= {"parent": leaf.parent, "parent_name": names[leaf.parent],
+                  "path": cfg.topics.ancestors(leaf.slug)[::-1]}
     stories.append({
         "story_id": n + 1,
         "title": title,
@@ -86,6 +94,7 @@ for n in range(240):
     })
 stories.sort(key=lambda s: s["published_at"], reverse=True)
 
+has_children = {t.parent for t in cfg.topics.spine if t.parent}
 bundle = {
     "generated_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
     "status": {
@@ -97,7 +106,7 @@ bundle = {
     "spine": [
         {"slug": t.slug, "name": t.name, "parent": t.parent,
          "parent_name": names.get(t.parent) if t.parent else None,
-         "description": None if t.parent else t.description}
+         "description": t.description if t.slug in has_children else None}
         for t in cfg.topics.spine
     ],
     "vectors": {"encoding": "int8", "dimension": 384, "scale": 127},

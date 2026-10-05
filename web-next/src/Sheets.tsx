@@ -2,11 +2,11 @@
    your profile, and a story. Each is one level of "back". */
 
 import { FormEvent, ReactNode, useMemo, useRef, useState } from 'react';
-import { Bundle, STARTER_AREA, Source, Story, agoLabel, isBusy, shelves, sourcesForShelf } from './data';
+import { Bundle, ROOT, Source, Story, agoLabel, categories, childrenOf, isBusy, nodeOf, sourcesFor } from './data';
 import { useDragToClose } from './gestures';
 import { DiscoveredCard, asSource, slugOf, specsOf, useDiscovery } from './Discovery';
 import { Profile, SourceSpec, Topic } from './state';
-import { FoundCard, KIND_WORD, StarterList, hueOf } from './ui';
+import { FoundCard, KIND_WORD, SpecificChips, StarterList, hueOf } from './ui';
 
 export function Sheet({ onClose, children }: { onClose: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -132,7 +132,11 @@ export function NewTopicSheet({ bundle, catalog, profile, server, onCreate, onCl
   bundle: Bundle; catalog: Map<string, Source>; profile: Profile; server: boolean;
   onCreate: (t: Topic) => void; onClose: () => void;
 }) {
-  const options = useMemo(() => shelves(bundle).filter((s) => !profile.topics.some((t) => t.id === s.slug)), [bundle, profile.topics]);
+  const followed = (slug: string) => profile.topics.some((t) => t.spine === slug);
+  const options = useMemo(() => categories(bundle).filter((s) => !followed(s.slug)), // eslint-disable-next-line react-hooks/exhaustive-deps
+    [bundle, profile.topics]);
+  const specific = useMemo(() => categories(bundle).flatMap((c) => childrenOf(bundle, c.slug)).filter((s) => !followed(s.slug)), // eslint-disable-next-line react-hooks/exhaustive-deps
+    [bundle, profile.topics]);
   const [pick, setPick] = useState<string | null>(null);
   const [chosen, setChosen] = useState<string[]>([]);
   const [typed, setTyped] = useState('');
@@ -140,8 +144,8 @@ export function NewTopicSheet({ bundle, catalog, profile, server, onCreate, onCl
   const [ownChosen, setOwnChosen] = useState<string[] | undefined>(undefined);
   const [specs, setSpecs] = useState<Record<string, SourceSpec>>({});
   const [name, setName] = useState('');
-  const choose = (slug: string) => { setPick(slug); setChosen(sourcesForShelf(catalog, slug).map((s) => s.name)); };
-  const shelf = options.find((s) => s.slug === pick);
+  const choose = (slug: string) => { setPick(slug); setChosen(sourcesFor(catalog, slug).map((s) => s.name)); };
+  const shelf = pick ? nodeOf(bundle, pick) : undefined;
   const search = (e: FormEvent) => {
     e.preventDefault();
     const q = typed.trim();
@@ -193,15 +197,16 @@ export function NewTopicSheet({ bundle, catalog, profile, server, onCreate, onCl
               <button className="btn" type="submit">Find</button>
             </form>
           )}
-          <div className="area"><b>{STARTER_AREA}</b><span>the subjects Tributary reads today</span></div>
+          <div className="area"><b>{ROOT}</b><span>the subjects Tributary reads today</span></div>
           <StarterList subjects={options} picked={[]} onPick={choose} single />
-          {options.length === 0 && <span className="hint">You follow every {STARTER_AREA} subject Tributary reads today.</span>}
-          {!server && <p className="hint">Subjects outside {STARTER_AREA}, with sources found on the web, come with the server.</p>}
+          {options.length === 0 && <span className="hint">You follow every category Tributary reads today.</span>}
+          <SpecificChips subjects={specific} picked={[]} onPick={choose} />
+          {!server && <p className="hint">Any other subject, with sources found on the web, comes with the server.</p>}
         </div>
       ) : (
         <>
           <div style={{ marginTop: 12 }}>
-            <FoundCard id={shelf.slug} name={shelf.name} sources={sourcesForShelf(catalog, shelf.slug)} chosen={chosen} setChosen={setChosen} />
+            <FoundCard id={shelf.slug} name={shelf.name} sources={sourcesFor(catalog, shelf.slug)} chosen={chosen} setChosen={setChosen} />
           </div>
           <div className="sticky-cta">
             <button className="btn ghost" onClick={() => setPick(null)}>Back</button>

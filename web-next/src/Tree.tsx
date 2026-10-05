@@ -13,11 +13,14 @@ import { GEdge, GNode, Options, buildGraph, closest, focusEdges } from './graph'
 import { Profile } from './state';
 import { ICON, hueOf } from './ui';
 
-const KIND_NAME = { area: 'Subject', shelf: 'Topic', leaf: 'Subtopic', own: 'Your topic', src: 'Source' } as const;
+const kindName = (n: GNode) => (n.kind === 'area' ? 'Everything' : n.kind === 'own' ? 'Your topic' : n.kind === 'src' ? 'Source'
+  : n.depth === 1 ? 'Category' : n.kind === 'branch' ? 'Topic' : 'Subtopic');
 const MIN_ZOOM = 0.25, MAX_ZOOM = 2.5;
 // A name is drawn only where it does not cover another, most important first;
 // the rest are dots until you zoom in. This is how a map declutters.
-const RANK: Record<GNode['kind'], number> = { area: 0, shelf: 1, own: 1, leaf: 2, src: 3 };
+// Categories first, then topics deeper in, then the smallest, then sources.
+const rank = (n: GNode) => (n.kind === 'own' || n.mine || n.depth === 1 ? 1 : n.kind === 'branch' ? 2 : n.kind === 'leaf' ? 3 : 4);
+const alwaysNamed = (n: GNode) => n.kind === 'own' || !!n.mine || (n.kind === 'branch' && n.depth === 1);
 // Names shrink a little as you zoom out, as a map's do, and never below this.
 const labelScale = (s: number) => Math.min(1, Math.max(0.68, 0.45 + s * 0.55));
 
@@ -25,12 +28,12 @@ interface View { s: number; tx: number; ty: number }
 
 export function Tree({ bundle, profile, onBack, onOpen, onAdd }: {
   bundle: Bundle; profile: Profile; onBack: () => void;
-  onOpen: (id: string, leaf?: string) => void; onAdd: (shelf: string) => void;
+  onOpen: (id: string, leaf?: string) => void; onAdd: (slug: string) => void;
 }) {
   const [opts, setOpts] = useState<Options>({ scope: profile.topics.length ? 'mine' : 'all', related: true, sources: false });
   const [sel, setSel] = useState<string | null>(null);
   const g = useMemo(() => buildGraph(bundle, profile, opts), [bundle, profile, opts]);
-  // "Closest to" looks across all of AI, whatever is drawn.
+  // "Closest to" looks across everything, whatever is drawn.
   const everything = useMemo(() => buildGraph(bundle, profile, { scope: 'all', related: false, sources: false }), [bundle, profile]);
   const byKey = useMemo(() => new Map(g.nodes.map((n) => [n.key, n])), [g.nodes]);
 
@@ -50,7 +53,7 @@ export function Tree({ bundle, profile, onBack, onOpen, onAdd }: {
      to place. */
   const fit = useCallback((whole = false) => {
     if (!g.nodes.length) return;
-    const tops = g.nodes.filter((n) => n.kind !== 'leaf' && n.kind !== 'src');
+    const tops = g.nodes.filter((n) => n.kind === 'area' || alwaysNamed(n));
     // Names keep their size while distances zoom, so fit the centres and
     // leave a margin of the widest name.
     const set = whole || !tops.length ? g.nodes : tops;
@@ -145,7 +148,8 @@ export function Tree({ bundle, profile, onBack, onOpen, onAdd }: {
   }, [sel, g.edges, rel]);
   const nearAll = selected ? closest(everything.nodes.find((n) => n.key === selected.key) ?? selected, everything.nodes, everything.vectors, 4) : [];
 
-  const hue = (n: GNode) => (n.kind === 'own' ? hueOf(n.topicId!) : hueOf(n.shelf || n.key));
+  // A category's colour runs down its whole branch.
+  const hue = (n: GNode) => (n.kind === 'own' ? hueOf(n.topicId!) : hueOf(n.top || n.key));
   const P = (n: GNode): [number, number] => [n.x * view.s + view.tx, n.y * view.s + view.ty];
   const pick = (key: string) => {
     if (!byKey.has(key)) setOpts((o) => ({ ...o, scope: 'all' })); // it lives outside your topics
@@ -169,14 +173,13 @@ export function Tree({ bundle, profile, onBack, onOpen, onAdd }: {
     const boxes: [number, number, number, number][] = [];
     // Focused first, then what it lights, then topics (yours first), then
     // subtopics (yours first), then sources. The hub is small and always drawn.
-    const first = (n: GNode) => (n.key === sel ? -20 : lit?.has(n.key) ? -10 : 0) + RANK[n.kind] * 2 + (n.followed ? 0 : 1);
+    const first = (n: GNode) => (n.key === sel ? -20 : lit?.has(n.key) ? -10 : 0) + rank(n) * 2 + (n.followed ? 0 : 1);
     const ranked = g.nodes.filter((n) => n.kind !== 'area').sort((a, b) => first(a) - first(b));
     for (const n of ranked) {
       const x = n.x * view.s + view.tx, y = n.y * view.s + view.ty;
       const hw = (n.w * k) / 2, hh = (n.h * k) / 2;
       const b: [number, number, number, number] = [x - hw - 3, y - hh - 2, x + hw + 3, y + hh + 2];
-      const topic = n.kind === 'shelf' || n.kind === 'own';
-      if (!topic && boxes.some((o) => b[0] < o[2] && o[0] < b[2] && b[1] < o[3] && o[1] < b[3])) continue;
+      if (!alwaysNamed(n) && boxes.some((o) => b[0] < o[2] && o[0] < b[2] && b[1] < o[3] && o[1] < b[3])) continue;
       boxes.push(b);
       out.add(n.key);
     }
@@ -189,38 +192,41 @@ export function Tree({ bundle, profile, onBack, onOpen, onAdd }: {
     const tap = () => { if (moved.current) return; setSel(focus ? null : n.key); };
     const props = {
       key: n.key, className: `node tappable${dim ? ' dim' : ''}${focus ? ' focus' : ''}`,
-      onClick: tap, tabIndex: 0, role: 'button', 'aria-label': `${KIND_NAME[n.kind]}: ${n.label}`,
+      onClick: tap, tabIndex: 0, role: 'button', 'aria-label': `${kindName(n)}: ${n.label}`,
       onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSel(focus ? null : n.key); } },
     };
     const [x, y] = P(n);
     const c = hue(n);
     if (n.kind === 'area') {
-      return <g {...props}><circle cx={x} cy={y} r={22} fill="var(--fg)" />
+      return <g {...props}><rect x={x - n.w / 2} y={y - n.h / 2} width={n.w} height={n.h} rx={n.h / 2} fill="var(--fg)" />
         <text x={x} y={y + 5} textAnchor="middle" fontSize={14} fontWeight={800} fill="var(--bg)">{n.label}</text></g>;
     }
     if (!named.has(n.key)) {
-      const r = n.kind === 'src' ? 3.5 : n.kind === 'leaf' ? 5 : 8;
+      const r = n.kind === 'src' ? 3.5 : n.kind === 'leaf' ? 4.5 : 7;
       const fill = n.kind === 'src' ? 'var(--muted)' : c;
       return <g {...props}><circle cx={x} cy={y} r={14} fill="transparent" />
-        <circle cx={x} cy={y} r={r} fill={n.followed || n.kind === 'leaf' ? fill : 'var(--surface)'} stroke={fill} strokeWidth={2} opacity={0.85} /></g>;
+        <circle cx={x} cy={y} r={r} fill={n.followed ? fill : 'var(--surface)'} stroke={fill} strokeWidth={1.8} opacity={0.85} /></g>;
     }
     const text = n.label.length > 26 ? n.label.slice(0, 25) + '…' : n.label;
     const k = labelScale(view.s);
     const left = -n.w / 2, top = -n.h / 2;
     const at = `translate(${x.toFixed(1)},${y.toFixed(1)}) scale(${k.toFixed(3)})`;
-    if (n.kind === 'shelf' || n.kind === 'own') {
-      // Followed: solid in its colour. The rest of AI: outlined, to look at.
-      const solid = n.followed;
+    if (n.kind === 'branch' || n.kind === 'own') {
+      // A category or one of yours is a pill in its colour: solid when you
+      // follow it, a tint when you do not. Deeper topics are smaller outlines.
+      const big = n.depth === 1 || n.kind === 'own';
+      const fill = n.followed ? c : big ? `color-mix(in srgb, ${c} 12%, var(--surface))` : 'var(--surface)';
       return <g {...props}><g transform={at}>
-        <rect x={left} y={top} width={n.w} height={n.h} rx={n.h / 2} fill={solid ? c : 'var(--surface)'} stroke={c} strokeWidth={solid ? 0 : 1.8} />
-        <text x={0} y={4.6} textAnchor="middle" fontSize={13} fontWeight={700} fill={solid ? '#fff' : c}>{text}</text>
+        <rect x={left} y={top} width={n.w} height={n.h} rx={n.h / 2} fill={fill} stroke={c} strokeWidth={n.followed ? 0 : 1.6} strokeOpacity={big ? 0.7 : 0.5} />
+        <text x={0} y={big ? 4.6 : 4.2} textAnchor="middle" fontSize={big ? 13 : 12} fontWeight={big ? 700 : 650} fill={n.followed ? '#fff' : c}>{text}</text>
       </g></g>;
     }
     if (n.kind === 'leaf') {
+      // The smallest topics: a dot and a name, nothing around them.
       return <g {...props}><g transform={at}>
-        <rect x={left} y={top} width={n.w} height={n.h} rx={n.h / 2} fill="var(--surface)" stroke={c} strokeOpacity={n.followed ? 0.85 : 0.4} strokeWidth={1.4} />
-        <circle cx={left + 12} cy={0} r={4} fill={c} />
-        <text x={left + 21} y={4} fontSize={11.5} fontWeight={600} fill="var(--fg)">{text}</text>
+        <rect x={left} y={top} width={n.w} height={n.h} fill="transparent" />
+        <circle cx={left + 5} cy={0} r={4} fill={n.followed ? c : 'var(--surface)'} stroke={c} strokeWidth={1.6} />
+        <text x={left + 14} y={4} fontSize={11.5} fontWeight={n.followed ? 650 : 500} fill={n.followed ? 'var(--fg)' : 'var(--muted)'}>{text}</text>
       </g></g>;
     }
     return <g {...props}><g transform={at}>
@@ -229,9 +235,10 @@ export function Tree({ bundle, profile, onBack, onOpen, onAdd }: {
     </g></g>;
   };
 
-  const order: Record<GNode['kind'], number> = { src: 0, leaf: 1, own: 2, shelf: 3, area: 4 };
+  const order: Record<GNode['kind'], number> = { src: 0, leaf: 1, branch: 2, own: 3, area: 4 };
   const drawn = [...g.nodes].sort((a, b) => order[a.kind] - order[b.kind] || (a.key === sel ? 1 : 0) - (b.key === sel ? 1 : 0));
-  const shelfOfSel = selected?.kind === 'leaf' ? byKey.get(`shelf:${selected.shelf}`) : undefined;
+  const parentOfSel = selected?.parent ? byKey.get(`n:${selected.parent}`) : undefined;
+  const topicOfSel = selected?.topicId ? profile.topics.find((t) => t.id === selected.topicId) : undefined;
 
   return (
     <>
@@ -242,7 +249,7 @@ export function Tree({ bundle, profile, onBack, onOpen, onAdd }: {
       <div className="tree-filters">
         <div className="switch" role="group" aria-label="Show">
           <button aria-pressed={opts.scope === 'mine'} onClick={() => setOpts((o) => ({ ...o, scope: 'mine' }))}>Yours</button>
-          <button aria-pressed={opts.scope === 'all'} onClick={() => setOpts((o) => ({ ...o, scope: 'all' }))}>All of AI</button>
+          <button aria-pressed={opts.scope === 'all'} onClick={() => setOpts((o) => ({ ...o, scope: 'all' }))}>All</button>
         </div>
         <button className="chip" aria-pressed={opts.related} onClick={() => setOpts((o) => ({ ...o, related: !o.related }))}>Related</button>
         <button className="chip" aria-pressed={opts.sources} onClick={() => setOpts((o) => ({ ...o, sources: !o.sources }))}>Sources</button>
@@ -279,7 +286,7 @@ export function Tree({ bundle, profile, onBack, onOpen, onAdd }: {
           <>
             <button className="x panel-x" onClick={() => setSel(null)} aria-label="Clear">✕</button>
             <div>
-              <div className="eyebrow">{KIND_NAME[selected.kind]}{shelfOfSel ? ` in ${shelfOfSel.label}` : selected.kind === 'shelf' ? ' in AI' : ''}</div>
+              <div className="eyebrow">{kindName(selected)}{parentOfSel ? ` in ${parentOfSel.label}` : ''}</div>
               <h3>{selected.label}</h3>
             </div>
             {nearAll.length > 0 && (
@@ -293,11 +300,11 @@ export function Tree({ bundle, profile, onBack, onOpen, onAdd }: {
               </div>
             )}
             {selected.topicId && selected.kind !== 'src' && (
-              <button className="btn primary" onClick={() => onOpen(selected.topicId!, selected.kind === 'leaf' ? selected.slug : undefined)}>Open</button>
+              <button className="btn primary" onClick={() => onOpen(selected.topicId!, selected.slug && selected.slug !== topicOfSel?.spine ? selected.slug : undefined)}>Open</button>
             )}
-            {!selected.topicId && selected.shelf && (
-              <button className="btn primary" onClick={() => onAdd(selected.shelf!)}>
-                Add {selected.kind === 'leaf' ? shelfOfSel?.label : selected.label} to your topics
+            {!selected.topicId && selected.slug && (
+              <button className="btn primary" onClick={() => onAdd(selected.slug!)}>
+                Add {selected.label} to your topics
               </button>
             )}
           </>

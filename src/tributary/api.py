@@ -75,6 +75,7 @@ def create_app(config_path: Path | None = None) -> FastAPI:
                 days=days,
                 facet_names=state["config"].facets,
                 spine=state["config"].topics.spine,
+                keep_days_for=state["config"].topics.keep_days_for,
             )
         )
 
