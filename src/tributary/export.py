@@ -20,7 +20,8 @@ import base64
 import json
 import shutil
 import sqlite3
-from datetime import UTC, datetime
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -114,11 +115,14 @@ def build_bundle(
     days: int | None = DEFAULT_DAYS,
     facet_names: list | None = None,
     spine: list | None = None,
+    keep_days_for: Callable[[str | None], int | None] | None = None,
 ) -> dict:
     """Everything the page needs, in one object.
 
     Story items are embedded rather than fetched per story: one request beats a
-    thousand. `limit` of 0 takes every story inside `days`.
+    thousand. `limit` of 0 takes every story inside `days`. `keep_days_for`
+    narrows that per topic (`TopicsConfig.keep_days_for`): general news arrives
+    many times faster than AI news, and a month of it would not fit in a page.
     """
     # Newest first, not best first. The page's default feed is chronological,
     # so the bundle is selected by date; every card still carries `score`, which
@@ -126,6 +130,23 @@ def build_bundle(
     cards = feed_mod.recent(conn, limit=limit, days=days, include_seen=True)
     story_ids = [card.story_id for card in cards]
     labels = topics.for_stories(conn, story_ids)
+    if keep_days_for:
+        now = datetime.now(UTC)
+
+        def kept(card) -> bool:
+            home = labels.get(card.story_id, [{}])[0].get("slug")
+            window = keep_days_for(home)
+            when = card.last_activity or card.published_at
+            if not window or not when:
+                return True
+            at = datetime.fromisoformat(when.replace("Z", "+00:00"))
+            if at.tzinfo is None:  # SQLite's datetime('now') carries no zone; it is UTC
+                at = at.replace(tzinfo=UTC)
+            age = now - at
+            return age <= timedelta(days=window)
+
+        cards = [card for card in cards if kept(card)]
+        story_ids = [card.story_id for card in cards]
     marks = facets.for_stories(conn, story_ids)
     named = entities.for_stories(conn, story_ids)
     vectors = _centroids(conn, story_ids)
@@ -233,18 +254,19 @@ def _spine(spine: list | None) -> list[dict]:
     """Every topic by slug and name, each shelf-dweller carrying its shelf.
 
     Shaped exactly like the labels on a story, so the page has one way to read a
-    topic wherever it came from. A shelf also carries its description: a
-    shelf's is written for people (only leaves are scored), so the redesign
-    shows it to say what a starter subject holds.
+    topic wherever it came from. A topic with others under it also carries its
+    description: those are written for people (only the bottom ones are
+    scored), so the page shows it to say what a subject holds.
     """
     names = {t.slug: t.name for t in spine or []}
+    has_children = {t.parent for t in spine or [] if t.parent}
     return [
         {
             "slug": t.slug,
             "name": t.name,
             "parent": t.parent,
             "parent_name": names.get(t.parent) if t.parent else None,
-            "description": None if t.parent else t.description,
+            "description": t.description if t.slug in has_children else None,
         }
         for t in spine or []
     ]
@@ -257,6 +279,7 @@ def write_site(
     days: int | None = DEFAULT_DAYS,
     facet_names: list | None = None,
     spine: list | None = None,
+    keep_days_for: Callable[[str | None], int | None] | None = None,
 ) -> dict:
     """Write a static site into ``out_dir``: the bundle, and the page if built.
 
@@ -272,7 +295,8 @@ def write_site(
         )
 
     bundle = build_bundle(
-        conn, limit=limit, days=days, facet_names=facet_names, spine=spine
+        conn, limit=limit, days=days, facet_names=facet_names, spine=spine,
+        keep_days_for=keep_days_for,
     )
     data_file = out_dir / "data.json"
     data_file.write_text(json.dumps(bundle, ensure_ascii=False, separators=(",", ":")))

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Bundle, Story, buildCatalog, shelves, sourcesForShelf } from './data';
+import { Bundle, Story, buildCatalog, categories, pathTo, sourcesFor } from './data';
 import { Topic, blankProfile, inTopic, isNew } from './state';
 import { cosine, decodeVector } from './vectors';
 
@@ -90,11 +90,36 @@ describe('the source catalogue', () => {
     expect(catalog.get('Lab Blog')!.week).toBe(2);
     expect(catalog.get('Lab Blog')!.latest.length).toBe(2);
   });
-  it('suggests for a shelf only the sources that put stories there', () => {
-    expect(sourcesForShelf(catalog, 'agents').map((s) => s.name)).toEqual(['Lab Blog']);
-    expect(sourcesForShelf(catalog, 'chips').map((s) => s.name)).toEqual(['Wire']);
+  it('suggests for a topic only the sources that put stories in it or below it', () => {
+    expect(sourcesFor(catalog, 'agents').map((s) => s.name)).toEqual(['Lab Blog']);
+    expect(sourcesFor(catalog, 'chips').map((s) => s.name)).toEqual(['Wire']);
   });
-  it('offers the spine shelves as starter subjects, each with its leaves', () => {
-    expect(shelves(bundle).map((s) => [s.slug, s.leaves.length])).toEqual([['agents', 1], ['chips', 0]]);
+  it('offers the top of the tree as starter subjects, each with what is inside it', () => {
+    expect(categories(bundle).map((s) => [s.slug, s.leaves.length])).toEqual([['agents', 1], ['chips', 0]]);
+  });
+});
+
+describe('a tree of any depth', () => {
+  // News -> Technology -> AI -> AI agents -> Coding agents
+  const deep = (id: number) => story(id, { topics: [{ slug: 'coding', name: 'Coding agents', parent: 'agents',
+    parent_name: 'AI agents', path: ['technology', 'ai', 'agents'] }] });
+  const spine = [
+    { slug: 'technology', name: 'Technology' }, { slug: 'ai', name: 'AI', parent: 'technology' },
+    { slug: 'agents', name: 'AI agents', parent: 'ai' }, { slug: 'coding', name: 'Coding agents', parent: 'agents' },
+  ];
+  it('puts a story in every topic above the one it was filed under', () => {
+    for (const spineAt of ['technology', 'ai', 'agents', 'coding']) {
+      expect(inTopic(deep(1), { id: spineAt, name: spineAt, spine: spineAt, sources: ['Lab Blog'], muted: [] })).toBe(true);
+    }
+    expect(inTopic(deep(1), { id: 'sport', name: 'Sport', spine: 'sport', sources: ['Lab Blog'], muted: [] })).toBe(false);
+  });
+  it('knows the way up from any topic', () => {
+    const bundle: Bundle = { generated_at: '', status: { broken_sources: [] }, spine, stories: [] };
+    expect(pathTo(bundle, 'coding').map((l) => l.slug)).toEqual(['technology', 'ai', 'agents']);
+  });
+  it('counts a source for every topic above its stories', () => {
+    const bundle: Bundle = { generated_at: '', status: { broken_sources: [] }, spine, stories: [deep(1)] };
+    const c = buildCatalog(bundle);
+    expect(sourcesFor(c, 'technology').map((s) => s.name)).toEqual(['Lab Blog']);
   });
 });

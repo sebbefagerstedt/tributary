@@ -4,7 +4,7 @@
    same either way (VISION.md: only where the row is stored changes). */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Label, NEW_HOURS, Story, ageHours, shelfOf, storySources } from './data';
+import { NEW_HOURS, Story, ageHours, inPlace, storySources } from './data';
 import { remote } from './remote';
 import { cosine, decodeVector } from './vectors';
 
@@ -15,7 +15,7 @@ export interface Topic {
   sources: string[];
   muted: string[];
   description?: string | null;
-  spine?: string | null;   // the version-1 shelf it borrows placements from
+  spine?: string | null;   // the topic in the shared tree it borrows placements from
   parent?: string | null;
   vector?: string | null;  // its description embedded, for topics the spine does not know
   found?: Record<string, SourceSpec>; // sources found on the web, not yet saved
@@ -137,12 +137,12 @@ export const FIT_FLOOR = 0.62;
 
 const words = (s: string) => s.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2);
 
-/* Does a story fit a topic? A topic from a starter subject borrows version 1's
-   placement — the story lives on that shelf, or that leaf. A topic of your own
+/* Does a story fit a topic? A topic from the shared tree borrows the
+   pipeline's placement — the story was filed there or somewhere below it. A topic of your own
    asks words first (every word of its name in the story), then the vector, the
    order version 1's lenses used. This is the fit filter VISION.md keeps. */
 export function fits(story: Story, topic: Topic, leaf?: string): boolean {
-  if (topic.spine) return story.topics.some((l: Label) => (leaf ? l.slug === leaf : shelfOf(l) === topic.spine));
+  if (topic.spine) return inPlace(story, leaf || topic.spine);
   const name = words(topic.name);
   const text = `${story.title} ${story.summary || ''} ${story.items.map((i) => i.title).join(' ')}`.toLowerCase();
   if (name.length && name.every((w) => text.includes(w))) return true;

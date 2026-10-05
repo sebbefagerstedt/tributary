@@ -174,6 +174,13 @@ boxes, curved links, a canvas you explore); the new one should be calmer and
 more beautiful: fewer crossing lines, room to breathe, and tapping a node opens
 that topic.
 
+**General news, not only AI (2026-10-05).** The starter tree is the owner's
+picture: News at the hub; Technology, Culture, Sport, Politics, Security,
+Economy, Environment and Health; three subtopics each, and AI under
+Technology with its own topics below it. The first run lists the categories
+and, under "More specific", every topic one level down, so following only AI or
+only Football is one tap. CLAUDE.md, "Beyond AI", has how the pipeline carries it.
+
 **Built 2026-10-05 as an ontology graph** (`web-next/src/graph.ts`). A first
 version hung everything off the reader's initial; an outline came next and was
 turned down the same day — *"my intention was actually an ontology graph"*. So:

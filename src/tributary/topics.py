@@ -503,6 +503,23 @@ def for_stories(conn: sqlite3.Connection, story_ids: list[int]) -> dict[int, lis
         return {}
     placeholders = ",".join("?" * len(story_ids))
     found: dict[int, list[dict]] = {}
+    parent_of = {
+        r["slug"]: r["parent"]
+        for r in conn.execute(
+            "SELECT t.slug, p.slug AS parent FROM topics t LEFT JOIN topics p ON p.id = t.parent_id"
+        )
+    }
+
+    def path(slug: str) -> list[str]:
+        # Every topic above this one, the top first: a story on Coding agents is
+        # also in AI agents, AI and Technology, and the page needs to know that
+        # without walking the tree itself.
+        out, at = [], parent_of.get(slug)
+        while at and at not in out:
+            out.append(at)
+            at = parent_of.get(at)
+        return out[::-1]
+
     for row in conn.execute(
         f"""
         SELECT stp.story_id, t.slug, t.name,
@@ -520,7 +537,8 @@ def for_stories(conn: sqlite3.Connection, story_ids: list[int]) -> dict[int, lis
         # only a child still knows which shelf it belongs on.
         label = {"slug": row["slug"], "name": row["name"]}
         if row["parent"]:
-            label |= {"parent": row["parent"], "parent_name": row["parent_name"]}
+            label |= {"parent": row["parent"], "parent_name": row["parent_name"],
+                      "path": path(row["slug"])}
         found.setdefault(row["story_id"], []).append(label)
     return found
 

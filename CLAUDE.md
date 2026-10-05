@@ -669,6 +669,36 @@ as the corpus grows. For triage, `trib triage --by-source` should show a
 gradient — research feeds 80–100% kept, general tech 20–30% — and a uniform
 rate means the profile is measuring text length, not relevance.
 
+## Beyond AI: one tree of general news (2026-10-05)
+
+The owner sent a picture of the tree they wanted — News at the hub; Technology,
+Culture, Sport, Politics, Security, Economy, Environment and Health around it;
+three subtopics each — and chose that **AI sits under Technology** and that the
+published site carries the new categories too. So:
+
+- **The spine is any depth.** `parent` chains to any depth; only topics nothing
+  sits under are scored, and parking stops at the parent the top two share, so
+  every rule under "Labelling" holds unchanged. AI's ten topics are now under
+  `ai`, which is under `technology`. The loader rejects a loop and a slug used
+  twice. A label in the bundle carries `path`, every topic above it, so the
+  page puts a story in Technology because it was filed under Coding agents.
+- **Two slugs were taken.** AI's `chips` (Chips & datacenters) and `climate`
+  exist, so Technology's Chips is `tech-chips` and Environment's Climate is
+  `climate-change`. They compete in the argmax with the AI leaves of the same
+  name; the AI ones say "AI" in their descriptions, which is what separates them.
+- **General news is kept for days, AI for a month.** `[topics] keep_days = 4`
+  and `keep_days = 30` on `ai`; a topic inherits the nearest setting above it
+  (`TopicsConfig.keep_days_for`) and the export drops older stories from the
+  bundle only — the database keeps everything for `MAX_ITEM_AGE_DAYS`. General
+  feeds publish many times what the AI ones do, and a month of them would not
+  fit in a page.
+- **21 section feeds** (BBC, Guardian, The Verge, ESPN, The Record, Carbon Brief,
+  STAT…) were added **unverified**: nothing in the sandbox that wrote them could
+  reach them. The first Actions run after they landed is the check, as for every
+  source in this file; drop any that fail there.
+- **The triage profile is still about AI.** It only scores, so general news
+  ranks low in `score` and nothing is lost; nothing on the new page sorts by it.
+
 ## The redesign's backend, beside version 1
 
 Step 2 of `NEXT.md` lives in the same code without changing what version 1

@@ -555,3 +555,54 @@ def test_a_story_is_found_by_id_or_by_words_in_its_title(conn, story):
     assert topics.find_story(conn, str(first)) == first
     assert topics.find_story(conn, "hacked three") == first
     assert topics.find_story(conn, "nothing like this") is None
+
+
+# --- a tree of any depth (2026-10-05) ------------------------------------------
+
+def test_a_story_deep_in_the_tree_knows_every_topic_above_it(conn, story, axes):
+    """A Coding agents story is also in AI agents, AI and Technology."""
+    parents = {"models": "ai", "agents": "ai", "frontier": "models"}
+    spine = profile(0.10, "ai", "models", "frontier", "agents", parents=parents)
+    s = story(unit(1.0, 0.0))
+    topics.run(conn, spine)
+
+    [label] = topics.for_stories(conn, [s])[s]
+    assert label["slug"] == "frontier"
+    assert label["path"] == ["ai", "models"]
+
+
+def test_a_loop_of_parents_is_refused(tmp_path):
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(
+        '[[topics.spine]]\nslug = "a"\nname = "A"\ndescription = "a"\nparent = "b"\n'
+        '[[topics.spine]]\nslug = "b"\nname = "B"\ndescription = "b"\nparent = "a"\n'
+        '[[topics.spine]]\nslug = "c"\nname = "C"\ndescription = "c"\n'
+    )
+    with pytest.raises(ValueError, match="loop"):
+        load(cfg)
+
+
+def test_a_slug_used_twice_is_refused(tmp_path):
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(
+        '[[topics.spine]]\nslug = "a"\nname = "A"\ndescription = "a"\n'
+        '[[topics.spine]]\nslug = "a"\nname = "Again"\ndescription = "a"\n'
+    )
+    with pytest.raises(ValueError, match="twice"):
+        load(cfg)
+
+
+def test_how_long_a_topic_is_kept_comes_from_the_nearest_topic_that_says():
+    spine = TopicsConfig(
+        keep_days=4,
+        spine=[
+            TopicConfig(slug="tech", name="Tech", description="t"),
+            TopicConfig(slug="ai", name="AI", description="a", parent="tech", keep_days=30),
+            TopicConfig(slug="agents", name="Agents", description="g", parent="ai"),
+            TopicConfig(slug="sport", name="Sport", description="s"),
+        ],
+    )
+    assert spine.keep_days_for("agents") == 30
+    assert spine.keep_days_for("tech") == 4
+    assert spine.keep_days_for("sport") == 4
+    assert spine.keep_days_for(None) == 4

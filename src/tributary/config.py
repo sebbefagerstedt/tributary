@@ -84,14 +84,18 @@ class TopicConfig:
     slug: str
     name: str
     description: str
-    # The slug this sits under, if any. One level only: browsing wants a shelf
-    # and a row, not a tree to get lost in.
+    # The slug this sits under, if any. Any depth since 2026-10-05, when general
+    # news arrived and AI became one branch of it: News -> Technology -> AI ->
+    # AI agents -> Coding agents. Only topics nothing sits under are scored.
     parent: str | None = None
     # A regex over a story's headline that makes this leaf its home outright,
     # before anything is scored. For a subject that names itself: a launch post
     # is mostly benchmarks and pricing, so its prose scores against whatever
     # those resemble, while its title says exactly what it is.
     claims: str | None = None
+    # Days of this topic's stories the published bundle carries; inherited from
+    # the nearest topic above that sets one, else `TopicsConfig.keep_days`.
+    keep_days: int | None = None
 
 
 @dataclass(slots=True)
@@ -139,6 +143,25 @@ class TopicsConfig:
     floor: float = DEFAULT_TOPIC_FLOOR
     park_margin: float = DEFAULT_PARK_MARGIN
     spine: list[TopicConfig] = field(default_factory=list)
+    keep_days: int | None = None  # None: the bundle's own window decides
+
+    def ancestors(self, slug: str) -> list[str]:
+        """The topics above this one, nearest first."""
+        parent_of = {t.slug: t.parent for t in self.spine}
+        out: list[str] = []
+        at = parent_of.get(slug)
+        while at:
+            out.append(at)
+            at = parent_of.get(at)
+        return out
+
+    def keep_days_for(self, slug: str | None) -> int | None:
+        """How many days of this topic's stories the bundle keeps."""
+        own = {t.slug: t.keep_days for t in self.spine}
+        for at in [slug, *self.ancestors(slug)] if slug else []:
+            if own.get(at) is not None:
+                return own[at]
+        return self.keep_days
 
     def leaves(self) -> list[TopicConfig]:
         """The topics that get scored: everything nothing else sits under."""
@@ -272,15 +295,26 @@ def _parse(raw: dict, path: Path) -> Config:
                 description=entry["description"],
                 parent=entry.get("parent"),
                 claims=entry.get("claims"),
+                keep_days=int(entry["keep_days"]) if "keep_days" in entry else None,
             )
         )
     known = {topic.slug for topic in spine}
+    if len(known) != len(spine):
+        dupes = sorted({t.slug for t in spine if [u.slug for u in spine].count(t.slug) > 1})
+        raise ValueError(f"{path}: topic slugs used twice: {dupes}")
     shelves = {topic.parent for topic in spine if topic.parent}
     for topic in spine:
         if topic.parent and topic.parent not in known:
             raise ValueError(f"{path}: topic {topic.slug!r} has unknown parent {topic.parent!r}")
         if topic.parent == topic.slug:
             raise ValueError(f"{path}: topic {topic.slug!r} is its own parent")
+        seen, at = {topic.slug}, topic.parent
+        parent_of = {t.slug: t.parent for t in spine}
+        while at:
+            if at in seen:
+                raise ValueError(f"{path}: topic {topic.slug!r} is inside a loop of parents")
+            seen.add(at)
+            at = parent_of.get(at)
         if topic.claims is not None:
             if topic.slug in shelves:
                 # Only leaves are homes; a shelf is reached through them.
@@ -295,6 +329,7 @@ def _parse(raw: dict, path: Path) -> Config:
         floor=float(raw_topics.get("floor", DEFAULT_TOPIC_FLOOR)),
         park_margin=float(raw_topics.get("park_margin", DEFAULT_PARK_MARGIN)),
         spine=spine,
+        keep_days=int(raw_topics["keep_days"]) if "keep_days" in raw_topics else None,
     )
     if not topics.leaves() and spine:
         raise ValueError(f"{path}: every topic is a parent of another; nothing to score")

@@ -314,3 +314,25 @@ def test_a_story_nobody_embedded_still_makes_a_card(conn, source_id):
     assert bundle["stories"]
     assert all(story["centroid"] is None for story in bundle["stories"])
     json.dumps(bundle)
+
+
+def test_each_topic_keeps_its_own_number_of_days(conn, source_id):
+    """General news is kept for days, AI for a month (config `keep_days`)."""
+    seed(conn, source_id)  # every item is a day old
+    total = len(export.build_bundle(conn)["stories"])
+    assert len(export.build_bundle(conn, keep_days_for=lambda slug: 2)["stories"]) == total
+    assert export.build_bundle(conn, keep_days_for=lambda slug: 0.5)["stories"] == []
+
+
+def test_a_topic_in_the_middle_of_the_tree_carries_its_description(conn, source_id):
+    from tributary.config import TopicConfig
+
+    spine = [
+        TopicConfig(slug="ai", name="AI", description="all of it"),
+        TopicConfig(slug="models", name="Models", description="the models", parent="ai"),
+        TopicConfig(slug="frontier", name="Frontier", description="scored", parent="models"),
+    ]
+    found = {t["slug"]: t for t in export.build_bundle(conn, spine=spine)["spine"]}
+    assert found["models"]["description"] == "the models"
+    assert found["models"]["parent_name"] == "AI"
+    assert found["frontier"]["description"] is None

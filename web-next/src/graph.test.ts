@@ -37,44 +37,44 @@ const bundle: Bundle = {
 describe('the tree', () => {
   const me = { ...blankProfile('S'), topics: [{ id: 'models', name: 'Models', spine: 'models', sources: ['Feed'], muted: [] }] };
 
-  it('puts AI in the middle and joins its topics to it, not to the reader', () => {
+  it('puts News in the middle and joins its categories to it, not to the reader', () => {
     const g = buildGraph(bundle, me, { scope: 'all', related: false, sources: false });
-    expect(g.nodes.find((n) => n.kind === 'area')!.label).toBe('AI');
-    expect(g.edges.filter((e) => e.a === 'area').map((e) => e.b).sort()).toEqual(['shelf:chips', 'shelf:models', 'shelf:safety']);
+    expect(g.nodes.find((n) => n.kind === 'area')!.label).toBe('News');
+    expect(g.edges.filter((e) => e.a === 'area').map((e) => e.b).sort()).toEqual(['n:chips', 'n:models', 'n:safety']);
   });
 
-  it('shows only your topics and their subtopics unless asked for all of AI', () => {
+  it('shows only your topics and their subtopics unless asked for everything', () => {
     const g = buildGraph(bundle, me, { scope: 'mine', related: false, sources: false });
-    expect(g.nodes.map((n) => n.key).sort()).toEqual(['area', 'leaf:frontier', 'leaf:open', 'shelf:models']);
+    expect(g.nodes.map((n) => n.key).sort()).toEqual(['area', 'n:frontier', 'n:models', 'n:open']);
   });
 
-  it('settles the same way every time, with AI at the hub and subtopics beside their topic', () => {
+  it('settles the same way every time, with News at the hub and subtopics beside their topic', () => {
     const one = buildGraph(bundle, me, { scope: 'all', related: false, sources: false });
     const two = buildGraph(bundle, me, { scope: 'all', related: false, sources: false });
     expect(one.nodes.map((n) => [n.x, n.y])).toEqual(two.nodes.map((n) => [n.x, n.y]));
     const at = (k: string) => one.nodes.find((n) => n.key === k)!;
     expect([at('area').x, at('area').y]).toEqual([0, 0]);
     const d = (a: string, b: string) => Math.hypot(at(a).x - at(b).x, at(a).y - at(b).y);
-    expect(d('leaf:open', 'shelf:models')).toBeLessThan(d('leaf:open', 'shelf:safety'));
-    expect(at('shelf:models').followed && !at('shelf:chips').followed).toBe(true);
+    expect(d('n:open', 'n:models')).toBeLessThan(d('n:open', 'n:safety'));
+    expect(at('n:models').followed && !at('n:chips').followed).toBe(true);
   });
 
   it('relates subtopics on different topics by their stories, closest first', () => {
     const g = buildGraph(bundle, me, { scope: 'all', related: true, sources: false });
-    const open = g.nodes.find((n) => n.key === 'leaf:open')!;
+    const open = g.nodes.find((n) => n.key === 'n:open')!;
     const near = closest(open, g.nodes, g.vectors, 3).map((x) => x.node.key);
-    expect(near[0]).toBe('leaf:accel');
+    expect(near[0]).toBe('n:accel');
     // Its sibling is joined by the tree already, so it is never "related".
-    expect(near).not.toContain('leaf:frontier');
+    expect(near).not.toContain('n:frontier');
   });
 
   it('links each topic to its closest at rest, and a focused node to its closest few', () => {
     const g = buildGraph(bundle, me, { scope: 'all', related: true, sources: false });
     const pairs = g.overview.map((e) => [e.a, e.b].sort().join(' '));
-    expect(pairs).toContain('shelf:chips shelf:models');
-    expect(g.overview.every((e) => e.a.startsWith('shelf:') && e.b.startsWith('shelf:'))).toBe(true);
-    const open = g.nodes.find((n) => n.key === 'leaf:open')!;
-    expect(focusEdges(open, g.nodes, g.vectors, 1).map((e) => e.b)).toEqual(['leaf:accel']);
+    expect(pairs).toContain('n:chips n:models');
+    expect(g.overview.every((e) => e.a.startsWith('n:') && e.b.startsWith('n:'))).toBe(true);
+    const open = g.nodes.find((n) => n.key === 'n:open')!;
+    expect(focusEdges(open, g.nodes, g.vectors, 1).map((e) => e.b)).toEqual(['n:accel']);
     expect(buildGraph(bundle, me, { scope: 'all', related: false, sources: false }).overview).toEqual([]);
   });
 
@@ -82,6 +82,6 @@ describe('the tree', () => {
     const two = { ...me, topics: [...me.topics, { id: 'chips', name: 'Chips', spine: 'chips', sources: ['Feed'], muted: [] }] };
     const g = buildGraph(bundle, two, { scope: 'mine', related: false, sources: true });
     expect(g.nodes.filter((n) => n.kind === 'src').map((n) => n.key)).toEqual(['src:Feed']);
-    expect(g.edges.filter((e) => e.kind === 'src').map((e) => e.a).sort()).toEqual(['shelf:chips', 'shelf:models']);
+    expect(g.edges.filter((e) => e.kind === 'src').map((e) => e.a).sort()).toEqual(['n:chips', 'n:models']);
   });
 });
