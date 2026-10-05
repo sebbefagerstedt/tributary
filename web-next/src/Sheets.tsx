@@ -1,16 +1,19 @@
 /* Sheets slide over the screen you are on: a topic's settings, a new topic,
    your profile, and a story. Each is one level of "back". */
 
-import { FormEvent, ReactNode, useMemo, useState } from 'react';
+import { FormEvent, ReactNode, useMemo, useRef, useState } from 'react';
 import { Bundle, STARTER_AREA, Source, Story, agoLabel, isBusy, shelves, sourcesForShelf } from './data';
+import { useDragToClose } from './gestures';
 import { DiscoveredCard, asSource, slugOf, specsOf, useDiscovery } from './Discovery';
 import { Profile, SourceSpec, Topic } from './state';
 import { FoundCard, KIND_WORD, StarterList, hueOf } from './ui';
 
 export function Sheet({ onClose, children }: { onClose: () => void; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useDragToClose(ref, onClose);
   return (
     <div className="scrim" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="sheet" role="dialog" aria-modal="true"><div className="grab" />{children}</div>
+      <div className="sheet" ref={ref} role="dialog" aria-modal="true"><div className="grab" />{children}</div>
     </div>
   );
 }
