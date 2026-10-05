@@ -97,7 +97,7 @@ def test_export_writes_a_site(config, tmp_path):
     out = tmp_path / "site"
     result = invoke("export", str(out), "--config", config)
     assert result.exit_code == 0, result.output
-    assert (out / "index.html").exists() and (out / "data.json").exists()
+    assert (out / "data.json").exists()
 
 
 def test_a_missing_story_is_an_error_not_a_crash(config):

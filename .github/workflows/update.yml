@@ -92,24 +92,20 @@ jobs:
         continue-on-error: true
         run: uv run trib renewal --limit 40 --days 30
 
-      - name: Build the site
-        run: uv run trib export site --days 30
-
-      # The redesign (VISION.md), published next to version 1 at /next/ and
-      # reading the same data.json one level up.
+      # The page (VISION.md), built before the export so `trib export` copies it
+      # in beside data.json. Version 1's page was retired on 2026-10-05.
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: web-next/package-lock.json
 
-      - name: Build the redesign
+      - name: Build the page
         working-directory: web-next
-        env:
-          BASE: /tributary/next/
-        run: npm ci && npm run build && rm -f dist/dev-data.json
+        run: npm ci && npm run build
 
-      - run: cp -r web-next/dist site/next
+      - name: Build the site
+        run: uv run trib export site --days 30
 
       - uses: actions/upload-pages-artifact@v3
         with:

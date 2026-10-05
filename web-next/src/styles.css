@@ -37,6 +37,8 @@
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; }
+/* No double-tap zoom wait on taps, and no grey flash over what was tapped. */
+html { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 body { background: var(--bg); color: var(--fg); font: 15px/1.45 var(--body); }
 button { font: inherit; color: inherit; cursor: pointer; }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -175,7 +177,9 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-
 .sheet { background: var(--bg); width: 100%; max-width: 430px; max-height: 92%; border-radius: 22px 22px 0 0; overflow-y: auto;
   padding-inline: 16px; padding-block: 8px calc(24px + env(safe-area-inset-bottom, 0px)); animation: up .22s ease-out; }
 @keyframes up { from { transform: translateY(30px); opacity: .6; } }
-.grab { width: 40px; height: 5px; border-radius: 5px; background: var(--line); margin: 4px auto 10px; }
+.grab { width: 40px; height: 5px; border-radius: 5px; background: var(--line); margin: 4px auto 10px; box-sizing: content-box; padding: 8px 40px; background-clip: content-box; }
+.sheet { overscroll-behavior: contain; }
+.player .stage { touch-action: none; user-select: none; -webkit-user-select: none; }
 .section { display: grid; gap: 8px; margin-top: 18px; }
 .section h3 { font-size: 15px; }
 .set-list { background: var(--surface); border-radius: 16px; border: 1px solid var(--line); overflow: hidden; }
@@ -205,8 +209,6 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-
 .player .body { margin-top: auto; display: grid; gap: 12px; position: relative; z-index: 2; }
 .player .body h2 { font-size: 30px; line-height: 1.1; font-weight: 800; }
 .player .body p { margin: 0; opacity: .9; }
-.player .tap { position: absolute; top: 90px; bottom: 150px; width: 40%; z-index: 1; border: 0; background: none; }
-.player .tap.l { left: 0; } .player .tap.r { right: 0; width: 60%; }
 .player .hint { font-size: 12px; opacity: .7; }
 
 /* Tree */
@@ -263,7 +265,6 @@ details[open].src-row .peek { color: var(--muted); }
 .player .stage { overflow: hidden; }
 .player-art { opacity: .35; }
 .player .stage > *:not(.player-art) { position: relative; }
-.player .stage > .tap { position: absolute; }
 .eyebrow.light, .hint.light { color: rgba(255,255,255,.75); }
 .btn.solid-light { background: #fff; color: #14211d; }
 .node.tappable { cursor: pointer; }

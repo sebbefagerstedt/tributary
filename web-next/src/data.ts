@@ -36,7 +36,7 @@ export const NEW_HOURS = 48;
 export async function loadBundle(): Promise<Bundle> {
   // Under /next/ on Pages the pipeline's bundle sits one level up; in local
   // development it is the generated sample (scripts/make_dev_data.py).
-  const url = import.meta.env.DEV ? '/dev-data.json' : '../data.json';
+  const url = import.meta.env.DEV ? '/dev-data.json' : './data.json';
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error(`Could not load the news (${res.status}).`);
   return res.json();

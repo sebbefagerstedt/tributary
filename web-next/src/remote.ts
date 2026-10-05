@@ -5,8 +5,9 @@
 
 import type { Profile, Topic } from './state';
 
-/* Relative to the page: /next/ on trib serve reaches /api/next/. */
-const base = () => new URL('../api/next/', window.location.href).toString();
+/* Relative to the page: at the root of trib serve that is /api/next/; on
+   GitHub Pages it is a path nothing answers, which is how the page knows. */
+const base = () => new URL('./api/next/', window.location.href).toString();
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(base() + path, {

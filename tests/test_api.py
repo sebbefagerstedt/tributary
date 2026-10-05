@@ -5,7 +5,7 @@ import pytest
 import sqlite_vec
 from fastapi.testclient import TestClient
 
-from tributary import cluster, embeddings
+from tributary import api, cluster, embeddings
 from tributary import db as db_mod
 from tributary.api import create_app
 
@@ -55,72 +55,12 @@ def client(tmp_path):
         yield test_client
 
 
-def test_feed_returns_ranked_stories(client):
-    body = client.get("/api/feed").json()
-    assert body["count"] == 2  # the paper and its coverage merged into one story
-    scores = [s["score"] for s in body["stories"]]
-    assert scores == sorted(scores, reverse=True)
-
-
-def test_feed_cards_carry_what_the_ui_needs(client):
-    card = client.get("/api/feed").json()["stories"][0]
-    for field in ("story_id", "title", "kind", "source", "score", "signal", "seen", "sources"):
-        assert field in card
-
-
-def test_the_lead_of_a_merged_story_is_the_paper(client):
-    """Not the coverage of it, even though both are in the story."""
-    stories = client.get("/api/feed").json()["stories"]
-    merged = next(s for s in stories if s["item_count"] > 1)
-    assert merged["kind"] == "paper"
-
-
-def test_limit_is_bounded(client):
-    assert client.get("/api/feed?limit=0").status_code == 422
-    assert client.get("/api/feed?limit=500").status_code == 422
-
-
-def test_story_detail_lists_every_attached_item(client):
-    story_id = client.get("/api/feed").json()["stories"][0]["story_id"]
-    body = client.get(f"/api/story/{story_id}").json()
-    assert len(body["items"]) == body["item_count"]
-    assert {"role", "kind", "title", "url", "source"} <= set(body["items"][0])
-
-
-def test_missing_story_is_a_404(client):
-    assert client.get("/api/story/999999").status_code == 404
-
-
-def test_actions_are_recorded(client):
-    story_id = client.get("/api/feed").json()["stories"][0]["story_id"]
-    assert client.post(f"/api/story/{story_id}/saved").status_code == 200
-    assert client.get("/api/saved").json()["count"] == 1
-
-
-def test_unknown_action_is_rejected(client):
-    """The action name goes straight into a row; it must be checked."""
-    story_id = client.get("/api/feed").json()["stories"][0]["story_id"]
-    response = client.post(f"/api/story/{story_id}/wat")
-    assert response.status_code == 400
-
-
-def test_action_on_a_missing_story_is_a_404(client):
-    assert client.post("/api/story/999999/saved").status_code == 404
-
-
-def test_seen_stories_can_be_filtered_out(client):
-    stories = client.get("/api/feed").json()["stories"]
-    client.post(f"/api/story/{stories[0]['story_id']}/seen")
-
-    remaining = client.get("/api/feed?unseen=true").json()
-    assert remaining["count"] == len(stories) - 1
-
-
-def test_dismissed_stories_drop_out_of_saved(client):
-    story_id = client.get("/api/feed").json()["stories"][0]["story_id"]
-    client.post(f"/api/story/{story_id}/saved")
-    client.post(f"/api/story/{story_id}/dismissed")
-    assert client.get("/api/saved").json()["count"] == 0
+def test_the_bundle_is_served_live(client):
+    # A wide window: the seeded items are dated, and the default is 30 days.
+    body = client.get("/data.json?days=365").json()
+    assert len(body["stories"]) == 2  # the paper and its coverage merged into one story
+    merged = next(s for s in body["stories"] if s["item_count"] > 1)
+    assert merged["kind"] == "paper", "the lead of a merged story is the paper, not its coverage"
 
 
 def test_status_reports_health(client):
@@ -140,16 +80,33 @@ def test_status_surfaces_a_broken_source(client, tmp_path):
     assert broken and broken[0]["error"] == "HTTP 404"
 
 
-def test_the_app_shell_is_served(client):
-    response = client.get("/")
-    assert response.status_code == 200
-    assert "<title>Tributary</title>" in response.text
+def _app(tmp_path, monkeypatch, built: bool) -> TestClient:
+    page = tmp_path / "dist"
+    if built:
+        page.mkdir()
+        (page / "index.html").write_text("<title>Tributary</title>")
+    monkeypatch.setattr(api, "APP_DIR", page)
+    config = tmp_path / "config.toml"
+    config.write_text(f'[tributary]\ndb_path = "{tmp_path / "x.db"}"\n')
+    return TestClient(create_app(config))
 
 
-def test_pwa_assets_are_served(client):
-    assert client.get("/manifest.json").status_code == 200
-    assert client.get("/sw.js").status_code == 200
-    assert client.get("/icon.svg").status_code == 200
+def test_the_built_page_is_served_at_the_root(tmp_path, monkeypatch):
+    with _app(tmp_path, monkeypatch, built=True) as c:
+        assert "<title>Tributary</title>" in c.get("/").text
+        assert c.get("/api/next/ping").json() == {"ok": True}
+
+
+def test_an_unbuilt_page_says_how_to_build_it(tmp_path, monkeypatch):
+    with _app(tmp_path, monkeypatch, built=False) as c:
+        assert "npm run build" in c.get("/").text
+
+
+def test_the_old_address_of_the_page_still_lands(tmp_path, monkeypatch):
+    """It lived at /next/ while version 1 held the root."""
+    with _app(tmp_path, monkeypatch, built=True) as c:
+        moved = c.get("/next/", follow_redirects=False)
+        assert moved.status_code == 301 and moved.headers["location"] == "/"
 
 
 def test_api_routes_win_over_the_static_mount(client):

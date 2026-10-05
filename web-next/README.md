@@ -11,11 +11,11 @@ npm install
 uv run python scripts/make_dev_data.py   # from the repo root: a sample bundle
 npm run dev                              # http://localhost:5173
 npm test                                 # the logic: topics, new, catalogue
-npm run build                            # what the workflow publishes at /next/
+npm run build                            # what trib serve and the workflow publish
 ```
 
-Live at https://sebbefagerstedt.github.io/tributary/next/ after each run of the
-workflow.
+Live at https://sebbefagerstedt.github.io/tributary/ after each run of the
+workflow (`/next/`, where it lived beside version 1, redirects there).
 
 ## On your computer, with the backend
 
@@ -23,14 +23,14 @@ workflow.
 git pull && uv sync
 cd web-next && npm ci && npm run build && cd ..   # trib serve serves web-next/dist
 uv run trib run                                   # fill the database once
-uv run trib serve --host 0.0.0.0                  # then open http://<computer>:8808/next/
+uv run trib serve --host 0.0.0.0                  # then open http://<computer>:8808/
 ```
 
 A phone on the same Wi-Fi reaches it at the computer's address; anywhere else
 needs a tunnel (Tailscale is free). There is no password, so do not expose it to
-the internet. The page asks `../api/next/ping` when it loads: if the server
+the internet. The page asks `./api/next/ping` when it loads: if the server
 answers, profiles, topics and what you have read live in the database, and every
-device that opens it sees the same ones. Version 1 is untouched at `/`.
+device that opens it sees the same ones.
 
 What the server adds:
 

@@ -7,6 +7,11 @@ bundle that can be generated ahead of time and served from anywhere.
 The bundle is the contract for both deployments: the server returns it live at
 /data.json, and this writes the identical shape to disk. The page cannot tell
 the difference, so there is no second frontend to keep in step.
+
+The page is the React app in `web-next/` (VISION.md), built by `npm run build`
+into `web-next/dist`. It lives in the repository rather than the package,
+because it needs a build step; `write_site` copies it in when it has been
+built, and the workflow builds it before exporting.
 """
 
 from __future__ import annotations
@@ -24,7 +29,11 @@ from tributary import embeddings, entities, facets, topics, triage
 from tributary import feed as feed_mod
 from tributary.text import truncate
 
-WEB_DIR = Path(__file__).parent / "web"
+# The built page. Version 1's single-file page lived in the package and was
+# retired on 2026-10-05, when this one became the site.
+APP_DIR = Path(__file__).resolve().parents[2] / "web-next" / "dist"
+# Written by the dev-data script for `npm run dev`; never published.
+_DEV_ONLY = {"dev-data.json"}
 # No cap on the number of stories: the window is decided by time, not volume.
 # A cap of 120 on the deployed site covered two or three days at this corpus's
 # rate, so a subject quiet for a weekend -- AI video, reported 2026-09-25 --
@@ -249,12 +258,18 @@ def write_site(
     facet_names: list | None = None,
     spine: list | None = None,
 ) -> dict:
-    """Write a self-contained static site into ``out_dir``."""
+    """Write a static site into ``out_dir``: the bundle, and the page if built.
+
+    Without a built page (`npm run build` in web-next/) only data.json is
+    written, which is still a valid bundle for any page to read.
+    """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    for name in ("index.html", "manifest.json", "sw.js", "icon.svg"):
-        shutil.copy2(WEB_DIR / name, out_dir / name)
+    if APP_DIR.is_dir():
+        shutil.copytree(
+            APP_DIR, out_dir, dirs_exist_ok=True, ignore=lambda _d, names: _DEV_ONLY & set(names)
+        )
 
     bundle = build_bundle(
         conn, limit=limit, days=days, facet_names=facet_names, spine=spine
@@ -270,4 +285,5 @@ def write_site(
         "stories": len(bundle["stories"]),
         "bytes": data_file.stat().st_size,
         "path": out_dir,
+        "page": (out_dir / "index.html").is_file(),
     }

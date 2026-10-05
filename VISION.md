@@ -5,8 +5,8 @@ meant to outlive the code: the app is being redesigned from scratch, and most of
 this repo will be replaced. Written 2026-10-04 from a day of decisions with the
 owner, consolidated into one pass so nothing here contradicts anything else.
 
-- `CLAUDE.md` describes **version 1**, the app that runs today, and what
-  building it taught. Where the two disagree, this file wins for the redesign;
+- `CLAUDE.md` describes **version 1** — the pipeline that still runs, and the
+  page that was retired on 2026-10-05 — and what building it taught. Where the two disagree, this file wins for the redesign;
   `CLAUDE.md` stays as the record of lessons.
 - `NEXT.md` is the roadmap: the steps from here to the redesign, in order.
 - **`docs/mockup/index.html` is the approved look** — a clickable mockup of
@@ -281,7 +281,7 @@ than offering them.
 
 | Setup | What it tests | How |
 |---|---|---|
-| **GitHub Pages** | Reading, layouts, topic settings, the tree view — over the sources the scheduled job already fetches | The new frontend published next to version 1 (for example under `/next/`), reading the bundle the current pipeline produces. Every device that has never opened it is a new reader. |
+| **GitHub Pages** | Reading, layouts, topic settings, the tree view — over the sources the scheduled job already fetches | The new frontend, the site itself since 2026-10-05 (version 1's page is retired), reading the bundle the current pipeline produces. Every device that has never opened it is a new reader. |
 | **The owner's computer** | The same app plus **suggestions and discovery** — the first run's "here is what we found", creating a topic, and adding sources — for real, for any subject or site | `trib serve` delivers both the new page and a discovery endpoint (built on today's `trib sources --suggest`). Phone on the same Wi-Fi: `--host 0.0.0.0`; away from home: a free tunnel (Cloudflare Tunnel or Tailscale) while the computer is on. The page and the endpoint come from the same server, because a page on Pages cannot call a plain-http server on another device. |
 
 **Suggestions are built on the real backend, not faked.** Decided 2026-10-04:
