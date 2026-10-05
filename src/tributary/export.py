@@ -224,7 +224,9 @@ def _spine(spine: list | None) -> list[dict]:
     """Every topic by slug and name, each shelf-dweller carrying its shelf.
 
     Shaped exactly like the labels on a story, so the page has one way to read a
-    topic wherever it came from.
+    topic wherever it came from. A shelf also carries its description: a
+    shelf's is written for people (only leaves are scored), so the redesign
+    shows it to say what a starter subject holds.
     """
     names = {t.slug: t.name for t in spine or []}
     return [
@@ -233,6 +235,7 @@ def _spine(spine: list | None) -> list[dict]:
             "name": t.name,
             "parent": t.parent,
             "parent_name": names.get(t.parent) if t.parent else None,
+            "description": None if t.parent else t.description,
         }
         for t in spine or []
     ]

@@ -134,3 +134,25 @@ export function StoryCard({ story, profile, topics, here, onOpen, onTopic }: {
     </article>
   );
 }
+
+/* The starter subjects as rows: what each is called and what it holds, under
+   one heading saying what they are all part of. Picked one or several. */
+export function StarterList({ subjects, picked, onPick, single }: {
+  subjects: { slug: string; name: string; description?: string | null }[];
+  picked: string[]; onPick: (slug: string) => void; single?: boolean;
+}) {
+  return (
+    <div className="starters" role="list">
+      {subjects.map((s) => (
+        <button key={s.slug} role="listitem" className="starter" aria-pressed={single ? undefined : picked.includes(s.slug)} onClick={() => onPick(s.slug)}>
+          <span className="em" style={{ background: hueOf(s.slug) }}>{s.name[0]}</span>
+          <span className="grow"><span className="strong block">{s.name}</span>
+            {s.description && <span className="sub block">{s.description[0].toUpperCase() + s.description.slice(1)}</span>}</span>
+          {single
+            ? <span className="go" aria-hidden="true">›</span>
+            : <span className="tick" aria-hidden="true">{picked.includes(s.slug) ? '✓' : ''}</span>}
+        </button>
+      ))}
+    </div>
+  );
+}

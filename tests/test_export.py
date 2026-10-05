@@ -290,9 +290,10 @@ def test_the_bundle_names_every_topic_in_the_spine(conn, source_id):
     bundle = export.build_bundle(conn, spine=spine)
 
     assert bundle["spine"] == [
-        {"slug": "safety", "name": "Safety & security", "parent": None, "parent_name": None},
+        {"slug": "safety", "name": "Safety & security", "parent": None, "parent_name": None,
+         "description": "d"},
         {"slug": "misuse", "name": "Misuse", "parent": "safety",
-         "parent_name": "Safety & security"},
+         "parent_name": "Safety & security", "description": None},
     ]
 
 

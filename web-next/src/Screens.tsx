@@ -1,7 +1,7 @@
 /* Home and a topic's page. Both show stories one of two ways — the layouts of
    one place, not separate tabs (VISION.md). */
 
-import { Bundle, Label, Story, agoLabel } from './data';
+import { Bundle, Label, STARTER_AREA, Story, agoLabel } from './data';
 import { Profile, Topic, byNewest, inTopic, isNew, isSeen } from './state';
 import { Caught, ICON, KIND_WORD, LayoutSwitch, StoryCard, hueOf, kindColour } from './ui';
 
@@ -152,19 +152,24 @@ export function TopicPage({ bundle, profile, topic, leaf, nav, shown, more }: {
   const n = list.filter((s) => isNew(profile, s)).length;
   const leaves: Label[] = topic.spine ? bundle.spine.filter((l) => l.parent === topic.spine) : [];
   const leafName = leaf && leaves.find((l) => l.slug === leaf)?.name;
+  // What the topic holds: a starter's shelf description, or what you typed.
+  const shelfAbout = topic.spine ? bundle.spine.find((l) => l.slug === topic.spine)?.description : null;
+  const raw = shelfAbout ? `${STARTER_AREA}: ${shelfAbout}` : topic.description && topic.description !== topic.name ? topic.description : null;
+  const about = raw && raw[0].toUpperCase() + raw.slice(1);
   return (
     <>
       <div className="bar">
         <button className="icon-btn" onClick={nav.back} aria-label="Back">{ICON.back}</button>
         <div className="grow">
           <div className="crumbs">{leafName
-            ? <button className="crumb" onClick={() => nav.openTopic(topic.id)}>{topic.name}</button> : 'Topic'}</div>
+            ? <button className="crumb" onClick={() => nav.openTopic(topic.id)}>{topic.name}</button> : topic.spine ? STARTER_AREA : 'Your topic'}</div>
           <div className="title-sm">{leafName || topic.name}</div>
         </div>
         <button className="icon-btn" onClick={() => nav.openSettings(topic)} aria-label="Topic settings">{ICON.gear}</button>
       </div>
       <div className="topic-hero" style={{ background: hueOf(topic.id) }}>
         <h1>{leafName || topic.name}</h1>
+        {!leaf && about && <p className="about">{about}</p>}
         <div className="stat">{n} new · {list.length} stories · {topic.sources.length} sources</div>
         <div className="row">
           <button className="btn solid" onClick={() => nav.play(topic, leaf)} disabled={!list.length}>{n ? 'Play new' : 'Play latest'}</button>

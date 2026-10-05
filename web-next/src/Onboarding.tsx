@@ -4,10 +4,10 @@
    also type any subject or paste a site, and it is searched for real. */
 
 import { FormEvent, useMemo, useState } from 'react';
-import { Bundle, Source, shelves, sourcesForShelf } from './data';
+import { Bundle, STARTER_AREA, Source, shelves, sourcesForShelf } from './data';
 import { DiscoveredCard, slugOf } from './Discovery';
 import { Profile, SourceSpec, Topic } from './state';
-import { FoundCard, hueOf } from './ui';
+import { FoundCard, StarterList } from './ui';
 
 export function ProfileStep({ names, onChoose }: { names: string[]; onChoose: (n: string) => void }) {
   const [name, setName] = useState('');
@@ -80,14 +80,9 @@ export function InterestsAndFound({ bundle, catalog, profile, server, onDone }: 
         <div className="stepper"><i className="on" /><i className="on" /><i /></div>
         <div className="hero"><h1>What do you care about, {profile.name}?</h1>
           <p>Pick a few. Each becomes a topic you can shape later.</p></div>
-        <div className="interest-grid" style={{ marginTop: 14 }}>
-          {subjects.map((s) => (
-            <button key={s.slug} className="interest" aria-pressed={picks.includes(s.slug)}
-              onClick={() => setPicks((p) => (p.includes(s.slug) ? p.filter((x) => x !== s.slug) : [...p, s.slug]))}>
-              <span className="em" style={{ background: hueOf(s.slug) }}>{s.name[0]}</span>{s.name}
-            </button>
-          ))}
-        </div>
+        <div className="area"><b>{STARTER_AREA}</b><span>the subjects Tributary reads today</span></div>
+        <StarterList subjects={subjects} picked={picks}
+          onPick={(slug) => setPicks((p) => (p.includes(slug) ? p.filter((x) => x !== slug) : [...p, slug]))} />
         {server ? (
           <>
             <form className="row" style={{ marginTop: 12 }} onSubmit={addOwn}>
@@ -102,7 +97,7 @@ export function InterestsAndFound({ bundle, catalog, profile, server, onDone }: 
             )}
           </>
         ) : (
-          <p className="mock-note">Any subject you can name, searched on the web, arrives with the backend on your computer. Here these are the subjects Tributary already reads.</p>
+          <p className="mock-note">Subjects outside {STARTER_AREA}, with sources found on the web, come with the server.</p>
         )}
         <div className="sticky-cta">
           <button className="btn primary wide" disabled={!count} onClick={toFound}>

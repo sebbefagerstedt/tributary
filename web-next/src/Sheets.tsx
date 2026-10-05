@@ -2,10 +2,10 @@
    your profile, and a story. Each is one level of "back". */
 
 import { FormEvent, ReactNode, useMemo, useState } from 'react';
-import { Bundle, Source, Story, agoLabel, isBusy, shelves, sourcesForShelf } from './data';
+import { Bundle, STARTER_AREA, Source, Story, agoLabel, isBusy, shelves, sourcesForShelf } from './data';
 import { DiscoveredCard, asSource, slugOf, specsOf, useDiscovery } from './Discovery';
 import { Profile, SourceSpec, Topic } from './state';
-import { FoundCard, KIND_WORD, hueOf } from './ui';
+import { FoundCard, KIND_WORD, StarterList, hueOf } from './ui';
 
 export function Sheet({ onClose, children }: { onClose: () => void; children: ReactNode }) {
   return (
@@ -190,9 +190,10 @@ export function NewTopicSheet({ bundle, catalog, profile, server, onCreate, onCl
               <button className="btn" type="submit">Find</button>
             </form>
           )}
-          <div className="chips">{options.map((s) => <button key={s.slug} className="chip" onClick={() => choose(s.slug)}>{s.name}</button>)}</div>
-          {options.length === 0 && <span className="hint">You follow every subject Tributary reads today.</span>}
-          {!server && <p className="hint">Naming any subject, or pasting a site, arrives with the backend.</p>}
+          <div className="area"><b>{STARTER_AREA}</b><span>the subjects Tributary reads today</span></div>
+          <StarterList subjects={options} picked={[]} onPick={choose} single />
+          {options.length === 0 && <span className="hint">You follow every {STARTER_AREA} subject Tributary reads today.</span>}
+          {!server && <p className="hint">Subjects outside {STARTER_AREA}, with sources found on the web, come with the server.</p>}
         </div>
       ) : (
         <>

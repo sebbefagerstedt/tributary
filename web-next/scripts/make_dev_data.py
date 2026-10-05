@@ -79,7 +79,8 @@ bundle = {
     "facets": [],
     "spine": [
         {"slug": t.slug, "name": t.name, "parent": t.parent,
-         "parent_name": names.get(t.parent) if t.parent else None}
+         "parent_name": names.get(t.parent) if t.parent else None,
+         "description": None if t.parent else t.description}
         for t in cfg.topics.spine
     ],
     "vectors": {"encoding": "int8", "dimension": 384, "scale": 127},
