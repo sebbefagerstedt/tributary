@@ -223,9 +223,13 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-
 .player .hint { font-size: 12px; opacity: .7; }
 
 /* Tree */
-.tree-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 10px 0 6px;
-  background-image: radial-gradient(var(--line) 1px, transparent 1px); background-size: 22px 22px; margin-bottom: 120px; }
-.tree-wrap svg { display: block; }
+.graph { position: relative; height: calc(100dvh - 300px); min-height: 380px; border-radius: 20px; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--line); touch-action: none; user-select: none; -webkit-user-select: none;
+  background-image: radial-gradient(var(--line) 1px, transparent 1px); background-size: 22px 22px; cursor: grab; }
+.graph svg { display: block; }
+.graph-tools { position: absolute; right: 10px; top: 10px; display: grid; gap: 6px; }
+.graph-tools button { width: 36px; height: 36px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface);
+  color: var(--fg); font-size: 18px; font-weight: 700; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
 .tree-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 10px; }
 .chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
 .node.dim { opacity: .18; }
@@ -241,7 +245,6 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-
 .tree-panel .chips { align-items: center; }
 .tree-panel .panel-x { position: absolute; top: 10px; right: 10px; }
 .tree-panel h3 { padding-right: 40px; }
-.tree-wrap.with-panel { margin-bottom: 300px; }
 .tree-panel h3 { font-size: 18px; margin: 0; }
 .tree-panel .sub { font-size: 12.5px; color: var(--muted); }
 .tree-panel .hint { margin: 0; }

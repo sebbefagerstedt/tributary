@@ -1,6 +1,9 @@
-/* The tree as a graph: AI in the middle, its topics around it, their
-   subtopics outside them, your own topics beside the AI ones -- and dashed
-   links between topics that write about similar things.
+/* The tree as an ontology graph: AI at the hub, its topics, their subtopics,
+   your own topics, the sources feeding them -- and dashed links between
+   topics that write about similar things. Laid out by forces (d3-force):
+   every link pulls its ends together, every node pushes the others away, and
+   a label's width keeps it off its neighbours, so related topics drift close
+   and the picture settles into the shape of the subject.
 
    "Similar" is the stories' vectors: a topic's vector is the re-normalised
    mean of the centroids of the stories filed under it (the bundle carries
@@ -13,28 +16,23 @@
 import { Bundle, STARTER_AREA, Story, shelfOf } from './data';
 import { Profile, Topic, fits } from './state';
 import { decodeVector } from './vectors';
+import { SimulationLinkDatum, SimulationNodeDatum, forceCollide, forceLink, forceManyBody, forceSimulation } from 'd3-force';
 
 export type Kind = 'area' | 'shelf' | 'leaf' | 'own' | 'src';
 export interface GNode {
   key: string; kind: Kind; label: string;
-  x: number; y: number; w: number; h: number; // left edge, centre line, size
+  x: number; y: number; w: number; h: number; // centre, and size at zoom 1
   shelf?: string;      // a leaf's shelf, or the shelf itself
   slug?: string;       // spine slug for a shelf or a leaf
   topicId?: string;    // the reader's topic this opens, if any
-  parentKey?: string;  // what the tree joins it to
   followed: boolean;   // in the reader's topics (a leaf: its shelf is)
 }
 export interface GEdge { a: string; b: string; kind: 'tree' | 'rel' | 'src'; strength?: number }
 export interface Options { scope: 'mine' | 'all'; related: boolean; sources: boolean }
 
-/* An outline you scroll down rather than a wheel you pan around: on a phone a
-   radial graph of fifty named nodes was three screens wide and its labels sat
-   on each other (2026-10-05). Each row is one node, indented by depth. */
-const ROW = { area: 46, shelf: 40, own: 40, leaf: 32, src: 30 } as const;
-const INDENT = { area: 12, shelf: 40, own: 40, leaf: 74, src: 74 } as const;
 const FONT = { area: 0, shelf: 13, own: 13, leaf: 11.5, src: 11 } as const;
-const GROUP_GAP = 8;
-const SOURCES_PER_TOPIC = 3;
+const HEIGHT = { area: 44, shelf: 30, own: 30, leaf: 24, src: 22 } as const;
+const SOURCES_PER_TOPIC = 4;
 export const labelWidth = (kind: Kind, label: string) =>
   kind === 'area' ? 44 : Math.min(label.length, 26) * FONT[kind] * 0.56 + (kind === 'leaf' ? 30 : 24);
 
@@ -119,6 +117,47 @@ export function focusEdges(node: GNode, nodes: GNode[], vectors: Map<string, Flo
   return closest(node, nodes, vectors, n).map(({ node: b, score }) => ({ a: node.key, b: b.key, kind: 'rel' as const, strength: score }));
 }
 
+type Sim = GNode & SimulationNodeDatum;
+
+/* Settle the graph: start from rings (hub, topics, subtopics, sources) so the
+   forces only tidy, then run a fixed number of ticks -- the same input always
+   gives the same picture. */
+export function layout(nodes: GNode[], links: GEdge[]) {
+  const sim = nodes as Sim[];
+  const tops = sim.filter((n) => n.kind === 'shelf' || n.kind === 'own');
+  const angle = new Map<string, number>();
+  tops.forEach((n, i) => {
+    const a = -Math.PI / 2 + (i / Math.max(tops.length, 1)) * Math.PI * 2;
+    angle.set(n.key, a);
+    n.x = Math.cos(a) * 200; n.y = Math.sin(a) * 200;
+  });
+  const parent = new Map<string, string>();
+  for (const e of links) if (e.kind !== 'rel') parent.set(e.b, e.a);
+  let k = 0;
+  for (const n of sim) {
+    if (n.kind === 'area') { n.x = 0; n.y = 0; n.fx = 0; n.fy = 0; continue; }
+    if (angle.has(n.key)) continue;
+    const a = (angle.get(parent.get(n.key) || '') ?? 0) + ((k++ % 7) - 3) * 0.09;
+    const r = n.kind === 'src' ? 520 : 360;
+    n.x = Math.cos(a) * r; n.y = Math.sin(a) * r;
+  }
+  const byKey = new Map(sim.map((n) => [n.key, n]));
+  const simLinks: (SimulationLinkDatum<Sim> & { e: GEdge })[] = links
+    .filter((e) => byKey.has(e.a) && byKey.has(e.b))
+    .map((e) => ({ source: byKey.get(e.a)!, target: byKey.get(e.b)!, e }));
+  forceSimulation(sim)
+    .force('link', forceLink(simLinks)
+      .distance((l) => ({ tree: (l.e.a === 'area' ? 190 : 110), src: 140, rel: 260 })[l.e.kind])
+      .strength((l) => ({ tree: 0.7, src: 0.25, rel: 0.06 })[l.e.kind]))
+    .force('charge', forceManyBody<Sim>().strength((n) => (n.kind === 'leaf' || n.kind === 'src' ? -140 : -380)))
+    // Pills are wide and short. Topics get their whole half-width so their
+    // names never touch at full size; smaller pills may tuck in closer.
+    .force('collide', forceCollide<Sim>((n) => (n.kind === 'leaf' || n.kind === 'src' ? n.w * 0.42 : n.w / 2) + 8).strength(0.9))
+    .stop()
+    .tick(320);
+  for (const n of sim) { delete n.vx; delete n.vy; delete n.index; }
+}
+
 export function buildGraph(bundle: Bundle, profile: Profile, opts: Options) {
   const own = profile.topics.filter((t) => !t.spine);
   const mine = new Map(profile.topics.filter((t) => t.spine).map((t) => [t.spine!, t]));
@@ -127,45 +166,39 @@ export function buildGraph(bundle: Bundle, profile: Profile, opts: Options) {
 
   const nodes: GNode[] = [];
   const edges: GEdge[] = [];
-  let y = 0;
-  const row = (n: Omit<GNode, 'y' | 'x' | 'w' | 'h'>) => {
-    const h = ROW[n.kind];
-    const node: GNode = { ...n, x: INDENT[n.kind], y: y + h / 2, w: labelWidth(n.kind, n.label), h };
-    y += h;
-    nodes.push(node);
-    if (n.parentKey) edges.push({ a: n.parentKey, b: n.key, kind: n.kind === 'src' ? 'src' : 'tree' });
-    return node;
+  const add = (n: Omit<GNode, 'x' | 'y' | 'w' | 'h'>, parentKey?: string) => {
+    nodes.push({ ...n, x: 0, y: 0, w: labelWidth(n.kind, n.label), h: HEIGHT[n.kind] });
+    if (parentKey) edges.push({ a: parentKey, b: n.key, kind: 'tree' });
   };
-  const sourcesOf = (topicId: string | undefined, parentKey: string) => {
-    if (!opts.sources || !topicId) return;
-    const t = profile.topics.find((x) => x.id === topicId)!;
-    for (const s of t.sources.slice(0, SOURCES_PER_TOPIC)) {
-      row({ key: `src:${parentKey}:${s}`, kind: 'src', label: s, parentKey, followed: true });
-    }
-    if (t.sources.length > SOURCES_PER_TOPIC) {
-      row({ key: `src:${parentKey}:more`, kind: 'src', label: `+${t.sources.length - SOURCES_PER_TOPIC} more`, parentKey, followed: true });
-    }
-  };
-
-  if (shelves.length) row({ key: 'area', kind: 'area', label: STARTER_AREA, followed: true });
+  if (shelves.length) add({ key: 'area', kind: 'area', label: STARTER_AREA, followed: true });
   for (const s of shelves) {
-    y += GROUP_GAP;
     const t = mine.get(s.slug);
     const key = `shelf:${s.slug}`;
-    row({ key, kind: 'shelf', label: s.name, shelf: s.slug, slug: s.slug, topicId: t?.id, parentKey: 'area', followed: !!t });
+    add({ key, kind: 'shelf', label: s.name, shelf: s.slug, slug: s.slug, topicId: t?.id, followed: !!t }, 'area');
     for (const l of bundle.spine.filter((x) => x.parent === s.slug)) {
-      row({ key: `leaf:${l.slug}`, kind: 'leaf', label: l.name, shelf: s.slug, slug: l.slug, topicId: t?.id, parentKey: key, followed: !!t });
+      add({ key: `leaf:${l.slug}`, kind: 'leaf', label: l.name, shelf: s.slug, slug: l.slug, topicId: t?.id, followed: !!t }, key);
     }
-    sourcesOf(t?.id, key);
   }
-  for (const t of own) {
-    y += GROUP_GAP * 2;
-    const key = `own:${t.id}`;
-    row({ key, kind: 'own', label: t.name, topicId: t.id, followed: true });
-    sourcesOf(t.id, key);
+  for (const t of own) add({ key: `own:${t.id}`, kind: 'own', label: t.name, topicId: t.id, followed: true });
+
+  if (opts.sources) {
+    // One node per source, joined to every topic it feeds: a source shared
+    // by two topics is one of the ways they relate.
+    for (const t of profile.topics) {
+      const key = t.spine ? `shelf:${t.spine}` : `own:${t.id}`;
+      if (!nodes.some((n) => n.key === key)) continue;
+      for (const name of t.sources.slice(0, SOURCES_PER_TOPIC)) {
+        const sk = `src:${name}`;
+        if (!nodes.some((n) => n.key === sk)) nodes.push({ key: sk, kind: 'src', label: name, x: 0, y: 0, w: labelWidth('src', name), h: HEIGHT.src, followed: true });
+        edges.push({ a: key, b: sk, kind: 'src' });
+      }
+    }
   }
 
   const vectors = nodeVectors(bundle.stories, own);
-  const overview = opts.related ? overviewEdges(nodes, vectors) : [];
-  return { nodes, edges, overview, vectors, height: y + 16 };
+  // Related links shape the layout even when hidden, so turning them off and
+  // on does not rearrange the picture.
+  const rel = overviewEdges(nodes, vectors);
+  layout(nodes, [...edges, ...rel]);
+  return { nodes, edges, overview: opts.related ? rel : [], vectors };
 }

@@ -174,17 +174,19 @@ boxes, curved links, a canvas you explore); the new one should be calmer and
 more beautiful: fewer crossing lines, room to breathe, and tapping a node opens
 that topic.
 
-**Built 2026-10-05 as an outline, not a wheel** (`web-next/src/graph.ts`). The
-first version put the reader in the middle and was a radial graph; the owner's
-verdict: everything hung off their initial when it belongs to AI, and it did
-not show how topics relate. A radial layout of fifty named nodes was also three
-phone screens wide with labels on top of each other. So: **AI at the top**, its
-topics, their subtopics indented under them, your own topics after; **dashed
-arcs** join topics whose stories are alike (the mean of their stories' vectors,
-each topic linked to its closest one, ranked rather than thresholded); filters
-for your topics or all of AI, related links, and sources; and **tapping a node
-focuses it** — its links light up, the rest fades, and a panel lists what it is
-closest to anywhere in AI, with Open, or Add to your topics.
+**Built 2026-10-05 as an ontology graph** (`web-next/src/graph.ts`). A first
+version hung everything off the reader's initial; an outline came next and was
+turned down the same day — *"my intention was actually an ontology graph"*. So:
+**AI at the hub**, its topics, their subtopics, your own topics and, if asked,
+each source once, joined to every topic it feeds; **dashed links** between
+topics whose stories are alike (the mean of their stories' vectors, each topic
+linked to its closest, ranked rather than thresholded). It is laid out by forces
+(d3-force): links pull, nodes push apart, labels keep their width. On a phone it
+is a **map**: drag and pinch, names keep a readable size while distances zoom,
+a name that would cover another becomes a dot until you zoom in (topic names
+never do), and **⤢** shows everything at once. Tapping a node focuses it — its
+links light up, the rest fades, and a panel lists what it is closest to
+anywhere in AI, with Open, or Add to your topics.
 
 ## The model
 
