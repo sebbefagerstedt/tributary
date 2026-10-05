@@ -36,8 +36,8 @@ export const kindColour = (kind: string) => `var(--k-${KIND_VAR[kind] || 'articl
 export function LayoutSwitch({ value, onChange }: { value: Profile['layout']; onChange: (v: Profile['layout']) => void }) {
   return (
     <div className="switch" role="group" aria-label="Layout">
-      <button aria-pressed={value === 'grid'} onClick={() => onChange('grid')}>{ICON.grid}Overview</button>
-      <button aria-pressed={value === 'cards'} onClick={() => onChange('cards')}>{ICON.cards}Read</button>
+      <button aria-pressed={value === 'grid'} onClick={() => onChange('grid')}>{ICON.grid}Topics</button>
+      <button aria-pressed={value === 'cards'} onClick={() => onChange('cards')}>{ICON.cards}Feed</button>
     </div>
   );
 }

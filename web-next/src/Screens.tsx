@@ -1,9 +1,9 @@
-/* Home and a topic's page. Both show stories one of two ways — the layouts of
-   one place, not separate tabs (VISION.md). */
+/* Home and a topic's page. Each has two views of one place, not separate tabs
+   (VISION.md): Topics, the boxes of what is under it, and Feed, its stories. */
 
-import { Bundle, Label, STARTER_AREA, Story, agoLabel } from './data';
-import { Profile, Topic, byNewest, inTopic, isNew, isSeen } from './state';
-import { Caught, ICON, KIND_WORD, LayoutSwitch, StoryCard, hueOf, kindColour } from './ui';
+import { Bundle, Label, STARTER_AREA, Story } from './data';
+import { Profile, Topic, byNewest, inTopic, isNew } from './state';
+import { Caught, ICON, LayoutSwitch, StoryCard, hueOf } from './ui';
 
 export interface Nav {
   openTopic: (id: string, leaf?: string) => void;
@@ -45,50 +45,30 @@ function Rings({ bundle, profile, nav }: { bundle: Bundle; profile: Profile; nav
   );
 }
 
-function TopicTiles({ bundle, profile, nav }: { bundle: Bundle; profile: Profile; nav: Nav }) {
+/* Topics as boxes: each wears its newest picture (or its colour), its new
+   count and its latest headline, and opens that topic. The same boxes are a
+   topic's subtopics on its own page -- "Topics" is the map, "Feed" the reader. */
+interface Box { key: string; name: string; hue: string; list: Story[]; open: () => void }
+
+function SubjectTiles({ boxes, profile }: { boxes: Box[]; profile: Profile }) {
   return (
     <div className="tiles">
-      {profile.topics.map((t) => {
-        const list = storiesOf(bundle, t);
-        const n = list.filter((s) => isNew(profile, s)).length;
-        const art = list.find((s) => s.media_url)?.media_url;
+      {boxes.map((b) => {
+        const n = b.list.filter((s) => isNew(profile, s)).length;
+        const art = b.list.find((s) => s.media_url)?.media_url;
         return (
-          <button key={t.id} className="tile" style={{ background: hueOf(t.id) }} onClick={() => nav.openTopic(t.id)}>
-            {art ? <img src={art} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <span className="glyph">{t.name[0]}</span>}
+          <button key={b.key} className="tile" style={{ background: b.hue }} onClick={b.open}>
+            {art ? <img src={art} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <span className="glyph">{b.name[0]}</span>}
             <span className="shade" />
             <span className="tx">
               {n > 0 && <span className="nw">{n} new</span>}
-              <span className="nm">{t.name}</span>
-              <span className="ld">{list[0] ? list[0].title : 'Quiet right now'}</span>
+              <span className="nm">{b.name}</span>
+              <span className="ld">{b.list[0] ? b.list[0].title : 'Quiet right now'}</span>
             </span>
           </button>
         );
       })}
     </div>
-  );
-}
-
-function StoryTiles({ list, profile, nav, shown, more }: { list: Story[]; profile: Profile; nav: Nav; shown: number; more: () => void }) {
-  return (
-    <>
-      <div className="tiles">
-        {list.slice(0, shown).map((s) => (
-          <button key={s.story_id} className="tile" onClick={() => nav.openStory(s)}
-            style={{ background: kindColour(s.kind), opacity: isSeen(profile, s) ? 0.6 : 1 }}>
-            {s.media_url && <img src={s.media_url} alt="" loading="lazy" referrerPolicy="no-referrer" />}
-            <span className="shade" />
-            <span className="tx">
-              {isNew(profile, s) && <span className="nw">New</span>}
-              <span className="ld story">{s.title}</span>
-              <span className="ld">{KIND_WORD[s.kind] || s.kind} · {s.source} · {agoLabel(s.published_at)}</span>
-            </span>
-          </button>
-        ))}
-      </div>
-      {list.length > shown
-        ? <button className="btn wide more" onClick={more}>Show {Math.min(50, list.length - shown)} more · {list.length - shown} left</button>
-        : <Caught />}
-    </>
   );
 }
 
@@ -139,7 +119,8 @@ export function Home({ bundle, profile, nav, shown, more }: {
         <LayoutSwitch value={profile.layout} onChange={nav.setLayout} />
       </div>
       {profile.layout === 'grid'
-        ? <TopicTiles bundle={bundle} profile={profile} nav={nav} />
+        ? <SubjectTiles profile={profile} boxes={profile.topics.map((t) => ({
+            key: t.id, name: t.name, hue: hueOf(t.id), list: storiesOf(bundle, t), open: () => nav.openTopic(t.id) }))} />
         : <Cards list={mine} profile={profile} topics={profile.topics} nav={nav} shown={shown} more={more} />}
     </>
   );
@@ -152,6 +133,8 @@ export function TopicPage({ bundle, profile, topic, leaf, nav, shown, more }: {
   const n = list.filter((s) => isNew(profile, s)).length;
   const leaves: Label[] = topic.spine ? bundle.spine.filter((l) => l.parent === topic.spine) : [];
   const leafName = leaf && leaves.find((l) => l.slug === leaf)?.name;
+  const subs = leaf ? [] : leaves;
+  const view = subs.length ? profile.layout : 'cards';
   // What the topic holds: a starter's shelf description, or what you typed.
   const shelfAbout = topic.spine ? bundle.spine.find((l) => l.slug === topic.spine)?.description : null;
   const raw = shelfAbout ? `${STARTER_AREA}: ${shelfAbout}` : topic.description && topic.description !== topic.name ? topic.description : null;
@@ -176,16 +159,19 @@ export function TopicPage({ bundle, profile, topic, leaf, nav, shown, more }: {
           <button className="btn" onClick={() => nav.openSettings(topic)}>Sources &amp; settings</button>
         </div>
       </div>
-      {!leaf && leaves.length > 0 && (
-        <div className="chips" style={{ marginBottom: 12 }}>
-          {leaves.map((l) => <button key={l.slug} className="chip" onClick={() => nav.openTopic(topic.id, l.slug)}>{l.name}</button>)}
-        </div>
-      )}
-      <div className="toolbar"><div className="eyebrow">Stories</div><LayoutSwitch value={profile.layout} onChange={nav.setLayout} /></div>
-      {list.length === 0 && <div className="empty">Nothing here yet. Add sources in this topic's settings.</div>}
-      {list.length > 0 && (profile.layout === 'grid'
-        ? <StoryTiles list={list} profile={profile} nav={nav} shown={shown} more={more} />
-        : <Cards list={list} profile={profile} topics={profile.topics} here={topic.id} nav={nav} shown={shown} more={more} />)}
+      {/* Topics shows the subtopics as boxes; a place with none under it only
+          has a feed, so it shows that without offering a switch. */}
+      <div className="toolbar">
+        <div className="eyebrow">{view === 'grid' ? 'Subtopics' : 'Stories'}</div>
+        {subs.length > 0 && <LayoutSwitch value={profile.layout} onChange={nav.setLayout} />}
+      </div>
+      {view === 'grid'
+        ? <SubjectTiles profile={profile} boxes={subs.map((l) => ({
+            key: l.slug, name: l.name, hue: hueOf(topic.id), list: storiesOf(bundle, topic, l.slug),
+            open: () => nav.openTopic(topic.id, l.slug) }))} />
+        : list.length === 0
+          ? <div className="empty">Nothing here yet. Add sources in this topic's settings.</div>
+          : <Cards list={list} profile={profile} topics={profile.topics} here={topic.id} nav={nav} shown={shown} more={more} />}
     </>
   );
 }
