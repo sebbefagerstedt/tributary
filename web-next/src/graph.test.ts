@@ -48,13 +48,14 @@ describe('the tree', () => {
     expect(g.nodes.map((n) => n.key).sort()).toEqual(['area', 'leaf:frontier', 'leaf:open', 'shelf:models']);
   });
 
-  it('reads as an outline: each subtopic below its topic, nothing on top of anything', () => {
-    const g = buildGraph(bundle, me, { scope: 'all', related: false, sources: false });
-    const ys = g.nodes.map((n) => n.y);
-    expect(ys).toEqual([...ys].sort((a, b) => a - b));
-    const at = (k: string) => g.nodes.find((n) => n.key === k)!;
-    expect(at('leaf:open').y).toBeGreaterThan(at('shelf:models').y);
-    expect(at('leaf:open').x).toBeGreaterThan(at('shelf:models').x);
+  it('settles the same way every time, with AI at the hub and subtopics beside their topic', () => {
+    const one = buildGraph(bundle, me, { scope: 'all', related: false, sources: false });
+    const two = buildGraph(bundle, me, { scope: 'all', related: false, sources: false });
+    expect(one.nodes.map((n) => [n.x, n.y])).toEqual(two.nodes.map((n) => [n.x, n.y]));
+    const at = (k: string) => one.nodes.find((n) => n.key === k)!;
+    expect([at('area').x, at('area').y]).toEqual([0, 0]);
+    const d = (a: string, b: string) => Math.hypot(at(a).x - at(b).x, at(a).y - at(b).y);
+    expect(d('leaf:open', 'shelf:models')).toBeLessThan(d('leaf:open', 'shelf:safety'));
     expect(at('shelf:models').followed && !at('shelf:chips').followed).toBe(true);
   });
 
@@ -77,9 +78,10 @@ describe('the tree', () => {
     expect(buildGraph(bundle, me, { scope: 'all', related: false, sources: false }).overview).toEqual([]);
   });
 
-  it('lists each topic\'s sources under it when asked', () => {
+  it('draws a source once, joined to every topic it feeds', () => {
     const two = { ...me, topics: [...me.topics, { id: 'chips', name: 'Chips', spine: 'chips', sources: ['Feed'], muted: [] }] };
     const g = buildGraph(bundle, two, { scope: 'mine', related: false, sources: true });
+    expect(g.nodes.filter((n) => n.kind === 'src').map((n) => n.key)).toEqual(['src:Feed']);
     expect(g.edges.filter((e) => e.kind === 'src').map((e) => e.a).sort()).toEqual(['shelf:chips', 'shelf:models']);
   });
 });
