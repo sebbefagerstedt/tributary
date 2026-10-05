@@ -13,7 +13,10 @@ import random
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import numpy as np
+
 from tributary.config import load
+from tributary.readers import pack
 
 ROOT = Path(__file__).resolve().parents[2]
 KIND_BY_SOURCE = {"arxiv": "paper", "hn": "discussion", "github": "repo", "hf": "model"}
@@ -24,6 +27,20 @@ now = datetime.now(UTC)
 leaves = cfg.topics.leaves()
 names = {t.slug: t.name for t in cfg.topics.spine}
 sources = [s for s in cfg.sources if s.enabled]
+
+# Synthetic vectors shaped like the real ones: a leaf near its shelf, a few
+# leaves leaning towards one on another shelf, and each story near its leaf --
+# so the tree's related links have something to find.
+vrng = np.random.default_rng(7)
+DIM = 384
+shelf_vec = {t.slug: vrng.normal(size=DIM) for t in cfg.topics.spine if not t.parent}
+leaf_vec = {}
+for leaf in leaves:
+    base = shelf_vec.get(leaf.parent) if leaf.parent else vrng.normal(size=DIM)
+    leaf_vec[leaf.slug] = base + vrng.normal(size=DIM) * 0.8
+for leaf in rng.sample(leaves, k=len(leaves) // 3):
+    other = rng.choice(leaves)
+    leaf_vec[leaf.slug] = leaf_vec[leaf.slug] + leaf_vec[other.slug] * 0.9
 
 stories = []
 for n in range(240):
@@ -54,7 +71,7 @@ for n in range(240):
         "score": round(rng.random(), 4),
         "item_count": len(items),
         "media_url": None,
-        "centroid": None,
+        "centroid": pack(leaf_vec[leaf.slug] + vrng.normal(size=DIM) * 0.9),
         "topics": [label],
         "entities": [],
         "engagement": None,

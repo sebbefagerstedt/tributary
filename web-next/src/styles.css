@@ -222,8 +222,29 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-
 .player .hint { font-size: 12px; opacity: .7; }
 
 /* Tree */
-.tree-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; overflow: auto; }
-.tree-wrap svg { display: block; width: 100%; height: auto; min-width: 560px; }
+.tree-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 10px 0 6px;
+  background-image: radial-gradient(var(--line) 1px, transparent 1px); background-size: 22px 22px; margin-bottom: 120px; }
+.tree-wrap svg { display: block; }
+.tree-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 10px; }
+.chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+.node.dim { opacity: .18; }
+.node.focus rect, .node.focus circle:first-child { filter: drop-shadow(0 2px 6px rgba(0,0,0,.25)); }
+.node:focus-visible { outline: none; }
+.node:focus-visible rect { stroke: var(--accent); stroke-width: 3; }
+.edge.dim { opacity: .08; }
+.edge.on { stroke: var(--fg); opacity: .9; }
+.edge.rel.on { stroke: var(--signal); stroke-width: 2.4; opacity: 1; }
+.tree-panel { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); width: min(398px, calc(100% - 32px));
+  background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 12px 14px; display: grid; gap: 8px; z-index: 5;
+  box-shadow: 0 8px 28px rgba(0,0,0,.14); }
+.tree-panel .chips { align-items: center; }
+.tree-panel .panel-x { position: absolute; top: 10px; right: 10px; }
+.tree-panel h3 { padding-right: 40px; }
+.tree-wrap.with-panel { margin-bottom: 300px; }
+.tree-panel h3 { font-size: 18px; margin: 0; }
+.tree-panel .sub { font-size: 12.5px; color: var(--muted); }
+.tree-panel .hint { margin: 0; }
+.dot-hue { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
 .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12.5px; color: var(--muted); margin: 10px 2px 0; }
 .legend span { display: inline-flex; gap: 6px; align-items: center; }
 .legend i { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
@@ -231,7 +252,7 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-
 .node text { font-family: var(--body); font-weight: 650; }
 .edge { fill: none; stroke: var(--line); stroke-width: 1.6; }
 .edge.src { stroke-dasharray: 4 4; }
-.edge.rel { stroke: var(--signal); stroke-dasharray: 2 5; stroke-width: 1.4; opacity: .8; }
+.edge.rel { stroke: var(--signal); stroke-dasharray: 3 5; stroke-width: 1.6; opacity: .7; }
 
 .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 40;
   background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-size: 13.5px; font-weight: 600; }

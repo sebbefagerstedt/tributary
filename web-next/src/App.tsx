@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bundle, Story, buildCatalog, loadBundle, shelves } from './data';
+import { Bundle, Story, buildCatalog, loadBundle, shelves, sourcesForShelf } from './data';
 import { InterestsAndFound, ProfileStep } from './Onboarding';
 import { Player } from './Player';
 import { Home, Nav, TopicPage, storiesOf } from './Screens';
@@ -151,7 +151,14 @@ export default function App() {
   return (
     <div className="app">
       {screen.name === 'tree'
-        ? <Tree bundle={bundle} profile={profile} onBack={() => back()} onOpen={nav.openTopic} />
+        ? <Tree bundle={bundle} profile={profile} onBack={() => back()} onOpen={nav.openTopic}
+            onAdd={(slug) => {
+              const shelf = shelves(bundle).find((s) => s.slug === slug);
+              if (!shelf || profile.topics.some((t) => t.spine === slug)) return;
+              update((p) => ({ ...p, topics: [...p.topics, { id: slug, name: shelf.name, spine: slug,
+                sources: sourcesForShelf(catalog, slug).map((s) => s.name), muted: [] }] }));
+              flash(`${shelf.name} added`);
+            }} />
         : currentTopic
           ? <TopicPage bundle={bundle} profile={profile} topic={currentTopic} leaf={screen.name === 'topic' ? screen.leaf : undefined}
               nav={nav} shown={shown} more={() => setShown((n) => n + PAGE)} />
