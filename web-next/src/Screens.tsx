@@ -134,7 +134,7 @@ export function Home({ bundle, profile, nav, shown, more }: {
       </div>
       <Rings bundle={bundle} profile={profile} nav={nav} />
       <div className="toolbar">
-        <div><div className="eyebrow">Everything you follow</div>
+        <div><div className="eyebrow">Your topics</div>
           <div className="count">{fresh} new · {mine.length} stories</div></div>
         <LayoutSwitch value={profile.layout} onChange={nav.setLayout} />
       </div>

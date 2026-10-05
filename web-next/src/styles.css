@@ -41,8 +41,11 @@ html, body { height: 100%; }
 html { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 body { background: var(--bg); color: var(--fg); font: 15px/1.45 var(--body); }
 /* A URL or a file name in a headline must wrap: one unbreakable word made a
-   whole screen wider than the phone, which reads as zoomed in. */
-body { overflow-wrap: anywhere; }
+   whole screen wider than the phone, which reads as zoomed in. Only text
+   blocks may break anywhere; a control's label breaking ("Overvie/w") is the
+   opposite bug, so everything else only breaks a word that cannot fit. */
+body { overflow-wrap: break-word; }
+h1, h2, h3, p, .ld, .sum, .pv-line { overflow-wrap: anywhere; }
 button { font: inherit; color: inherit; cursor: pointer; }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .app { max-width: 430px; margin: 0 auto; min-height: 100%; position: relative; padding-inline: 16px; padding-block: 0 40px; }
@@ -73,8 +76,8 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-
 .stack { display: grid; gap: 14px; }
 
 /* Layout switch */
-.switch { display: inline-flex; background: var(--surface-2); border-radius: 999px; padding: 3px; gap: 2px; }
-.switch button { border: 0; background: transparent; border-radius: 999px; padding: 6px 12px; display: flex; gap: 6px;
+.switch { flex: none; display: inline-flex; background: var(--surface-2); border-radius: 999px; padding: 3px; gap: 2px; }
+.switch button { border: 0; background: transparent; border-radius: 999px; padding: 6px 12px; display: flex; gap: 6px; white-space: nowrap;
   align-items: center; font-size: 13px; font-weight: 600; color: var(--muted); }
 .switch button[aria-pressed="true"] { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
 .switch svg { width: 15px; height: 15px; }
@@ -94,7 +97,7 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-
 .ring.add .face { border: 0; color: var(--muted); }
 
 /* Tiles */
-.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tiles { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
 .tile { border: 0; padding: 0; text-align: left; border-radius: 16px; aspect-ratio: 4 / 5; position: relative; overflow: hidden;
   color: #fff; display: flex; flex-direction: column; justify-content: flex-end; max-width: 100%; }
 .tile .shade { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,.62), rgba(0,0,0,0) 62%); }
@@ -154,7 +157,7 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-
 .found-head .sq { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; color: #fff; font-family: var(--display); font-weight: 800; font-size: 19px; flex: none; }
 .found-head h3 { font-size: 18px; }
 .found-head small { color: var(--muted); font-size: 12.5px; }
-.src-row { border-top: 1px solid var(--line); padding: 12px 14px; display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start; }
+.src-row { border-top: 1px solid var(--line); padding: 12px 14px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: start; }
 .src-row .nm { font-weight: 650; }
 .src-row .sub { font-size: 12.5px; color: var(--muted); }
 .src-row .warn { color: var(--signal); font-weight: 600; }
@@ -174,6 +177,7 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-
 .topic-hero .row .btn { background: rgba(255,255,255,.18); color: #fff; padding: 9px 14px; font-size: 14px; }
 .topic-hero .row .btn.solid { background: #fff; color: #14211d; }
 .toolbar { display: flex; justify-content: space-between; align-items: center; margin: 4px 0 12px; gap: 10px; }
+.toolbar .count { white-space: nowrap; }
 
 /* Sheets */
 .scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 20; display: flex; justify-content: center; align-items: flex-end; }
@@ -243,7 +247,7 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-
 .card .sum { font-size: 14px; }
 .tile .ld.story { -webkit-line-clamp: 4; font-size: 14px; font-weight: 650; }
 details.src-row { display: block; }
-details.src-row > summary { list-style: none; display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start; cursor: pointer; }
+details.src-row > summary { list-style: none; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: start; cursor: pointer; }
 details.src-row > summary::-webkit-details-marker { display: none; }
 details.src-row .pv { padding: 8px 0 0 34px; }
 details[open].src-row .peek { color: var(--muted); }
