@@ -2,7 +2,10 @@
    and what the new page derives from it. Version 1's JSON contract is kept as
    it is: everything here is read from the bundle, nothing is asked of a server. */
 
-export interface Label { slug: string; name: string; parent?: string | null; parent_name?: string | null }
+export interface Label {
+  slug: string; name: string; parent?: string | null; parent_name?: string | null;
+  description?: string | null; // shelves only: what the subject holds, in a line
+}
 export interface Item {
   role: string; kind: string; title: string; url: string; author: string | null;
   source: string; published_at: string | null; summary: string | null;
@@ -76,6 +79,11 @@ export function buildCatalog(bundle: Bundle): Map<string, Source> {
   }
   return out;
 }
+
+/* What every starter subject is part of. Version 1's spine is an AI spine, and
+   the page says so: a reader new to it cannot tell from "Safety & security"
+   alone that it means AI safety. Subjects outside AI come with the server. */
+export const STARTER_AREA = 'AI';
 
 /* The starter subjects: the spine's shelves, each with the leaves under it. */
 export function shelves(bundle: Bundle) {
