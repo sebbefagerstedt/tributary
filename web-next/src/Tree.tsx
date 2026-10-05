@@ -1,94 +1,178 @@
-/* Your tree as a graph: you in the middle, your topics around you, their
-   subtopics and sources outside them. After the reference in
-   docs/reference/tree-view-magnowlia.png, calmer: colour-coded nodes, curved
-   links, room to breathe. Tapping a topic or subtopic opens it. */
+/* Your tree: AI at the top, its topics, their subtopics indented under them,
+   your own topics after -- and dashed arcs between topics whose stories are
+   alike (graph.ts). After the reference in
+   docs/reference/tree-view-magnowlia.png, but shaped for a phone: an outline
+   you scroll down, so no label ever sits on another. Filters keep it calm;
+   tapping a node focuses it -- its links light up, the rest fades, and a panel
+   says what it is closest to, inside your topics or anywhere in AI. */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Bundle } from './data';
+import { GEdge, GNode, Options, buildGraph, closest, focusEdges } from './graph';
 import { Profile } from './state';
 import { ICON, hueOf } from './ui';
-import { storiesOf } from './Screens';
 
-interface Node { key: string; kind: 'topic' | 'sub' | 'src'; x: number; y: number; label: string; hue: string; topic: string; leaf?: string }
-interface Edge { a: [number, number]; b: [number, number]; cls: string }
+const KIND_NAME = { area: 'Subject', shelf: 'Topic', leaf: 'Subtopic', own: 'Your topic', src: 'Source' } as const;
 
-const W = 640, HT = 640, CX = W / 2, CY = HT / 2, R1 = 115, R2 = 210;
-const SOURCES_SHOWN = 3;
+/* Where a node's line leaves it for its children, and where one arrives. */
+const outOf = (n: GNode): [number, number] => (n.kind === 'area' ? [n.x + 22, n.y + 20] : [n.x + 14, n.y + n.h / 2 - 8]);
+const treePath = (p: GNode, c: GNode) => {
+  const [sx, sy] = outOf(p);
+  const r = 9;
+  return `M${sx},${sy} L${sx},${c.y - r} Q${sx},${c.y} ${sx + r},${c.y} L${c.x},${c.y}`;
+};
+const arcPath = (a: GNode, b: GNode, width: number) => {
+  const ax = a.x + a.w, bx = b.x + b.w;
+  const gx = Math.min(width - 6, Math.max(ax, bx) + 22 + Math.abs(b.y - a.y) * 0.1);
+  return `M${ax},${a.y} C${gx},${a.y} ${gx},${b.y} ${bx},${b.y}`;
+};
 
-export function Tree({ bundle, profile, onBack, onOpen }: {
-  bundle: Bundle; profile: Profile; onBack: () => void; onOpen: (id: string, leaf?: string) => void;
+export function Tree({ bundle, profile, onBack, onOpen, onAdd }: {
+  bundle: Bundle; profile: Profile; onBack: () => void;
+  onOpen: (id: string, leaf?: string) => void; onAdd: (shelf: string) => void;
 }) {
+  const [opts, setOpts] = useState<Options>({ scope: profile.topics.length ? 'mine' : 'all', related: true, sources: false });
+  const [sel, setSel] = useState<string | null>(null);
+  const g = useMemo(() => buildGraph(bundle, profile, opts), [bundle, profile, opts]);
+  // "Closest to" looks across all of AI, whatever is drawn.
+  const everything = useMemo(() => buildGraph(bundle, profile, { scope: 'all', related: false, sources: false }), [bundle, profile]);
+  const byKey = useMemo(() => new Map(g.nodes.map((n) => [n.key, n])), [g.nodes]);
   const wrap = useRef<HTMLDivElement>(null);
-  // On a phone the graph is wider than the screen: start with you in the middle.
-  useEffect(() => { const el = wrap.current; if (el) el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2; }, []);
-  const nodes: Node[] = [];
-  const edges: Edge[] = [];
-  const topics = profile.topics;
-  const n = Math.max(topics.length, 1);
-  topics.forEach((t, i) => {
-    const a = -Math.PI / 2 + (i / n) * Math.PI * 2;
-    const x = CX + Math.cos(a) * R1, y = CY + Math.sin(a) * R1;
-    const hue = hueOf(t.id);
-    nodes.push({ key: t.id, kind: 'topic', x, y, label: t.name, hue, topic: t.id });
-    edges.push({ a: [CX, CY], b: [x, y], cls: '' });
-    // Only subtopics that hold something of yours, then the busiest sources.
-    const leaves = t.spine ? bundle.spine.filter((l) => l.parent === t.spine && storiesOf(bundle, t, l.slug).length > 0) : [];
-    const outer = [
-      ...leaves.map((l) => ({ kind: 'sub' as const, label: l.name, leaf: l.slug })),
-      ...t.sources.slice(0, SOURCES_SHOWN).map((s) => ({ kind: 'src' as const, label: s, leaf: undefined })),
-    ];
-    const spread = Math.min(1.9, ((Math.PI * 2) / n) * 0.7);
-    outer.forEach((o, j) => {
-      const aa = a + (outer.length > 1 ? (j / (outer.length - 1) - 0.5) * spread : 0);
-      const rr = R2 + (j % 2) * 50;
-      const ox = CX + Math.cos(aa) * rr, oy = CY + Math.sin(aa) * rr;
-      nodes.push({ key: `${t.id}:${o.kind}:${o.label}`, kind: o.kind, x: ox, y: oy, label: o.label, hue, topic: t.id, leaf: o.leaf });
-      edges.push({ a: [x, y], b: [ox, oy], cls: o.kind === 'src' ? 'src' : '' });
-    });
-  });
+  const [width, setWidth] = useState(340);
+  useEffect(() => {
+    const el = wrap.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setWidth(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  useEffect(() => { if (sel && !byKey.has(sel)) setSel(null); }, [byKey, sel]);
 
-  const curve = (e: Edge) => {
-    const mx = (e.a[0] + e.b[0]) / 2, my = (e.a[1] + e.b[1]) / 2;
-    const dx = e.b[1] - e.a[1], dy = e.a[0] - e.b[0];
-    const k = 14 / (Math.hypot(dx, dy) || 1);
-    return `M${e.a[0].toFixed(1)},${e.a[1].toFixed(1)} Q${(mx + dx * k).toFixed(1)},${(my + dy * k).toFixed(1)} ${e.b[0].toFixed(1)},${e.b[1].toFixed(1)}`;
+  const selected = sel ? byKey.get(sel) : undefined;
+  const rel: GEdge[] = selected ? focusEdges(selected, g.nodes, g.vectors) : g.overview;
+  const lit = useMemo(() => {
+    if (!sel) return null;
+    const s = new Set([sel]);
+    for (const e of [...g.edges, ...rel]) { if (e.a === sel) s.add(e.b); if (e.b === sel) s.add(e.a); }
+    return s;
+  }, [sel, g.edges, rel]);
+  const nearAll = selected ? closest(everything.nodes.find((n) => n.key === selected.key) ?? selected, everything.nodes, everything.vectors, 4) : [];
+
+  const hue = (n: GNode) => (n.kind === 'own' ? hueOf(n.topicId!) : hueOf(n.shelf || n.key));
+  const pick = (key: string) => {
+    if (!byKey.has(key)) setOpts((o) => ({ ...o, scope: 'all' })); // it lives outside your topics
+    setSel(key);
+    window.setTimeout(() => {
+      const svg = wrap.current?.querySelector('svg');
+      const node = svg?.querySelector(`[data-key="${CSS.escape(key)}"]`);
+      node?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 30);
   };
-  const box = (nd: Node) => {
-    const fs = nd.kind === 'topic' ? 13 : 10.5;
-    const label = nd.label.length > 22 ? nd.label.slice(0, 21) + '…' : nd.label;
-    const w = Math.min(label.length * fs * 0.58 + 18, 150), h = nd.kind === 'topic' ? 30 : 22;
-    const open = nd.kind !== 'src' ? () => onOpen(nd.topic, nd.leaf) : undefined;
-    return (
-      <g key={nd.key} className={`node ${open ? 'tappable' : ''}`} onClick={open} tabIndex={open ? 0 : -1}
-        onKeyDown={(e) => { if (open && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); open(); } }}>
-        <rect x={nd.x - w / 2} y={nd.y - h / 2} width={w} height={h} rx={h / 2}
-          fill={nd.kind === 'src' ? 'var(--surface-2)' : nd.hue} fillOpacity={nd.kind === 'sub' ? 0.55 : 1}
-          stroke={nd.kind === 'src' ? 'var(--line)' : 'none'} />
-        <text x={nd.x} y={nd.y + fs * 0.36} textAnchor="middle" fontSize={fs} fill={nd.kind === 'src' ? 'var(--fg)' : '#fff'}>{label}</text>
-      </g>
-    );
+
+  const draw = (n: GNode) => {
+    const dim = lit && !lit.has(n.key);
+    const focus = n.key === sel;
+    const tap = () => (focus ? setSel(null) : setSel(n.key));
+    const props = {
+      key: n.key, 'data-key': n.key, className: `node tappable${dim ? ' dim' : ''}${focus ? ' focus' : ''}`,
+      onClick: tap, tabIndex: 0, role: 'button', 'aria-label': `${KIND_NAME[n.kind]}: ${n.label}`,
+      onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tap(); } },
+    };
+    const c = hue(n);
+    const text = n.label.length > 26 ? n.label.slice(0, 25) + '…' : n.label;
+    const top = n.y - (n.kind === 'leaf' || n.kind === 'src' ? 12 : 15), h = n.kind === 'leaf' || n.kind === 'src' ? 24 : 30;
+    if (n.kind === 'area') {
+      return <g {...props}><circle cx={n.x + 22} cy={n.y} r={20} fill="var(--fg)" />
+        <text x={n.x + 22} y={n.y + 5} textAnchor="middle" fontSize={14} fontWeight={800} fill="var(--bg)">{n.label}</text>
+        <text x={n.x + 52} y={n.y + 5} fontSize={13} fill="var(--muted)">the subjects Tributary reads</text></g>;
+    }
+    if (n.kind === 'shelf' || n.kind === 'own') {
+      // Followed: solid in its colour. The rest of AI: outlined, to look at.
+      const solid = n.followed;
+      return <g {...props}>
+        <rect x={n.x} y={top} width={n.w} height={h} rx={h / 2} fill={solid ? c : 'var(--surface)'} stroke={c} strokeWidth={solid ? 0 : 1.8} />
+        <text x={n.x + n.w / 2} y={n.y + 4.6} textAnchor="middle" fontSize={13} fontWeight={700} fill={solid ? '#fff' : c}>{text}</text>
+      </g>;
+    }
+    if (n.kind === 'leaf') {
+      return <g {...props}>
+        <rect x={n.x} y={top} width={n.w} height={h} rx={h / 2} fill="var(--surface)" stroke={c} strokeOpacity={n.followed ? 0.8 : 0.35} strokeWidth={1.4} />
+        <circle cx={n.x + 12} cy={n.y} r={4} fill={c} />
+        <text x={n.x + 21} y={n.y + 4} fontSize={11.5} fontWeight={600} fill="var(--fg)">{text}</text>
+      </g>;
+    }
+    return <g {...props}>
+      <rect x={n.x} y={top} width={n.w} height={h} rx={7} fill="var(--surface-2)" />
+      <text x={n.x + 12} y={n.y + 4} fontSize={11} fill="var(--muted)">{text}</text>
+    </g>;
   };
+
+  const shelfOfSel = selected?.kind === 'leaf' ? byKey.get(`shelf:${selected.shelf}`) : undefined;
   return (
     <>
       <div className="bar">
         <button className="icon-btn" onClick={onBack} aria-label="Back">{ICON.back}</button>
         <div className="grow"><div className="crumbs">{profile.name}</div><div className="title-sm">Your tree</div></div>
       </div>
-      <div className="tree-wrap" ref={wrap}>
-        <svg viewBox={`0 0 ${W} ${HT}`} role="img" aria-label="Your topics, subtopics and sources as a graph">
-          {edges.map((e, i) => <path key={i} className={`edge ${e.cls}`} d={curve(e)} />)}
-          <circle cx={CX} cy={CY} r={26} fill="var(--fg)" />
-          <text x={CX} y={CY + 5} textAnchor="middle" fontSize={14} fontWeight={800} fill="var(--bg)">{profile.name[0].toUpperCase()}</text>
-          {nodes.filter((nd) => nd.kind !== 'topic').map(box)}
-          {nodes.filter((nd) => nd.kind === 'topic').map(box)}
-        </svg>
+      <div className="tree-filters">
+        <div className="switch" role="group" aria-label="Show">
+          <button aria-pressed={opts.scope === 'mine'} onClick={() => setOpts((o) => ({ ...o, scope: 'mine' }))}>Yours</button>
+          <button aria-pressed={opts.scope === 'all'} onClick={() => setOpts((o) => ({ ...o, scope: 'all' }))}>All of AI</button>
+        </div>
+        <button className="chip" aria-pressed={opts.related} onClick={() => setOpts((o) => ({ ...o, related: !o.related }))}>Related</button>
+        <button className="chip" aria-pressed={opts.sources} onClick={() => setOpts((o) => ({ ...o, sources: !o.sources }))}>Sources</button>
       </div>
-      <div className="legend">
-        <span><i style={{ background: 'var(--accent)' }} />Topic</span>
-        <span><i style={{ background: 'var(--accent)', opacity: 0.55 }} />Subtopic</span>
-        <span><i style={{ background: 'var(--surface-2)', border: '1px solid var(--line)' }} />Source</span>
+      <div className={`tree-wrap${selected ? ' with-panel' : ''}`} ref={wrap} onClick={(e) => { if ((e.target as Element).tagName === 'svg') setSel(null); }}>
+        {g.nodes.length === 0
+          ? <p className="hint" style={{ padding: 16 }}>You have no topics yet. Show all of AI to look around.</p>
+          : (
+            <svg width={width} height={g.height} viewBox={`0 0 ${width} ${g.height}`} role="img" aria-label="Your topics and how they relate">
+              {g.edges.map((e) => {
+                const a = byKey.get(e.a), b = byKey.get(e.b);
+                if (!a || !b) return null;
+                const on = !!sel && (e.a === sel || e.b === sel);
+                return <path key={`${e.a}>${e.b}`} className={`edge ${e.kind}${lit && !on ? ' dim' : ''}${on ? ' on' : ''}`} d={treePath(a, b)} />;
+              })}
+              {rel.map((e) => {
+                const a = byKey.get(e.a), b = byKey.get(e.b);
+                if (!a || !b) return null;
+                return <path key={`rel:${e.a}|${e.b}`} className={`edge rel${sel ? ' on' : ''}`} d={arcPath(a, b, width)} />;
+              })}
+              {g.nodes.map(draw)}
+            </svg>
+          )}
       </div>
-      <p className="mock-note">Swipe sideways to explore; tap a topic or subtopic to open it.</p>
+      <div className="tree-panel">
+        {selected ? (
+          <>
+            <button className="x panel-x" onClick={() => setSel(null)} aria-label="Clear">✕</button>
+            <div>
+              <div className="eyebrow">{KIND_NAME[selected.kind]}{shelfOfSel ? ` in ${shelfOfSel.label}` : selected.kind === 'shelf' ? ' in AI' : ''}</div>
+              <h3>{selected.label}</h3>
+            </div>
+            {nearAll.length > 0 && (
+              <div className="chips">
+                <span className="sub">Closest to</span>
+                {nearAll.map(({ node }) => (
+                  <button key={node.key} className="chip" onClick={() => pick(node.key)}>
+                    <i className="dot-hue" style={{ background: hue(node) }} />{node.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {selected.topicId && selected.kind !== 'src' && (
+              <button className="btn primary" onClick={() => onOpen(selected.topicId!, selected.kind === 'leaf' ? selected.slug : undefined)}>Open</button>
+            )}
+            {!selected.topicId && selected.shelf && (
+              <button className="btn primary" onClick={() => onAdd(selected.shelf!)}>
+                Add {selected.kind === 'leaf' ? shelfOfSel?.label : selected.label} to your topics
+              </button>
+            )}
+          </>
+        ) : (
+          <p className="hint">Tap a topic to see what it is closest to. Dashed arcs join topics whose stories are alike.</p>
+        )}
+      </div>
     </>
   );
 }
