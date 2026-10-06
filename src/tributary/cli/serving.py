@@ -35,6 +35,8 @@ def export_cmd(
         f"[green]Wrote {result['stories']} stories[/] to {result['path']} "
         f"([dim]data.json {size:.0f} KB[/])"
     )
+    if result["by_top"]:
+        console.print("  " + ", ".join(f"{k} {v}" for k, v in result["by_top"].items()))
     if not result["page"]:
         console.print(
             "[yellow]No page copied[/]: build it first with "

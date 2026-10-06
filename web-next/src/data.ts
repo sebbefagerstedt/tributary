@@ -8,8 +8,7 @@ export interface Label {
   description?: string | null; // topics with others under them: what they hold
 }
 export interface Item {
-  role: string; kind: string; title: string; url: string; author: string | null;
-  source: string; published_at: string | null; summary: string | null;
+  kind: string; title: string; url: string; source: string; published_at: string | null;
 }
 export interface Story {
   story_id: number; title: string; summary: string | null; url: string; kind: string;

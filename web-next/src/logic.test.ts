@@ -8,7 +8,7 @@ const story = (id: number, over: Partial<Story> = {}): Story => ({
   story_id: id, title: `Story ${id}`, summary: null, url: `https://e.test/${id}`, kind: 'article',
   source: 'Lab Blog', sources: 1, published_at: hoursAgo(3), last_activity: hoursAgo(3), item_count: 1,
   media_url: null, topics: [{ slug: 'agents-coding', name: 'Coding agents', parent: 'agents', parent_name: 'AI agents' }],
-  items: [{ role: 'seed', kind: 'article', title: `Story ${id}`, url: `https://e.test/${id}`, author: null, source: 'Lab Blog', published_at: hoursAgo(3), summary: null }],
+  items: [{ kind: 'article', title: `Story ${id}`, url: `https://e.test/${id}`, source: 'Lab Blog', published_at: hoursAgo(3) }],
   ...over,
 });
 const topic: Topic = { id: 'agents', name: 'AI agents', spine: 'agents', sources: ['Lab Blog'], muted: [] };

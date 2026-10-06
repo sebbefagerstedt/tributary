@@ -51,7 +51,7 @@ def test_bundle_embeds_every_story_s_items(conn, source_id):
 def test_bundle_carries_the_fields_the_page_renders(conn, source_id):
     seed(conn, source_id)
     story = export.build_bundle(conn)["stories"][0]
-    for field in ("story_id", "title", "kind", "source", "signal", "score", "published_at"):
+    for field in ("story_id", "title", "kind", "source", "score", "published_at", "centroid"):
         assert field in story
 
 
@@ -184,12 +184,15 @@ def test_a_story_nobody_argued_about_reports_none(conn, source_id):
     assert export.build_bundle(conn)["stories"][0]["engagement"] is None
 
 
-def test_items_carry_their_own_blurb_and_counts(conn, source_id):
+def test_items_carry_only_what_the_page_lists(conn, source_id):
+    """Item summaries, authors and counts were version 1's, and half the bytes."""
     seed_threads(conn, source_id, {}, {"points": 5}, summary="x" * 400)
 
-    items = export.build_bundle(conn)["stories"][0]["items"]
-    assert all(len(item["summary"]) <= export.ITEM_SUMMARY_LIMIT + 1 for item in items)
-    assert [i["engagement"] for i in items if i["kind"] == "discussion"] == [{"points": 5}]
+    story = export.build_bundle(conn)["stories"][0]
+    keys = {k for item in story["items"] for k in item}
+    assert keys == {"kind", "title", "url", "source", "published_at"}
+    assert len(story["summary"]) <= export.SUMMARY_LIMIT + 1
+    assert story["engagement"] == {"points": 5}
 
 
 def test_bundle_is_newest_first_and_carries_both_dates(conn, source_id):

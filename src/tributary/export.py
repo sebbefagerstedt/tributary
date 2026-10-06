@@ -26,7 +26,7 @@ from pathlib import Path
 
 import numpy as np
 
-from tributary import embeddings, entities, facets, topics, triage
+from tributary import embeddings, entities, topics, triage
 from tributary import feed as feed_mod
 from tributary.text import truncate
 
@@ -42,9 +42,9 @@ _DEV_ONLY = {"dev-data.json"}
 # 1,300 stories, roughly a megabyte gzipped; the page draws fifty at a time.
 DEFAULT_LIMIT = 0  # 0 means every story in the window
 DEFAULT_DAYS = 30
-# Item blurbs are for scanning a story's members, not reading them, and every
-# one of them is paid for by every story in the bundle.
-ITEM_SUMMARY_LIMIT = 220
+# A story's summary is read on its card and in its sheet, a few lines each;
+# feeds hand over whole articles, and every byte is paid for by every reader.
+SUMMARY_LIMIT = 320
 
 # Adapters name engagement differently; the page should not have to care.
 _METRICS = (("points", ("points", "upvotes", "likes")), ("comments", ("num_comments",)))
@@ -163,7 +163,6 @@ def build_bundle(
 
         cards = [card for card in cards if room(card)]
         story_ids = [card.story_id for card in cards]
-    marks = facets.for_stories(conn, story_ids)
     named = entities.for_stories(conn, story_ids)
     vectors = _centroids(conn, story_ids)
 
@@ -176,7 +175,7 @@ def build_bundle(
             {
                 "story_id": card.story_id,
                 "title": card.title,
-                "summary": card.summary,
+                "summary": truncate(card.summary, SUMMARY_LIMIT),
                 "url": card.url,
                 "kind": card.kind,
                 "source": card.source,
@@ -187,7 +186,6 @@ def build_bundle(
                 # by the first; the second is what "active 2h ago" reports.
                 "last_activity": card.last_activity,
                 "score": round(card.score, 4),
-                "signal": card.signal(),
                 "item_count": card.item_count,
                 "media_url": card.media_url,
                 # What the story *is*, as a number, so the page can compare one
@@ -195,9 +193,8 @@ def build_bundle(
                 # the story was embedded.
                 "centroid": vectors.get(card.story_id),
                 "topics": labels.get(card.story_id, []),
-                # Where it lives, what it is, who it is about: three axes, and
-                # only the first is a place you browse to.
-                "facets": marks.get(card.story_id, []),
+                # Who it is about. Facets (what kind of thing it is) are labelled
+                # but not shipped: nothing on the page reads them.
                 "entities": named.get(card.story_id, []),
                 # The loudest thread wins the card: two small threads are not
                 # the same story-level signal as one big argument.
@@ -207,17 +204,17 @@ def build_bundle(
                     if (biggest := max((e.get(name, 0) for e in engagements), default=0))
                 }
                 or None,
+                # What else is in the story, as the sheet lists it: a headline,
+                # where it is from, when, and a link. Item summaries, authors,
+                # roles and per-item counts were version 1's and went with its
+                # page on 2026-10-06 -- about half of every story's bytes.
                 "items": [
                     {
-                        "role": item["role"],
                         "kind": item["kind"],
                         "title": item["title"],
                         "url": item["url"],
-                        "author": item["author"],
                         "source": item["source_name"],
                         "published_at": item["published_at"],
-                        "summary": truncate(item["summary"], ITEM_SUMMARY_LIMIT),
-                        "engagement": _engagement(item["metadata"]),
                     }
                     for item in items
                 ],
@@ -327,4 +324,15 @@ def write_site(
         "bytes": data_file.stat().st_size,
         "path": out_dir,
         "page": (out_dir / "index.html").is_file(),
+        # Stories per top-level topic: what the bundle's size is made of.
+        "by_top": _by_top(bundle["stories"]),
     }
+
+
+def _by_top(stories: list[dict]) -> dict[str, int]:
+    out: dict[str, int] = {}
+    for story in stories:
+        labels = story["topics"]
+        top = (labels[0].get("path") or [labels[0]["slug"]])[0] if labels else "(none)"
+        out[top] = out.get(top, 0) + 1
+    return dict(sorted(out.items(), key=lambda kv: -kv[1]))
