@@ -304,3 +304,12 @@ details[open].src-row .peek { color: var(--muted); }
 .btn.solid-light { background: #fff; color: #14211d; }
 .node.tappable { cursor: pointer; }
 .health { font-size: 12px; color: var(--muted); text-align: center; margin-top: 28px; }
+
+/* Following: a state shown where you stand, not only in settings. */
+.topic-hero .row { display: flex; flex-wrap: wrap; gap: 8px; }
+.topic-hero .row .btn.following { background: rgba(255,255,255,.18); box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.75); }
+.topic-hero .via { font-size: 13px; opacity: .9; }
+.tile .badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.tile .fw { font-size: 11.5px; font-weight: 700; background: rgba(255,255,255,.22); color: #fff; border-radius: 999px; padding: 2px 8px; }
+.tree-panel .row { display: flex; gap: 8px; align-items: center; }
+.following-tag { font-weight: 650; color: var(--accent); font-size: 14px; }

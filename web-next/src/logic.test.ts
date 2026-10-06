@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Bundle, Story, buildCatalog, categories, pathTo, sourcesFor } from './data';
-import { Topic, blankProfile, inTopic, isNew } from './state';
+import { Topic, blankProfile, following, inTopic, isNew, placeTopic } from './state';
 import { cosine, decodeVector } from './vectors';
 
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3600e3).toISOString();
@@ -121,5 +121,25 @@ describe('a tree of any depth', () => {
     const bundle: Bundle = { generated_at: '', status: { broken_sources: [] }, spine, stories: [deep(1)] };
     const c = buildCatalog(bundle);
     expect(sourcesFor(c, 'technology').map((s) => s.name)).toEqual(['Lab Blog']);
+  });
+});
+
+describe('what you follow', () => {
+  const ai = placeTopic('ai', 'AI', ['Lab Blog']);
+  const agents = placeTopic('agents', 'AI agents', ['Lab Blog']);
+  const me = (...topics: Topic[]) => ({ ...blankProfile('S'), topics });
+
+  it('follows a subtopic without the topic it sits in', () => {
+    expect(following(me(agents), ai, 'agents').own).toBe(agents);
+    // The topic's own page, opened without following it, offers to follow.
+    expect(following(me(agents), ai)).toEqual({});
+  });
+  it('says a subtopic is part of a topic you follow, without claiming you follow it', () => {
+    expect(following(me(ai), ai, 'agents')).toEqual({ via: ai });
+    expect(following(me(ai), ai).own).toBe(ai);
+  });
+  it('treats a topic of your own as followed', () => {
+    const own: Topic = { id: 'happy', name: 'Happy news', spine: null, sources: [], muted: [] };
+    expect(following(me(own), own).own).toBe(own);
   });
 });

@@ -131,6 +131,12 @@ important that this does not bloat your feed."* So:
 - **Up:** a topic page shows "Part of **AI**". Tapping it opens AI whether or
   not you follow it — its stories, its other subtopics, and a Follow button.
   This is how you find the siblings of something you already like.
+  **Built 2026-10-06**, and it is also how a subtopic is followed without its
+  topic (*"one might only want to follow a specific subtopic without follow
+  the main topic"*): every place in the tree has a page, its crumbs climb to
+  News, and its hero says **✓ Following** or offers **Follow**. A subtopic
+  inside a topic you follow says "Part of AI, which you follow" and can still
+  be followed on its own. Settings appear only on what you follow.
 - **Related:** a short row of topics close to this one but not above or below
   it (AI video beside Film & VFX), from the embeddings: topics whose
   descriptions sit near each other. A handful at most — three or four.
