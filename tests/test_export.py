@@ -336,3 +336,12 @@ def test_a_topic_in_the_middle_of_the_tree_carries_its_description(conn, source_
     assert found["models"]["description"] == "the models"
     assert found["models"]["parent_name"] == "AI"
     assert found["frontier"]["description"] is None
+
+
+def test_each_topic_keeps_at_most_its_newest_stories(conn, source_id):
+    """General news is capped per topic as well (config `keep_most`)."""
+    seed(conn, source_id)  # stories with no topic share one cap
+    total = len(export.build_bundle(conn)["stories"])
+    assert total > 1
+    assert len(export.build_bundle(conn, keep_most_for=lambda slug: 1)["stories"]) == 1
+    assert len(export.build_bundle(conn, keep_most_for=lambda slug: 0)["stories"]) == total

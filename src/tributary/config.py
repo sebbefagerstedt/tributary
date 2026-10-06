@@ -96,6 +96,9 @@ class TopicConfig:
     # Days of this topic's stories the published bundle carries; inherited from
     # the nearest topic above that sets one, else `TopicsConfig.keep_days`.
     keep_days: int | None = None
+    # At most this many of its newest stories, inherited the same way; 0 is no
+    # cap. General news is too fast for days alone to bound the page.
+    keep_most: int | None = None
 
 
 @dataclass(slots=True)
@@ -144,6 +147,7 @@ class TopicsConfig:
     park_margin: float = DEFAULT_PARK_MARGIN
     spine: list[TopicConfig] = field(default_factory=list)
     keep_days: int | None = None  # None: the bundle's own window decides
+    keep_most: int | None = None  # None or 0: no cap on stories per topic
 
     def ancestors(self, slug: str) -> list[str]:
         """The topics above this one, nearest first."""
@@ -155,13 +159,20 @@ class TopicsConfig:
             at = parent_of.get(at)
         return out
 
-    def keep_days_for(self, slug: str | None) -> int | None:
-        """How many days of this topic's stories the bundle keeps."""
-        own = {t.slug: t.keep_days for t in self.spine}
+    def _inherited(self, field: str, slug: str | None) -> int | None:
+        own = {t.slug: getattr(t, field) for t in self.spine}
         for at in [slug, *self.ancestors(slug)] if slug else []:
             if own.get(at) is not None:
                 return own[at]
-        return self.keep_days
+        return getattr(self, field)
+
+    def keep_days_for(self, slug: str | None) -> int | None:
+        """How many days of this topic's stories the bundle keeps."""
+        return self._inherited("keep_days", slug)
+
+    def keep_most_for(self, slug: str | None) -> int | None:
+        """How many of this topic's newest stories the bundle keeps; 0 or None is all."""
+        return self._inherited("keep_most", slug)
 
     def leaves(self) -> list[TopicConfig]:
         """The topics that get scored: everything nothing else sits under."""
@@ -296,6 +307,7 @@ def _parse(raw: dict, path: Path) -> Config:
                 parent=entry.get("parent"),
                 claims=entry.get("claims"),
                 keep_days=int(entry["keep_days"]) if "keep_days" in entry else None,
+                keep_most=int(entry["keep_most"]) if "keep_most" in entry else None,
             )
         )
     known = {topic.slug for topic in spine}
@@ -330,6 +342,7 @@ def _parse(raw: dict, path: Path) -> Config:
         park_margin=float(raw_topics.get("park_margin", DEFAULT_PARK_MARGIN)),
         spine=spine,
         keep_days=int(raw_topics["keep_days"]) if "keep_days" in raw_topics else None,
+        keep_most=int(raw_topics["keep_most"]) if "keep_most" in raw_topics else None,
     )
     if not topics.leaves() and spine:
         raise ValueError(f"{path}: every topic is a parent of another; nothing to score")

@@ -49,13 +49,27 @@ arrives at once. How to run it is in `web-next/README.md`. What is left:
   feed. An unfollowed topic opens as a preview: stories already held that fit,
   then a live fetch of its suggested sources, kept only briefly.
 
-## Now: check the general news sources
+## Next: your own topics inside the tree
 
-Added 2026-10-05 without being reachable from where they were written. After the
-first Actions run, read `trib status` in its log (or the failing sources at the
-foot of the page) and drop any feed that failed there. Then look at what landed
-in each category: if one holds stories that belong elsewhere, its subtopics'
-descriptions are what to reword, and `trib topics --why "…"` shows the scores.
+General news arrived on 2026-10-05 as one shared tree (News → eight
+categories → subtopics, AI under Technology). The next step is the one AI
+already showed: **a reader makes their own subtopic under any topic** — "New
+topic inside Sport" from Sport's page, or the app proposing where a topic you
+typed belongs ("This looks like part of Health. Put it there?", `VISION.md`,
+"Who decides the parent"). A topic already carries `parent`, and the server
+stores it; what is missing is choosing it and drawing it in the graph.
+
+**Happy News is the test case** (the owner's own, 2026-10-06). It is a *tone*,
+not a subject: no category holds it, its words appear in no headline, and the
+embeddings measure what a story is about far better than how it feels. So it
+is defined by its sources — Positive News, Good News Network, Reasons to be
+Cheerful and the like — and the fit filter, which keeps a broad source on topic,
+would throw most of them away. Decide, with the owner, whether a topic can say
+"everything from these sources" (the fit filter off for it alone), and verify
+those feeds from Actions before adding them.
+
+**Watch the bundle size** for the first week of general news: `keep_most = 30`
+per topic was set on one day's volume (CLAUDE.md, "Beyond AI").
 
 ## 3. Hosting, once it feels right
 
