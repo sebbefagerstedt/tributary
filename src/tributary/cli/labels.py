@@ -104,6 +104,7 @@ def topics_cmd(
             f"[green]{result.assigned} stories labelled[/] of {result.stories} scored — "
             f"{result.claimed} claimed by headline, "
             f"{result.parked} parked on a shelf, "
+            f"{result.fell_back} fell back to a category, "
             f"{result.unmatched} matched nothing on the spine"
         )
         marked = facets.run(conn, cfg.facets)

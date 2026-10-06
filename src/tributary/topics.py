@@ -32,6 +32,7 @@ class TopicResult:
     unmatched: int = 0  # scored, but nothing on the spine fitted
     parked: int = 0  # the shelf was clear, the leaf was not
     claimed: int = 0  # homed by a leaf's `claims` on the headline, not by score
+    fell_back: int = 0  # no subtopic fitted, so it went to the category that did
     by_topic: dict[str, int] = field(default_factory=dict)
 
 
@@ -341,6 +342,8 @@ def run(
         embed([topic.description for topic in leaves], model_name), dtype=np.float32
     )
     scores = vectors @ descriptions.T
+    tops = _categories(profile)
+    top_scores = _category_scores(vectors, tops, model_name)
     parent_of = {topic.slug: topic.parent for topic in profile.spine}
     claimants = [
         (topic.slug, re.compile(topic.claims, CLAIMS_FLAGS))
@@ -351,13 +354,16 @@ def run(
     result.stories = len(story_ids)
 
     with transaction(conn):
-        for story_id, row in zip(story_ids, scores, strict=True):
+        for i, (story_id, row) in enumerate(zip(story_ids, scores, strict=True)):
             claimed = _claimed(headlines.get(story_id), claimants)
             if claimed:
                 result.claimed += 1
                 home = (claimed, False)
             else:
                 home = _home(row, leaves, parent_of, profile)
+                if home is None and top_scores is not None:
+                    home = _fallback(top_scores[i], tops, profile)
+                    result.fell_back += home is not None
             if home is None:
                 result.unmatched += 1
             else:
@@ -373,6 +379,35 @@ def run(
                 "INSERT OR IGNORE INTO topic_assigned (story_id) VALUES (?)", (story_id,)
             )
     return result
+
+
+def _categories(profile: TopicsConfig) -> list:
+    """The top of the tree that has anything under it: News's categories."""
+    parents = {t.parent for t in profile.spine if t.parent}
+    return [t for t in profile.spine if not t.parent and t.slug in parents]
+
+
+def _category_scores(vectors: np.ndarray, tops: list, model_name: str) -> np.ndarray | None:
+    if not tops:
+        return None
+    described = np.array(embed([t.description for t in tops], model_name), dtype=np.float32)
+    return vectors @ described.T
+
+
+def _fallback(row: np.ndarray, tops: list, profile: TopicsConfig) -> tuple[str, bool] | None:
+    """A story no subtopic took goes to the category that fits it, if one does.
+
+    Decided 2026-10-06, on the first day of general news: three narrow
+    subtopics per category left Guardian World 22 of 61 stories and BBC
+    Politics 16 of 24 with no home at all, and so off the page, while the
+    category was plain. Only here is a category's description an input -- it
+    never competes with the subtopics, which are still asked first, so a vague
+    parent cannot swallow its children. The same floor applies.
+    """
+    best = int(np.argmax(row))
+    if float(row[best]) < profile.floor:
+        return None
+    return tops[best].slug, False
 
 
 def _home(
@@ -474,6 +509,11 @@ def explain(
     headline = _headlines(conn, [story_id]).get(story_id)
     claimed = _claimed(headline, claimants)
     home = (claimed, False) if claimed else _home(row, leaves, parent_of, profile)
+    if home is None:
+        tops = _categories(profile)
+        top_scores = _category_scores(vectors, tops, model_name)
+        if top_scores is not None:
+            home = _fallback(top_scores[0], tops, profile)
     stored = conn.execute(
         "SELECT t.slug FROM story_topics stp JOIN topics t ON t.id = stp.topic_id "
         "WHERE stp.story_id = ?",

@@ -59,32 +59,25 @@ typed belongs ("This looks like part of Health. Put it there?", `VISION.md`,
 "Who decides the parent"). A topic already carries `parent`, and the server
 stores it; what is missing is choosing it and drawing it in the graph.
 
-**Happy News is the test case** (the owner's own, 2026-10-06). It is a *tone*,
-not a subject: no category holds it, its words appear in no headline, and the
-embeddings measure what a story is about far better than how it feels. So it
-is defined by its sources — Positive News, Good News Network, Reasons to be
-Cheerful and the like — and the fit filter, which keeps a broad source on topic,
-would throw most of them away. Decide, with the owner, whether a topic can say
-"everything from these sources" (the fit filter off for it alone), and verify
-those feeds from Actions before adding them.
+**Happy News is the test case for the topic filter** (the owner's own,
+2026-10-06). The owner's rule: *"I want the news filter to work for any type of
+topic"* — so the fix is not to switch the filter off for it, but to make the
+filter able to hold a topic like it. Happy News is the hard case because it is
+a *tone*, not a subject: no category holds it, its words appear in no headline,
+and a description embedded once ("uplifting, hopeful news") measures what a
+story is about far better than how it feels. Directions to try, cheapest first:
 
-**What the first day of general news showed** (`trib topics --by-source` in
-the run log, 2026-10-06), two decisions for the owner:
-
-- **Many general stories have no topic.** Guardian World 22 of 61, BBC Politics
-  16 of 24, BBC Entertainment & Arts 12 of 15, Polygon 11 of 17 scored under
-  the floor against every subtopic: three narrow subtopics per category miss
-  domestic politics, books, celebrity news. Either add subtopics (a person's
-  call: `/suggest-topics` on these piles), or let a story no subtopic takes
-  fall back to the category whose description fits it — a shelf's description
-  would then be an input for that case only.
-- **The bundle is AI's month, not general news.** 4,942 of 5,189 stories are
-  under Technology, nearly all AI: arXiv alone files ~75 a day. General news is
-  ~450 stories per two days and lands where it should (very little leaks onto
-  AI's topics). The bundle is 8.4 MB (3.1 MB transferred) after shipping only
-  what the page reads; making it smaller means fewer AI days or a cap on AI
-  topics too — the owner asked for thirty days on 2026-10-04, so it is theirs
-  to change. Story centroids are about a third of it.
+- **A topic taught by examples.** Version 1's lenses did this ("More like this",
+  `addSeed`): the reader marks stories that fit and that do not, and the topic's
+  vector moves towards the first and away from the second. Works for any kind
+  of topic, needs no model in the browser, and is the same signal a shared topic
+  will need later.
+- **A description with its opposite.** Score against "good news" *minus*
+  "bad news" rather than "good news" alone, so the axis is the tone and not the
+  subject. Measure it before trusting it: whether bge separates tone at all is
+  an open question, and the corpus to measure on lives in the Actions cache.
+- **Sources that write only in that tone** (Positive News, Good News Network,
+  Reasons to be Cheerful) as the seed set — verified from Actions first.
 
 ## 3. Hosting, once it feels right
 

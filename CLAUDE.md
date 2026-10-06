@@ -702,6 +702,17 @@ published site carries the new categories too. So:
   bundle, inherited like `keep_days`: 30 for general news, 0 (no cap) on `ai`.
   Watch `Wrote N stories (data.json … KB)` in the run log; that line is the
   page's load time.
+- **A story no subtopic takes falls back to its category** (owner's call,
+  2026-10-06). On the first day, Guardian World left 22 of 61 stories with no
+  home and BBC Politics 16 of 24: three narrow subtopics per category miss
+  domestic politics, books, celebrity news. So when every subtopic scores under
+  the floor, the categories' descriptions are scored and the best one over the
+  same floor takes it (`topics._fallback`). Only then — they never compete with
+  subtopics, so "only leaves are scored" still holds for every story a leaf
+  will take. `LABEL_RULES` in the fingerprint re-labelled the back catalogue
+  once for it; bump it whenever a rule changes and the config does not.
+- **The bundle size stays as it is for now** (owner's call, 2026-10-06): 8.4 MB
+  raw, 3.1 MB transferred, nearly all AI's thirty days (4,942 of 5,189 stories).
 - **The triage profile is still about AI.** It only scores, so general news
   ranks low in `score` and nothing is lost; nothing on the new page sorts by it.
 
