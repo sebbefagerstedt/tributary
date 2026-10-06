@@ -116,6 +116,7 @@ def build_bundle(
     facet_names: list | None = None,
     spine: list | None = None,
     keep_days_for: Callable[[str | None], int | None] | None = None,
+    keep_most_for: Callable[[str | None], int | None] | None = None,
 ) -> dict:
     """Everything the page needs, in one object.
 
@@ -123,6 +124,9 @@ def build_bundle(
     thousand. `limit` of 0 takes every story inside `days`. `keep_days_for`
     narrows that per topic (`TopicsConfig.keep_days_for`): general news arrives
     many times faster than AI news, and a month of it would not fit in a page.
+    `keep_most_for` caps each topic at its newest stories as well: about 2,000
+    general items a day arrived once the categories had feeds (2026-10-06), and
+    four days of that made a 13 MB bundle.
     """
     # Newest first, not best first. The page's default feed is chronological,
     # so the bundle is selected by date; every card still carries `score`, which
@@ -146,6 +150,18 @@ def build_bundle(
             return age <= timedelta(days=window)
 
         cards = [card for card in cards if kept(card)]
+        story_ids = [card.story_id for card in cards]
+    if keep_most_for:
+        # Cards come newest first, so the first N of each topic are its newest.
+        seen: dict[str | None, int] = {}
+
+        def room(card) -> bool:
+            home = labels.get(card.story_id, [{}])[0].get("slug")
+            seen[home] = seen.get(home, 0) + 1
+            cap = keep_most_for(home)
+            return not cap or seen[home] <= cap
+
+        cards = [card for card in cards if room(card)]
         story_ids = [card.story_id for card in cards]
     marks = facets.for_stories(conn, story_ids)
     named = entities.for_stories(conn, story_ids)
@@ -280,6 +296,7 @@ def write_site(
     facet_names: list | None = None,
     spine: list | None = None,
     keep_days_for: Callable[[str | None], int | None] | None = None,
+    keep_most_for: Callable[[str | None], int | None] | None = None,
 ) -> dict:
     """Write a static site into ``out_dir``: the bundle, and the page if built.
 
@@ -296,7 +313,7 @@ def write_site(
 
     bundle = build_bundle(
         conn, limit=limit, days=days, facet_names=facet_names, spine=spine,
-        keep_days_for=keep_days_for,
+        keep_days_for=keep_days_for, keep_most_for=keep_most_for,
     )
     data_file = out_dir / "data.json"
     data_file.write_text(json.dumps(bundle, ensure_ascii=False, separators=(",", ":")))

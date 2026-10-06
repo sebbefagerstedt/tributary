@@ -692,10 +692,16 @@ published site carries the new categories too. So:
   bundle only — the database keeps everything for `MAX_ITEM_AGE_DAYS`. General
   feeds publish many times what the AI ones do, and a month of them would not
   fit in a page.
-- **21 section feeds** (BBC, Guardian, The Verge, ESPN, The Record, Carbon Brief,
-  STAT…) were added **unverified**: nothing in the sandbox that wrote them could
-  reach them. The first Actions run after they landed is the check, as for every
-  source in this file; drop any that fail there.
+- **20 section feeds** (BBC, Guardian, The Verge, The Record, Carbon Brief,
+  STAT…) **fetch from Actions**, checked on the runs of 2026-10-06. **ESPN's
+  feed answers an empty `text/html`** there and was dropped, and SemiAnalysis
+  (on Substack, 403 since the rule above) went with it.
+- **They bring about 2,000 items a day**, an order of magnitude over the AI
+  sources, and the first bundle with them was **13 MB, 5,272 stories**. So
+  besides days, a topic has `keep_most` — at most its newest N stories in the
+  bundle, inherited like `keep_days`: 30 for general news, 0 (no cap) on `ai`.
+  Watch `Wrote N stories (data.json … KB)` in the run log; that line is the
+  page's load time.
 - **The triage profile is still about AI.** It only scores, so general news
   ranks low in `score` and nothing is lost; nothing on the new page sorts by it.
 

@@ -606,3 +606,17 @@ def test_how_long_a_topic_is_kept_comes_from_the_nearest_topic_that_says():
     assert spine.keep_days_for("tech") == 4
     assert spine.keep_days_for("sport") == 4
     assert spine.keep_days_for(None) == 4
+
+
+def test_how_many_stories_a_topic_keeps_is_inherited_too():
+    spine = TopicsConfig(
+        keep_most=30,
+        spine=[
+            TopicConfig(slug="tech", name="Tech", description="t"),
+            TopicConfig(slug="ai", name="AI", description="a", parent="tech", keep_most=0),
+            TopicConfig(slug="agents", name="Agents", description="g", parent="ai"),
+        ],
+    )
+    assert spine.keep_most_for("agents") == 0
+    assert spine.keep_most_for("tech") == 30
+    assert spine.keep_most_for(None) == 30

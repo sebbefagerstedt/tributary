@@ -28,7 +28,7 @@ def export_cmd(
     cfg, conn = open_config(config)
     result = export_mod.write_site(
         conn, out, limit=limit, days=days, facet_names=cfg.facets, spine=cfg.topics.spine,
-        keep_days_for=cfg.topics.keep_days_for,
+        keep_days_for=cfg.topics.keep_days_for, keep_most_for=cfg.topics.keep_most_for,
     )
     size = result["bytes"] / 1024
     console.print(

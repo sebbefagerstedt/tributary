@@ -125,11 +125,6 @@ kind = "rss"
 name = "IEEE Spectrum AI"
 url = "https://spectrum.ieee.org/feeds/topic/artificial-intelligence.rss"
 
-[[sources]]
-kind = "rss"
-name = "SemiAnalysis"
-url = "https://www.semianalysis.com/feed"
-
 
 [[sources]]
 kind = "rss"
@@ -328,11 +323,6 @@ kind = "rss"
 name = "Guardian Sport"
 url = "https://www.theguardian.com/sport/rss"
 
-[[sources]]
-kind = "rss"
-name = "ESPN"
-url = "https://www.espn.com/espn/rss/news"
-
 
 # Politics
 [[sources]]
@@ -495,6 +485,10 @@ park_margin = 0.02
 # AI sets thirty below. Only the bundle is trimmed -- the database keeps every
 # story for `store.MAX_ITEM_AGE_DAYS` whatever this says.
 keep_days = 4
+# And at most this many of a topic's newest stories (0 is no cap). Measured on
+# the first day of general feeds: ~2,000 items a day, and four days of them made
+# a 13 MB bundle. AI sets 0 below; its volume fits a month.
+keep_most = 30
 
 # The tree may be any depth (2026-10-05): News -> Technology -> AI -> AI agents
 # -> Coding agents. The root, News, is not an entry -- it is the hub the page
@@ -513,6 +507,7 @@ parent = "technology"
 name = "AI"
 description = "artificial intelligence: the models, the research behind them, and what people build and argue about with them"
 keep_days = 30
+keep_most = 0
 
 [[topics.spine]]
 slug = "social-media"
