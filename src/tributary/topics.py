@@ -577,3 +577,52 @@ def stats(conn: sqlite3.Connection) -> list[sqlite3.Row]:
             """
         )
     )
+
+
+def by_source(conn: sqlite3.Connection, days: int = 2) -> dict[str, dict[str, int]]:
+    """Where each source's recent stories were filed, as `top/second` paths.
+
+    Built 2026-10-06 when the bundle showed 4,942 stories under Technology and
+    about 30 in each other category: the question was whether general feeds'
+    stories were landing on AI's topics, and only the corpus could answer it.
+    A story counts once per source among its items.
+    """
+    parent_of = {
+        r["slug"]: r["parent"]
+        for r in conn.execute(
+            "SELECT t.slug, p.slug AS parent FROM topics t LEFT JOIN topics p ON p.id = t.parent_id"
+        )
+    }
+
+    def head(slug: str | None) -> str:
+        if not slug:
+            return "(none)"
+        chain, at = [slug], parent_of.get(slug)
+        while at and at not in chain:
+            chain.append(at)
+            at = parent_of.get(at)
+        chain.reverse()
+        return "/".join(chain[:3])
+
+    since = f"-{int(days)} days"
+    out: dict[str, dict[str, int]] = {}
+    for row in conn.execute(
+        """
+        SELECT DISTINCT s.name AS source, st.id AS story, t.slug AS home
+          FROM stories st
+          JOIN story_items si ON si.story_id = st.id
+          JOIN items i        ON i.id = si.item_id
+          JOIN sources s      ON s.id = i.source_id
+          LEFT JOIN story_topics stp ON stp.story_id = st.id
+          LEFT JOIN topics t         ON t.id = stp.topic_id
+         WHERE st.last_activity >= strftime('%Y-%m-%dT%H:%M:%SZ', 'now', ?)
+        """,
+        (since,),
+    ):
+        where = out.setdefault(row["source"], {})
+        key = head(row["home"])
+        where[key] = where.get(key, 0) + 1
+    return {
+        name: dict(sorted(counts.items(), key=lambda kv: -kv[1]))
+        for name, counts in sorted(out.items(), key=lambda kv: -sum(kv[1].values()))
+    }
