@@ -620,3 +620,15 @@ def test_how_many_stories_a_topic_keeps_is_inherited_too():
     assert spine.keep_most_for("agents") == 0
     assert spine.keep_most_for("tech") == 30
     assert spine.keep_most_for(None) == 30
+
+
+def test_by_source_says_where_each_feed_s_stories_went(conn, story, axes):
+    parents = {"models": "ai", "frontier": "models", "agents": "ai"}
+    spine = profile(0.10, "ai", "models", "frontier", "agents", parents=parents)
+    story(unit(1.0, 0.0))
+    story(unit(0.0, 1.0))
+    topics.run(conn, spine)
+
+    found = topics.by_source(conn, days=2)
+    [(name, where)] = found.items()
+    assert where == {"ai/models/frontier": 1, "ai/agents": 1}

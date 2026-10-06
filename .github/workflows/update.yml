@@ -88,6 +88,13 @@ jobs:
       # database is in the cache, not the repository. So the run measures it
       # and leaves the answer in the log. Never fails the deploy: it is a
       # reading, not a check.
+      # Where each source's stories were filed in the last two days: whether a
+      # feed's stories land where its subject says they should. A reading for
+      # the log, like the step below, never a gate.
+      - name: Show where each source's stories were filed
+        continue-on-error: true
+        run: uv run trib topics --by-source --days 2
+
       - name: Measure what late arrivals do to the order
         continue-on-error: true
         run: uv run trib renewal --limit 40 --days 30

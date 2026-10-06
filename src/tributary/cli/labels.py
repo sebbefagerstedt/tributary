@@ -28,6 +28,12 @@ def topics_cmd(
         bool, typer.Option("--suggest", help="Group recent stories so new topics can be named.")
     ] = False,
     days: Annotated[int, typer.Option("--days", help="How far back --suggest looks.")] = 7,
+    by_source: Annotated[
+        bool,
+        typer.Option(
+            "--by-source", help="Where recent stories from each source were filed (--days 2)."
+        ),
+    ] = False,
     reset: Annotated[
         bool, typer.Option("--reset", help="Discard assignments and re-label every story.")
     ] = False,
@@ -44,6 +50,18 @@ def topics_cmd(
 
     if why is not None:
         _explain(conn, cfg, why)
+        return
+
+    if by_source:
+        window = days if days != 7 else 2
+        found = topics.by_source(conn, days=window)
+        if not found:
+            console.print(f"[yellow]No stories active in the last {window} days.[/]")
+            return
+        for name, where in found.items():
+            total = sum(where.values())
+            parts = ", ".join(f"{path} {n}" for path, n in list(where.items())[:6])
+            console.print(f"[bold]{name}[/] ({total}): {parts}")
         return
 
     if suggest:
