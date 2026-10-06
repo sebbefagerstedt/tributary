@@ -313,3 +313,7 @@ details[open].src-row .peek { color: var(--muted); }
 .tile .fw { font-size: 11.5px; font-weight: 700; background: rgba(255,255,255,.22); color: #fff; border-radius: 999px; padding: 2px 8px; }
 .tree-panel .row { display: flex; gap: 8px; align-items: center; }
 .following-tag { font-weight: 650; color: var(--accent); font-size: 14px; }
+.starter:disabled { opacity: .6; }
+.starter .done { flex: none; color: var(--accent); font-weight: 800; }
+.starter.all { background: color-mix(in srgb, var(--accent) 7%, var(--surface)); }
+.starter .grow { flex: 1; min-width: 0; }

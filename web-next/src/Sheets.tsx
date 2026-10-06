@@ -2,11 +2,11 @@
    your profile, and a story. Each is one level of "back". */
 
 import { FormEvent, ReactNode, useMemo, useRef, useState } from 'react';
-import { Bundle, ROOT, Source, Story, agoLabel, categories, childrenOf, isBusy, nodeOf, sourcesFor } from './data';
+import { Bundle, ROOT, Source, Story, agoLabel, categories, childrenOf, isBusy, nodeOf, pathTo, sourcesFor } from './data';
 import { useDragToClose } from './gestures';
 import { DiscoveredCard, asSource, slugOf, specsOf, useDiscovery } from './Discovery';
 import { Profile, SourceSpec, Topic } from './state';
-import { FoundCard, KIND_WORD, SpecificChips, StarterList, hueOf } from './ui';
+import { FoundCard, KIND_WORD, SpecificChips, hueOf } from './ui';
 
 export function Sheet({ onClose, children }: { onClose: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -127,17 +127,62 @@ export function SettingsSheet({ topic, catalog, server, onChange, onDelete, onCl
   );
 }
 
+/* The tree as rows you can walk down, any depth: a row with topics under it
+   opens them, a row without is picked. Inside a topic, "All of" picks the
+   topic itself -- so a subtopic is found without following its topic first. */
+function TreeChooser({ bundle, at, setAt, followed, onPick }: {
+  bundle: Bundle; at: string | null; setAt: (slug: string | null) => void;
+  followed: (slug: string) => boolean; onPick: (slug: string) => void;
+}) {
+  const here = at ? nodeOf(bundle, at) : undefined;
+  const rows = childrenOf(bundle, at);
+  const hue = (slug: string) => hueOf(pathTo(bundle, slug)[0]?.slug ?? slug);
+  const about = (d?: string | null) => d && d[0].toUpperCase() + d.slice(1);
+  return (
+    <>
+      <div className="area">
+        {here
+          ? <button className="crumb" onClick={() => setAt(here.parent ?? null)}>‹ {here.parent ? nodeOf(bundle, here.parent)?.name : ROOT}</button>
+          : <><b>{ROOT}</b><span>the subjects Tributary reads today</span></>}
+      </div>
+      <div className="starters" role="list">
+        {here && (
+          <button role="listitem" className="starter all" disabled={followed(here.slug)} onClick={() => onPick(here.slug)}>
+            <span className="em" style={{ background: hue(here.slug) }}>{here.name[0]}</span>
+            <span className="grow"><span className="strong block">All of {here.name}</span>
+              <span className="sub block">{followed(here.slug) ? 'You follow this' : 'Everything below, in one topic'}</span></span>
+            {followed(here.slug) ? <span className="done">✓</span> : <span className="go" aria-hidden="true">+</span>}
+          </button>
+        )}
+        {rows.map((c) => {
+          const inside = childrenOf(bundle, c.slug).length;
+          const mine = followed(c.slug);
+          return (
+            <button key={c.slug} role="listitem" className="starter" disabled={mine && !inside}
+              onClick={() => (inside ? setAt(c.slug) : onPick(c.slug))}>
+              <span className="em" style={{ background: hue(c.slug) }}>{c.name[0]}</span>
+              <span className="grow"><span className="strong block">{c.name}</span>
+                <span className="sub block">{mine ? 'You follow this' : inside ? `${inside} topics inside` : about(c.description)}</span></span>
+              {inside ? <span className="go" aria-hidden="true">›</span> : mine ? <span className="done">✓</span> : <span className="go" aria-hidden="true">+</span>}
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
 /* Creating a topic: the one moment sources are the main event. */
 export function NewTopicSheet({ bundle, catalog, profile, server, onCreate, onClose }: {
   bundle: Bundle; catalog: Map<string, Source>; profile: Profile; server: boolean;
   onCreate: (t: Topic) => void; onClose: () => void;
 }) {
   const followed = (slug: string) => profile.topics.some((t) => t.spine === slug);
-  const options = useMemo(() => categories(bundle).filter((s) => !followed(s.slug)), // eslint-disable-next-line react-hooks/exhaustive-deps
-    [bundle, profile.topics]);
   const specific = useMemo(() => categories(bundle).flatMap((c) => childrenOf(bundle, c.slug)).filter((s) => !followed(s.slug)), // eslint-disable-next-line react-hooks/exhaustive-deps
     [bundle, profile.topics]);
   const [pick, setPick] = useState<string | null>(null);
+  // Where you are in the tree while choosing: null is News, the top.
+  const [at, setAt] = useState<string | null>(null);
   const [chosen, setChosen] = useState<string[]>([]);
   const [typed, setTyped] = useState('');
   const [query, setQuery] = useState<string | null>(null);   // a subject or site sent to discovery
@@ -197,10 +242,8 @@ export function NewTopicSheet({ bundle, catalog, profile, server, onCreate, onCl
               <button className="btn" type="submit">Find</button>
             </form>
           )}
-          <div className="area"><b>{ROOT}</b><span>the subjects Tributary reads today</span></div>
-          <StarterList subjects={options} picked={[]} onPick={choose} single />
-          {options.length === 0 && <span className="hint">You follow every category Tributary reads today.</span>}
-          <SpecificChips subjects={specific} picked={[]} onPick={choose} />
+          <TreeChooser bundle={bundle} at={at} setAt={setAt} followed={followed} onPick={choose} />
+          {at === null && <SpecificChips subjects={specific} picked={[]} onPick={choose} />}
           {!server && <p className="hint">Any other subject, with sources found on the web, comes with the server.</p>}
         </div>
       ) : (
