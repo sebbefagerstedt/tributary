@@ -102,7 +102,8 @@ def run(
         named = entities.run(conn, cfg.entities)
         console.print(
             f"[cyan]topics[/]  {labelled.assigned} stories labelled "
-            f"({labelled.claimed} by headline, {labelled.parked} parked), "
+            f"({labelled.claimed} by headline, {labelled.parked} parked, "
+            f"{labelled.fell_back} to a category), "
             f"{labelled.unmatched} off-spine; "
             f"{marked.matched} faceted, {named.matched} with entities"
         )

@@ -42,6 +42,9 @@ def axes(monkeypatch):
         # Two neighbours on one shelf, close enough to be a coin-toss.
         "about frontier": unit(1.0, 0.0),
         "about open": unit(0.99, 0.1),
+        # A category's description, asked only for a story no subtopic takes;
+        # pointed away from every story here so it never catches one.
+        "about ai": unit(0.0, 0.0, 0.0, 0.0, 1.0),
     }
 
     def fake_embed(texts, model_name=None):
@@ -632,3 +635,34 @@ def test_by_source_says_where_each_feed_s_stories_went(conn, story, axes):
     found = topics.by_source(conn, days=2)
     [(name, where)] = found.items()
     assert where == {"ai/models/frontier": 1, "ai/agents": 1}
+
+
+def test_a_story_no_subtopic_takes_falls_back_to_its_category(conn, story, axes, monkeypatch):
+    """Guardian World 22 of 61 had no home on the first day of general news."""
+    directions = {
+        "about frontier": unit(1.0, 0.0),
+        "about agents": unit(0.0, 1.0),
+        "about models": unit(0.0, 0.0, 1.0),   # the category's description
+        "about tech": unit(0.0, 1.0),
+    }
+    def fake(texts, model_name=None):
+        return [np.frombuffer(directions[t], dtype=np.float32) for t in texts]
+
+    monkeypatch.setattr(topics, "embed", fake)
+    parents = {"frontier": "models", "agents": "tech"}
+    spine = profile(0.55, "models", "frontier", "tech", "agents", parents=parents)
+    near_category = story(unit(0.3, 0.0, 1.0))   # no subtopic over the floor, Models is
+    nowhere = story(unit(0.0, 0.0, 0.0, 1.0))
+    result = topics.run(conn, spine)
+
+    assert slugs_for(conn, near_category) == {"models"}
+    assert slugs_for(conn, nowhere) == set()
+    assert result.fell_back == 1 and result.unmatched == 1
+
+
+def test_a_story_a_subtopic_takes_never_falls_back(conn, story, axes):
+    parents = {"frontier": "models", "open": "models"}
+    spine = profile(0.55, "models", "frontier", "open", parents=parents, park_margin=0.0)
+    s = story(unit(1.0, 0.0))
+    result = topics.run(conn, spine)
+    assert slugs_for(conn, s) == {"frontier"} and result.fell_back == 0

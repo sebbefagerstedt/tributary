@@ -79,6 +79,9 @@ DEFAULT_PARK_MARGIN = 0.02
 CLAIMS_FLAGS = re.IGNORECASE | re.VERBOSE
 
 
+LABEL_RULES = 2
+
+
 @dataclass(slots=True)
 class TopicConfig:
     slug: str
@@ -183,6 +186,10 @@ class TopicsConfig:
         """Identity of this spine, so a change can trigger re-assignment."""
         payload = json.dumps(
             {
+                # Bumped when the labelling rules change without the config
+                # doing so, so the back catalogue is re-labelled once: 2 is the
+                # fallback to a category (2026-10-06).
+                "rules": LABEL_RULES,
                 "floor": self.floor,
                 "park_margin": self.park_margin,
                 "spine": sorted(
