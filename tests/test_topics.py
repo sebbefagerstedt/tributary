@@ -669,3 +669,42 @@ def test_a_story_a_subtopic_takes_never_falls_back(conn, story, axes):
     s = story(unit(1.0, 0.0))
     result = topics.run(conn, spine)
     assert slugs_for(conn, s) == {"frontier"} and result.fell_back == 0
+
+
+def _pinned(monkeypatch, directions):
+    def fake(texts, model_name=None):
+        return [np.frombuffer(directions[t], dtype=np.float32) for t in texts]
+    monkeypatch.setattr(topics, "embed", fake)
+
+
+def test_a_category_keeps_a_story_it_fits_better_than_its_subtopic(conn, story, monkeypatch):
+    """Alcaraz's Japan Open final went to Football: Sport has no tennis."""
+    _pinned(monkeypatch, {
+        "about sport": unit(1.0, 1.0),       # matches and results, any sport
+        "about football": unit(0.0, 1.0),
+        "about olympics": unit(0.0, 0.0, 1.0),
+    })
+    spine = profile(0.55, "sport", "football", "olympics",
+                    parents={"football": "sport", "olympics": "sport"})
+    tennis = story(unit(0.8, 1.0))     # Football 0.78, Sport 0.99
+    football = story(unit(0.1, 1.0))   # Football 0.99, Sport 0.77
+    result = topics.run(conn, spine)
+
+    assert slugs_for(conn, tennis) == {"sport"}
+    assert slugs_for(conn, football) == {"football"}
+    assert result.fell_back >= 1
+
+
+def test_deep_topics_never_lose_a_story_to_their_category(conn, story, monkeypatch):
+    """AI's topics sit two levels under Technology; shelves there never compete."""
+    _pinned(monkeypatch, {
+        "about technology": unit(1.0, 1.0),
+        "about ai": unit(0.0, 1.0, 1.0),
+        "about agents": unit(0.0, 1.0),
+        "about chips": unit(0.0, 0.0, 0.0, 1.0),
+    })
+    spine = profile(0.55, "technology", "ai", "agents", "chips",
+                    parents={"ai": "technology", "agents": "ai", "chips": "technology"})
+    s = story(unit(0.8, 1.0))   # Agents 0.78, Technology 0.99
+    topics.run(conn, spine)
+    assert slugs_for(conn, s) == {"agents"}

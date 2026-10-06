@@ -715,6 +715,15 @@ published site carries the new categories too. So:
   subtopics, so "only leaves are scored" still holds for every story a leaf
   will take. `LABEL_RULES` in the fingerprint re-labelled the back catalogue
   once for it; bump it whenever a rule changes and the config does not.
+- **A category also competes with the subtopics directly under it**, and
+  keeps a story it fits better (`topics._contest`, owner's call 2026-10-06):
+  *Carlos Alcaraz … Japan Open final* went to Football, because Sport has no
+  tennis and a final is matches and results. Only subtopics *directly* under a
+  category: deeper down, as in AI two levels under Technology, shelves still
+  never compete, so the rule that stopped a vague parent swallowing its
+  children holds there. Unmeasured — neither the database nor the model was
+  reachable when it was built; `trib run`'s "N to a category" counts both
+  this and the fallback, and `trib topics --why` shows a story's scores.
 - **The bundle size stays as it is for now** (owner's call, 2026-10-06): 8.4 MB
   raw, 3.1 MB transferred, nearly all AI's thirty days (4,942 of 5,189 stories).
 - **The triage profile is still about AI.** It only scores, so general news

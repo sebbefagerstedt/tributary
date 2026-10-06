@@ -32,7 +32,7 @@ class TopicResult:
     unmatched: int = 0  # scored, but nothing on the spine fitted
     parked: int = 0  # the shelf was clear, the leaf was not
     claimed: int = 0  # homed by a leaf's `claims` on the headline, not by score
-    fell_back: int = 0  # no subtopic fitted, so it went to the category that did
+    fell_back: int = 0  # went to a category: no subtopic fitted, or the category fitted better
     by_topic: dict[str, int] = field(default_factory=dict)
 
 
@@ -364,6 +364,10 @@ def run(
                 if home is None and top_scores is not None:
                     home = _fallback(top_scores[i], tops, profile)
                     result.fell_back += home is not None
+                elif home is not None and top_scores is not None:
+                    contested = _contest(home, row, leaves, top_scores[i], tops, parent_of)
+                    result.fell_back += contested != home
+                    home = contested
             if home is None:
                 result.unmatched += 1
             else:
@@ -409,6 +413,40 @@ def _fallback(row: np.ndarray, tops: list, profile: TopicsConfig) -> tuple[str, 
     if float(row[best]) < profile.fallback_floor:
         return None
     return tops[best].slug, False
+
+
+def _contest(
+    home: tuple[str, bool],
+    row: np.ndarray,
+    leaves: list,
+    top_row: np.ndarray,
+    tops: list,
+    parent_of: dict[str, str | None],
+) -> tuple[str, bool]:
+    """A category keeps a story its own subtopic took, when it fits it better.
+
+    Decided 2026-10-06: *Carlos Alcaraz takes first title … Japan Open final*
+    went to Football, because Sport's three subtopics are Esports, Football
+    and Olympics, and a tennis final is matches and results like any football
+    report. With few subtopics per category, the nearest one takes everything
+    else in its field. So a category's description competes with the
+    subtopics directly under it, and wins when it scores higher.
+
+    Only those directly under it. Deeper down -- AI's topics, two shelves
+    below Technology -- shelves never compete, which is the rule that stopped a
+    vague parent swallowing its own children; nothing there changes. A parked
+    story is already on a parent and a claimed one is not scored. Unmeasured:
+    neither the database nor the model was reachable from where it was built.
+    """
+    slug, parked = home
+    category = parent_of.get(slug)
+    names = [t.slug for t in tops]
+    if parked or category not in names:
+        return home
+    leaf_score = float(row[[t.slug for t in leaves].index(slug)])
+    if float(top_row[names.index(category)]) > leaf_score:
+        return category, False
+    return home
 
 
 def _home(
@@ -510,11 +548,12 @@ def explain(
     headline = _headlines(conn, [story_id]).get(story_id)
     claimed = _claimed(headline, claimants)
     home = (claimed, False) if claimed else _home(row, leaves, parent_of, profile)
-    if home is None:
-        tops = _categories(profile)
-        top_scores = _category_scores(vectors, tops, model_name)
-        if top_scores is not None:
-            home = _fallback(top_scores[0], tops, profile)
+    tops = _categories(profile)
+    top_scores = _category_scores(vectors, tops, model_name) if not claimed else None
+    if home is None and top_scores is not None:
+        home = _fallback(top_scores[0], tops, profile)
+    elif home is not None and top_scores is not None:
+        home = _contest(home, row, leaves, top_scores[0], tops, parent_of)
     stored = conn.execute(
         "SELECT t.slug FROM story_topics stp JOIN topics t ON t.id = stp.topic_id "
         "WHERE stp.story_id = ?",

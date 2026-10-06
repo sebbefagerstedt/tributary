@@ -79,6 +79,16 @@ story is about far better than how it feels. Directions to try, cheapest first:
 - **Sources that write only in that tone** (Positive News, Good News Network,
   Reasons to be Cheerful) as the seed set — verified from Actions first.
 
+## Subtopics the general categories are missing
+
+Each category has three subtopics, so the nearest one took everything else in
+its field — a tennis final went to Football (2026-10-06). A category now keeps
+a story that fits it better than its subtopic (`topics._contest`), which stops
+the wrong filing but leaves the story on the bare category. The real fix is the
+missing subtopics: Tennis, Motorsport, Ice hockey under Sport; Books under
+Culture; and whatever `trib topics --suggest` shows piling up on a category.
+**Not now, on the owner's call** — and naming stays theirs.
+
 ## 3. Hosting, once it feels right
 
 The small server from `VISION.md`, accounts, and topics stored per person.
