@@ -68,8 +68,23 @@ would throw most of them away. Decide, with the owner, whether a topic can say
 "everything from these sources" (the fit filter off for it alone), and verify
 those feeds from Actions before adding them.
 
-**Watch the bundle size** for the first week of general news: `keep_most = 30`
-per topic was set on one day's volume (CLAUDE.md, "Beyond AI").
+**What the first day of general news showed** (`trib topics --by-source` in
+the run log, 2026-10-06), two decisions for the owner:
+
+- **Many general stories have no topic.** Guardian World 22 of 61, BBC Politics
+  16 of 24, BBC Entertainment & Arts 12 of 15, Polygon 11 of 17 scored under
+  the floor against every subtopic: three narrow subtopics per category miss
+  domestic politics, books, celebrity news. Either add subtopics (a person's
+  call: `/suggest-topics` on these piles), or let a story no subtopic takes
+  fall back to the category whose description fits it — a shelf's description
+  would then be an input for that case only.
+- **The bundle is AI's month, not general news.** 4,942 of 5,189 stories are
+  under Technology, nearly all AI: arXiv alone files ~75 a day. General news is
+  ~450 stories per two days and lands where it should (very little leaks onto
+  AI's topics). The bundle is 8.4 MB (3.1 MB transferred) after shipping only
+  what the page reads; making it smaller means fewer AI days or a cap on AI
+  topics too — the owner asked for thirty days on 2026-10-04, so it is theirs
+  to change. Story centroids are about a third of it.
 
 ## 3. Hosting, once it feels right
 
