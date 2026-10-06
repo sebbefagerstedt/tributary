@@ -86,7 +86,7 @@ DEFAULT_PARK_MARGIN = 0.02
 CLAIMS_FLAGS = re.IGNORECASE | re.VERBOSE
 
 
-LABEL_RULES = 2
+LABEL_RULES = 3
 
 
 @dataclass(slots=True)
@@ -196,7 +196,8 @@ class TopicsConfig:
             {
                 # Bumped when the labelling rules change without the config
                 # doing so, so the back catalogue is re-labelled once: 2 is the
-                # fallback to a category (2026-10-06).
+                # fallback to a category, 3 a category competing with the
+                # subtopics directly under it (both 2026-10-06).
                 "rules": LABEL_RULES,
                 "floor": self.floor,
                 "fallback_floor": self.fallback_floor,
