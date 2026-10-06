@@ -652,12 +652,15 @@ def test_a_story_no_subtopic_takes_falls_back_to_its_category(conn, story, axes,
     parents = {"frontier": "models", "agents": "tech"}
     spine = profile(0.55, "models", "frontier", "tech", "agents", parents=parents)
     near_category = story(unit(0.3, 0.0, 1.0))   # no subtopic over the floor, Models is
+    # 0.52 against Models: under the floor, over the category's lower bar.
+    loosely = story(unit(0.0, 0.0, 1.0, 1.6426))
     nowhere = story(unit(0.0, 0.0, 0.0, 1.0))
     result = topics.run(conn, spine)
 
     assert slugs_for(conn, near_category) == {"models"}
+    assert slugs_for(conn, loosely) == {"models"}
     assert slugs_for(conn, nowhere) == set()
-    assert result.fell_back == 1 and result.unmatched == 1
+    assert result.fell_back == 2 and result.unmatched == 1
 
 
 def test_a_story_a_subtopic_takes_never_falls_back(conn, story, axes):

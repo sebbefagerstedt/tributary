@@ -402,10 +402,11 @@ def _fallback(row: np.ndarray, tops: list, profile: TopicsConfig) -> tuple[str, 
     Politics 16 of 24 with no home at all, and so off the page, while the
     category was plain. Only here is a category's description an input -- it
     never competes with the subtopics, which are still asked first, so a vague
-    parent cannot swallow its children. The same floor applies.
+    parent cannot swallow its children. Its bar is `fallback_floor`, lower
+    than the subtopics' floor: at 0.55 it caught 20 stories of 5,983.
     """
     best = int(np.argmax(row))
-    if float(row[best]) < profile.floor:
+    if float(row[best]) < profile.fallback_floor:
         return None
     return tops[best].slug, False
 

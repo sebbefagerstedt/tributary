@@ -69,6 +69,13 @@ class TriageConfig:
 # far below where real scores land (p01 is 0.59 over the whole corpus).
 DEFAULT_TOPIC_FLOOR = 0.55
 
+# The bar a story no subtopic took must clear to land on a category instead
+# (`topics._fallback`). Lower than the floor, because a category's description
+# is broad and a short news headline sits near any of them: at 0.55 the
+# fallback caught 20 of 5,983 stories on its first run (2026-10-06). Never
+# competes with a subtopic, so lowering it cannot take a story from one.
+DEFAULT_FALLBACK_FLOOR = 0.50
+
 # Two leaves on the same shelf this close means the shelf is clear and the leaf
 # is not, so the story sits on the shelf instead of being forced onto one of them.
 DEFAULT_PARK_MARGIN = 0.02
@@ -147,6 +154,7 @@ class TopicsConfig:
     """
 
     floor: float = DEFAULT_TOPIC_FLOOR
+    fallback_floor: float = DEFAULT_FALLBACK_FLOOR
     park_margin: float = DEFAULT_PARK_MARGIN
     spine: list[TopicConfig] = field(default_factory=list)
     keep_days: int | None = None  # None: the bundle's own window decides
@@ -191,6 +199,7 @@ class TopicsConfig:
                 # fallback to a category (2026-10-06).
                 "rules": LABEL_RULES,
                 "floor": self.floor,
+                "fallback_floor": self.fallback_floor,
                 "park_margin": self.park_margin,
                 "spine": sorted(
                     (t.slug, t.name, t.description, t.parent or "", t.claims or "")
@@ -346,6 +355,7 @@ def _parse(raw: dict, path: Path) -> Config:
                 ) from exc
     topics = TopicsConfig(
         floor=float(raw_topics.get("floor", DEFAULT_TOPIC_FLOOR)),
+        fallback_floor=float(raw_topics.get("fallback_floor", DEFAULT_FALLBACK_FLOOR)),
         park_margin=float(raw_topics.get("park_margin", DEFAULT_PARK_MARGIN)),
         spine=spine,
         keep_days=int(raw_topics["keep_days"]) if "keep_days" in raw_topics else None,
