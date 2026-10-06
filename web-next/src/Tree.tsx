@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Bundle } from './data';
-import { GEdge, GNode, Options, buildGraph, closest, focusEdges } from './graph';
+import { GEdge, GNode, Options, buildGraph, closest, relatedEdges } from './graph';
 import { Profile } from './state';
 import { ICON, hueOf } from './ui';
 
@@ -139,7 +139,7 @@ export function Tree({ bundle, profile, onBack, onOpen, onAdd }: {
   });
 
   const selected = sel ? byKey.get(sel) : undefined;
-  const rel: GEdge[] = selected ? focusEdges(selected, g.nodes, g.vectors) : g.overview;
+  const rel: GEdge[] = relatedEdges(g, selected);
   const lit = useMemo(() => {
     if (!sel) return null;
     const s = new Set([sel]);

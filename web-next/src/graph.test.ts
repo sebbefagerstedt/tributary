@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Bundle, Story } from './data';
-import { buildGraph, closest, focusEdges } from './graph';
+import { buildGraph, closest, focusEdges, relatedEdges } from './graph';
 import { blankProfile } from './state';
 
 /* Unit vectors packed as the backend packs them: int8 at scale 127, base64. */
@@ -83,5 +83,14 @@ describe('the tree', () => {
     const g = buildGraph(bundle, two, { scope: 'mine', related: false, sources: true });
     expect(g.nodes.filter((n) => n.kind === 'src').map((n) => n.key)).toEqual(['src:Feed']);
     expect(g.edges.filter((e) => e.kind === 'src').map((e) => e.a).sort()).toEqual(['n:chips', 'n:models']);
+  });
+
+  it('draws no related lines with Related off, even for a selected topic', () => {
+    const on = buildGraph(bundle, me, { scope: 'all', related: true, sources: false });
+    const off = buildGraph(bundle, me, { scope: 'all', related: false, sources: false });
+    const open = (g: typeof on) => g.nodes.find((n) => n.key === 'n:open')!;
+    expect(relatedEdges(on, open(on)).length).toBeGreaterThan(0);
+    expect(relatedEdges(off, open(off))).toEqual([]);
+    expect(relatedEdges(off)).toEqual([]);
   });
 });

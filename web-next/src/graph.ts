@@ -256,5 +256,12 @@ export function buildGraph(bundle: Bundle, profile: Profile, opts: Options) {
   // on does not rearrange the picture.
   const rel = overviewEdges(nodes, vectors);
   layout(nodes, [...edges, ...rel]);
-  return { nodes, edges, overview: opts.related ? rel : [], vectors };
+  return { nodes, edges, overview: opts.related ? rel : [], vectors, related: opts.related };
+}
+
+/* The dashed lines to draw: none with Related off, whether or not a topic is
+   selected; a selected topic's closest few; otherwise each category's closest. */
+export function relatedEdges(g: ReturnType<typeof buildGraph>, selected?: GNode): GEdge[] {
+  if (!g.related) return [];
+  return selected ? focusEdges(selected, g.nodes, g.vectors) : g.overview;
 }
