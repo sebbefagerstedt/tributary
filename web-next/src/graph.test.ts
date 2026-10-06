@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Bundle, Story } from './data';
-import { buildGraph, closest, focusEdges, relatedEdges } from './graph';
+import { barsOf, buildGraph, closest, focusEdges, relatedEdges } from './graph';
 import { blankProfile } from './state';
 
 /* Unit vectors packed as the backend packs them: int8 at scale 127, base64. */
@@ -92,5 +92,19 @@ describe('the tree', () => {
     expect(relatedEdges(on, open(on)).length).toBeGreaterThan(0);
     expect(relatedEdges(off, open(off))).toEqual([]);
     expect(relatedEdges(off)).toEqual([]);
+  });
+
+  it('links only what stands out, so a topic equally near everything gets no line', () => {
+    const flat: Bundle = { ...bundle, stories: [
+      story('open', 'models', pack(1, 0, 0, 0)), story('accel', 'chips', pack(0, 1, 0, 0)),
+      story('jail', 'safety', pack(0, 0, 1, 0)), story('frontier', 'models', pack(0, 0, 0, 1)),
+    ] };
+    const g = buildGraph(flat, me, { scope: 'all', related: true, sources: false });
+    const open = g.nodes.find((n) => n.key === 'n:open')!;
+    expect(closest(open, g.nodes, g.vectors, 3)).toEqual([]);
+  });
+
+  it('shows how close a link is in one to three bars', () => {
+    expect([barsOf(1), barsOf(1.6), barsOf(2.4)]).toEqual([1, 2, 3]);
   });
 });

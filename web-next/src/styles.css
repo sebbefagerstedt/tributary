@@ -317,3 +317,12 @@ details[open].src-row .peek { color: var(--muted); }
 .starter .done { flex: none; color: var(--accent); font-weight: 800; }
 .starter.all { background: color-mix(in srgb, var(--accent) 7%, var(--surface)); }
 .starter .grow { flex: 1; min-width: 0; }
+/* How close a related topic is: thicker lines and more bars for closer ones. */
+.edge.rel.bars-2 { stroke-width: 2.2; }
+.edge.rel.bars-3 { stroke-width: 3; stroke-dasharray: 5 4; }
+.edge.rel.on.bars-1 { stroke-width: 1.8; }
+.edge.rel.on.bars-3 { stroke-width: 3.4; }
+.chip .bars { display: inline-flex; gap: 2px; align-items: flex-end; margin-left: 7px; }
+.chip .bars i { width: 3px; border-radius: 1px; background: var(--line); }
+.chip .bars i:nth-child(1) { height: 6px; } .chip .bars i:nth-child(2) { height: 9px; } .chip .bars i:nth-child(3) { height: 12px; }
+.chip .bars i.on { background: var(--signal); }
