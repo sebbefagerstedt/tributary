@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Bundle } from './data';
-import { GEdge, GNode, Options, buildGraph, closest, relatedEdges } from './graph';
+import { GEdge, GNode, Options, barsOf, buildGraph, closest, relatedEdges } from './graph';
 import { Profile } from './state';
 import { ICON, hueOf } from './ui';
 
@@ -270,7 +270,7 @@ export function Tree({ bundle, profile, onBack, onOpen, onAdd }: {
               {rel.map((e) => {
                 const a = byKey.get(e.a), b = byKey.get(e.b);
                 if (!a || !b) return null;
-                return <path key={`rel:${e.a}|${e.b}`} className={`edge rel${sel ? ' on' : ''}`} d={edgePath(a, b, 36)} />;
+                return <path key={`rel:${e.a}|${e.b}`} className={`edge rel bars-${barsOf(e.strength ?? 0)}${sel ? ' on' : ''}`} d={edgePath(a, b, 36)} />;
               })}
               {drawn.map(draw)}
             </svg>
@@ -289,16 +289,18 @@ export function Tree({ bundle, profile, onBack, onOpen, onAdd }: {
               <div className="eyebrow">{kindName(selected)}{parentOfSel ? ` in ${parentOfSel.label}` : ''}</div>
               <h3>{selected.label}</h3>
             </div>
-            {nearAll.length > 0 && (
+            {opts.related && (nearAll.length > 0 ? (
               <div className="chips">
                 <span className="sub">Closest to</span>
-                {nearAll.map(({ node }) => (
-                  <button key={node.key} className="chip" onClick={() => pick(node.key)}>
+                {nearAll.map(({ node, lift }) => (
+                  <button key={node.key} className="chip" onClick={() => pick(node.key)}
+                    aria-label={`${node.label}, ${['', 'some', 'close', 'very close'][barsOf(lift)]}`}>
                     <i className="dot-hue" style={{ background: hue(node) }} />{node.label}
+                    <span className="bars" aria-hidden="true">{[1, 2, 3].map((i) => <i key={i} className={i <= barsOf(lift) ? 'on' : ''} />)}</span>
                   </button>
                 ))}
               </div>
-            )}
+            ) : <p className="sub">Nothing else stands out as close to this.</p>)}
             {selected.kind !== 'src' && (selected.topicId || selected.slug) && (
               <div className="row">
                 <button className="btn primary" onClick={() => (selected.topicId

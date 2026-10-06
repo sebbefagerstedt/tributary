@@ -95,13 +95,32 @@ function comparable(a: GNode, b: GNode): boolean {
   return a.depth === 1 || a.parent !== b.parent;
 }
 
-/* The closest few to one node, best first. */
-export function closest(node: GNode, nodes: GNode[], vectors: Map<string, Float32Array>, n: number) {
+/* How far a link must stand out to be drawn: in standard deviations above
+   the node's average similarity to everything it could link to. Relative,
+   because topic vectors are averages of many stories and all sit close to
+   one another, so no absolute cosine says "related" -- and a ranking with no
+   bar at all linked every topic to its least-bad three (Defense to Climate,
+   2026-10-06). Unmeasured: the live bundle was unreachable when it was set. */
+export const MIN_LIFT = 1;
+/* Strength as the page shows it, one to three bars. */
+export const barsOf = (lift: number) => (lift >= 2 ? 3 : lift >= 1.5 ? 2 : 1);
+
+export interface Near { node: GNode; score: number; lift: number }
+
+/* The closest few to one node that clearly stand out, best first. */
+export function closest(node: GNode, nodes: GNode[], vectors: Map<string, Float32Array>, n: number): Near[] {
   const v = vectors.get(node.key);
   if (!v) return [];
-  return nodes
+  const all = nodes
     .filter((o) => comparable(node, o) && vectors.has(o.key))
-    .map((o) => ({ node: o, score: cos(v, vectors.get(o.key)!) }))
+    .map((o) => ({ node: o, score: cos(v, vectors.get(o.key)!) }));
+  if (all.length < 2) return [];
+  const mean = all.reduce((t, x) => t + x.score, 0) / all.length;
+  const sd = Math.sqrt(all.reduce((t, x) => t + (x.score - mean) ** 2, 0) / all.length);
+  if (sd < 1e-6) return [];
+  return all
+    .map((x) => ({ ...x, lift: (x.score - mean) / sd }))
+    .filter((x) => x.lift >= MIN_LIFT - 1e-9)
     .sort((x, y) => y.score - x.score)
     .slice(0, n);
 }
@@ -116,14 +135,14 @@ export function overviewEdges(nodes: GNode[], vectors: Map<string, Float32Array>
     const best = closest(a, tops, vectors, 1)[0];
     if (!best) continue;
     const id = [a.key, best.node.key].sort().join('|');
-    if (!seen.has(id)) seen.set(id, { a: a.key, b: best.node.key, kind: 'rel', strength: best.score });
+    if (!seen.has(id)) seen.set(id, { a: a.key, b: best.node.key, kind: 'rel', strength: best.lift });
   }
   return [...seen.values()];
 }
 
 /* A focused node's links: its closest few, wherever they sit. */
 export function focusEdges(node: GNode, nodes: GNode[], vectors: Map<string, Float32Array>, n = 3): GEdge[] {
-  return closest(node, nodes, vectors, n).map(({ node: b, score }) => ({ a: node.key, b: b.key, kind: 'rel' as const, strength: score }));
+  return closest(node, nodes, vectors, n).map(({ node: b, lift }) => ({ a: node.key, b: b.key, kind: 'rel' as const, strength: lift }));
 }
 
 type Sim = GNode & SimulationNodeDatum & { tx?: number; ty?: number };
