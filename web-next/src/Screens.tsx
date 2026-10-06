@@ -2,7 +2,7 @@
    (VISION.md): Topics, the boxes of what is under it, and Feed, its stories. */
 
 import { Bundle, ROOT, Story, childrenOf, nodeOf, pathTo } from './data';
-import { Profile, Topic, byNewest, inTopic, isNew } from './state';
+import { Profile, Topic, byNewest, following, inTopic, isNew } from './state';
 import { Caught, ICON, LayoutSwitch, StoryCard, hueOf } from './ui';
 
 export interface Nav {
@@ -12,6 +12,9 @@ export interface Nav {
   openTree: () => void;
   openProfile: () => void;
   openSettings: (topic: Topic) => void;
+  openPlace: (slug: string) => void;
+  follow: (slug: string) => void;
+  unfollow: (topic: Topic) => void;
   newTopic: () => void;
   back: () => void;
   setLayout: (l: Profile['layout']) => void;
@@ -48,7 +51,7 @@ function Rings({ bundle, profile, nav }: { bundle: Bundle; profile: Profile; nav
 /* Topics as boxes: each wears its newest picture (or its colour), its new
    count and its latest headline, and opens that topic. The same boxes are a
    topic's subtopics on its own page -- "Topics" is the map, "Feed" the reader. */
-interface Box { key: string; name: string; hue: string; list: Story[]; open: () => void }
+interface Box { key: string; name: string; hue: string; list: Story[]; open: () => void; followed?: boolean }
 
 function SubjectTiles({ boxes, profile }: { boxes: Box[]; profile: Profile }) {
   return (
@@ -61,7 +64,12 @@ function SubjectTiles({ boxes, profile }: { boxes: Box[]; profile: Profile }) {
             {art ? <img src={art} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <span className="glyph">{b.name[0]}</span>}
             <span className="shade" />
             <span className="tx">
-              {n > 0 && <span className="nw">{n} new</span>}
+              {(n > 0 || b.followed) && (
+                <span className="badges">
+                  {n > 0 && <span className="nw">{n} new</span>}
+                  {b.followed && <span className="fw">Following</span>}
+                </span>
+              )}
               <span className="nm">{b.name}</span>
               <span className="ld">{b.list[0] ? b.list[0].title : 'Quiet right now'}</span>
             </span>
@@ -130,6 +138,7 @@ export function TopicPage({ bundle, profile, topic, leaf, nav, shown, more }: {
   bundle: Bundle; profile: Profile; topic: Topic; leaf?: string; nav: Nav; shown: number; more: () => void;
 }) {
   const list = storiesOf(bundle, topic, leaf);
+  const { own, via } = following(profile, topic, leaf);
   const n = list.filter((s) => isNew(profile, s)).length;
   // Where you are: the topic you follow, or a place somewhere below it.
   const here = leaf || topic.spine || null;
@@ -137,34 +146,42 @@ export function TopicPage({ bundle, profile, topic, leaf, nav, shown, more }: {
   const leafName = leaf ? node?.name : undefined;
   const subs = here ? childrenOf(bundle, here) : [];
   const view = subs.length ? profile.layout : 'cards';
-  // The way back up: from the topic you follow down to where you stand.
-  const above = leaf && topic.spine ? pathTo(bundle, leaf).filter((l) => pathTo(bundle, l.slug).some((a) => a.slug === topic.spine) || l.slug === topic.spine) : [];
+  // The way back up, every step a page of its own: from News down to here.
+  const above = here && topic.spine ? pathTo(bundle, here) : [];
+  const climb = (slug: string) => (slug === topic.spine && leaf
+    ? nav.openTopic(topic.id)
+    : leaf && pathTo(bundle, slug).some((a) => a.slug === topic.spine) ? nav.openTopic(topic.id, slug) : nav.openPlace(slug));
   // What it holds: the tree's own description, or what you typed.
   const raw = node?.description ?? (topic.description && topic.description !== topic.name ? topic.description : null);
   const about = raw && raw[0].toUpperCase() + raw.slice(1);
-  const context = topic.spine ? (pathTo(bundle, topic.spine).map((l) => l.name).join(' › ') || ROOT) : 'Your topic';
   return (
     <>
       <div className="bar">
         <button className="icon-btn" onClick={nav.back} aria-label="Back">{ICON.back}</button>
         <div className="grow">
-          <div className="crumbs">{leafName
+          <div className="crumbs">{!topic.spine ? 'Your topic' : above.length
             ? above.map((l, i) => (
                 <span key={l.slug}>{i > 0 && ' › '}
-                  <button className="crumb" onClick={() => nav.openTopic(topic.id, l.slug === topic.spine ? undefined : l.slug)}>{l.name}</button>
+                  <button className="crumb" onClick={() => climb(l.slug)}>{l.name}</button>
                 </span>))
-            : context}</div>
+            : ROOT}</div>
           <div className="title-sm">{leafName || topic.name}</div>
         </div>
-        <button className="icon-btn" onClick={() => nav.openSettings(topic)} aria-label="Topic settings">{ICON.gear}</button>
+        {own && <button className="icon-btn" onClick={() => nav.openSettings(own)} aria-label="Topic settings">{ICON.gear}</button>}
       </div>
       <div className="topic-hero" style={{ background: hueOf(topic.id) }}>
         <h1>{leafName || topic.name}</h1>
         {about && <p className="about">{about}</p>}
         <div className="stat">{n} new · {list.length} stories · {topic.sources.length} sources</div>
+        {via && <div className="via">Part of {via.name}, which you follow</div>}
         <div className="row">
-          <button className="btn solid" onClick={() => nav.play(topic, leaf)} disabled={!list.length}>{n ? 'Play new' : 'Play latest'}</button>
-          <button className="btn" onClick={() => nav.openSettings(topic)}>Sources &amp; settings</button>
+          {/* Following is a state you can see and undo here. Settings are only
+              for what you follow, so the gear above appears once you do. */}
+          {own
+            ? <button className="btn following" aria-pressed="true" onClick={() => (own.spine ? nav.unfollow(own) : nav.openSettings(own))}>
+                ✓ Following</button>
+            : <button className="btn solid" onClick={() => nav.follow(here!)}>Follow</button>}
+          <button className={`btn ${own ? 'solid' : ''}`} onClick={() => nav.play(topic, leaf)} disabled={!list.length}>{n ? 'Play new' : 'Play latest'}</button>
         </div>
       </div>
       {/* Topics shows the subtopics as boxes; a place with none under it only
@@ -176,9 +193,10 @@ export function TopicPage({ bundle, profile, topic, leaf, nav, shown, more }: {
       {view === 'grid'
         ? <SubjectTiles profile={profile} boxes={subs.map((l) => ({
             key: l.slug, name: l.name, hue: hueOf(topic.id), list: storiesOf(bundle, topic, l.slug),
+            followed: profile.topics.some((t) => t.spine === l.slug),
             open: () => nav.openTopic(topic.id, l.slug) }))} />
         : list.length === 0
-          ? <div className="empty">Nothing here yet. Add sources in this topic's settings.</div>
+          ? <div className="empty">{own ? "Nothing here yet. Add sources in this topic's settings." : 'Nothing here right now.'}</div>
           : <Cards list={list} profile={profile} topics={profile.topics} here={topic.id} nav={nav} shown={shown} more={more} />}
     </>
   );

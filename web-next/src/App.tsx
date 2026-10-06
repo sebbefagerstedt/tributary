@@ -5,7 +5,7 @@ import { Player } from './Player';
 import { Home, Nav, TopicPage, storiesOf } from './Screens';
 import { NewTopicSheet, ProfileSheet, SettingsSheet, StorySheet } from './Sheets';
 import { hasServer, remote } from './remote';
-import { Topic, isNew, useProfiles } from './state';
+import { Topic, isNew, placeTopic, useProfiles } from './state';
 import { Tree } from './Tree';
 import { setHueOrder } from './ui';
 
@@ -111,9 +111,33 @@ export default function App() {
 
   const screen = screens[screens.length - 1];
   const topicById = (id: string) => profile?.topics.find((t) => t.id === id);
+  /* A page opens on a topic you follow, or on any place in the tree, followed
+     or not: you look before you follow, and can follow a subtopic alone. */
+  const pageTopic = (id: string) => {
+    const mine = topicById(id);
+    if (mine || !bundle) return mine;
+    const node = nodeOf(bundle, id);
+    return node ? placeTopic(id, node.name, sourcesFor(catalog, id).map((s) => s.name)) : undefined;
+  };
   const saveTopic = (t: Topic) => update((p) => ({ ...p, topics: p.topics.map((x) => (x.id === t.id ? t : x)) }));
 
   const nav: Nav = {
+    openPlace: (slug) => {
+      const mine = profile?.topics.find((t) => t.spine === slug);
+      nav.openTopic(mine ? mine.id : slug);
+    },
+    follow: (slug) => {
+      const node = bundle && nodeOf(bundle, slug);
+      if (!node || profile?.topics.some((t) => t.spine === slug)) return;
+      update((p) => ({ ...p, topics: [...p.topics, placeTopic(slug, node.name, sourcesFor(catalog, slug).map((s) => s.name))] }));
+      flash(`Following ${node.name}`);
+    },
+    unfollow: (topic) => {
+      update((p) => ({ ...p, topics: p.topics.filter((t) => t.id !== topic.id) }));
+      flash(`Stopped following ${topic.name}`);
+      // A topic of your own has no place in the tree to stay on.
+      if (!topic.spine && screen.name === 'topic' && screen.id === topic.id) back();
+    },
     openTopic: (id, leaf) => {
       if (sheet) { swapTop('screen'); setSheet(null); } else open('screen');
       setScreens((s) => [...s, { name: 'topic', id, leaf }]); setShown(PAGE); window.scrollTo(0, 0);
@@ -149,20 +173,13 @@ export default function App() {
     );
   }
 
-  const currentTopic = screen.name === 'topic' ? topicById(screen.id) : undefined;
+  const currentTopic = screen.name === 'topic' ? pageTopic(screen.id) : undefined;
   const settingsTopic = sheet?.kind === 'settings' ? topicById(sheet.id) : undefined;
 
   return (
     <div className="app">
       {screen.name === 'tree'
-        ? <Tree bundle={bundle} profile={profile} onBack={() => back()} onOpen={nav.openTopic}
-            onAdd={(slug) => {
-              const node = nodeOf(bundle, slug);
-              if (!node || profile.topics.some((t) => t.spine === slug)) return;
-              update((p) => ({ ...p, topics: [...p.topics, { id: slug, name: node.name, spine: slug,
-                sources: sourcesFor(catalog, slug).map((s) => s.name), muted: [] }] }));
-              flash(`${node.name} added`);
-            }} />
+        ? <Tree bundle={bundle} profile={profile} onBack={() => back()} onOpen={nav.openTopic} onAdd={nav.follow} />
         : currentTopic
           ? <TopicPage bundle={bundle} profile={profile} topic={currentTopic} leaf={screen.name === 'topic' ? screen.leaf : undefined}
               nav={nav} shown={shown} more={() => setShown((n) => n + PAGE)} />

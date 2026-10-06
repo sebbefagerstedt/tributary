@@ -159,6 +159,25 @@ export function inTopic(story: Story, topic: Topic, leaf?: string) {
   return !topic.muted.some((w) => text.includes(w.toLowerCase()));
 }
 
+/* Who follows the place a page stands on. `own` is a topic you follow that is
+   this place itself -- it has the settings. `via` is a topic you follow that
+   this place sits inside, when you have not followed the place on its own. A
+   subtopic can be followed without its topic, and a topic without any of its
+   subtopics: each is its own row in your topics. */
+export function following(profile: Profile, topic: Topic, leaf?: string): { own?: Topic; via?: Topic } {
+  const here = leaf || topic.spine;
+  const followed = profile.topics.some((t) => t.id === topic.id);
+  if (!here) return followed ? { own: topic } : {};
+  const own = profile.topics.find((t) => t.spine === here) ?? (followed && !leaf ? topic : undefined);
+  if (own) return { own };
+  return followed ? { via: topic } : {};
+}
+
+/* A place in the shared tree as a topic you have not followed: everything the
+   pipeline files there, from every source that files anything there. */
+export const placeTopic = (slug: string, name: string, sources: string[]): Topic =>
+  ({ id: slug, name, spine: slug, sources, muted: [] });
+
 export const isSeen = (p: Profile, s: Story) => p.seen.includes(s.story_id);
 /* New is unread and under 48 hours old, as in version 1. */
 export const isNew = (p: Profile, s: Story) => !isSeen(p, s) && ageHours(s.published_at) < NEW_HOURS;

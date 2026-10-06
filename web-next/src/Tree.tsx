@@ -299,13 +299,15 @@ export function Tree({ bundle, profile, onBack, onOpen, onAdd }: {
                 ))}
               </div>
             )}
-            {selected.topicId && selected.kind !== 'src' && (
-              <button className="btn primary" onClick={() => onOpen(selected.topicId!, selected.slug && selected.slug !== topicOfSel?.spine ? selected.slug : undefined)}>Open</button>
-            )}
-            {!selected.topicId && selected.slug && (
-              <button className="btn primary" onClick={() => onAdd(selected.slug!)}>
-                Add {selected.label} to your topics
-              </button>
+            {selected.kind !== 'src' && (selected.topicId || selected.slug) && (
+              <div className="row">
+                <button className="btn primary" onClick={() => (selected.topicId
+                  ? onOpen(selected.topicId, selected.slug && selected.slug !== topicOfSel?.spine ? selected.slug : undefined)
+                  : onOpen(selected.slug!))}>Open</button>
+                {selected.mine || selected.kind === 'own'
+                  ? <span className="following-tag">✓ Following</span>
+                  : selected.slug && <button className="btn" onClick={() => onAdd(selected.slug!)}>Follow</button>}
+              </div>
             )}
           </>
         ) : (
