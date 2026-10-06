@@ -659,6 +659,7 @@ triage threshold         = 0.66   # no longer a gate; only labels kept/rejected
 store.MAX_ITEM_AGE_DAYS  = 60     # must match `trib prune --days` in the workflow
 topics floor             = 0.55   # re-measured on everything: no gap, 9% filler
 topics park_margin       = 0.02   # parks about 13% of stories on a shelf
+topics fallback_floor    = 0.50   # unmeasured; 0.55 caught 20 stories in 5,983
 ```
 
 bge puts unrelated text near 0.5, so the usable similarity range is about
@@ -707,7 +708,10 @@ published site carries the new categories too. So:
   home and BBC Politics 16 of 24: three narrow subtopics per category miss
   domestic politics, books, celebrity news. So when every subtopic scores under
   the floor, the categories' descriptions are scored and the best one over the
-  same floor takes it (`topics._fallback`). Only then — they never compete with
+  `fallback_floor` takes it (`topics._fallback`). That bar was the floor,
+  0.55, on the first run, and caught 20 stories of 5,983 — a category's
+  description is broad and a short headline sits near all of them — so it is
+  0.50 now. Only then — they never compete with
   subtopics, so "only leaves are scored" still holds for every story a leaf
   will take. `LABEL_RULES` in the fingerprint re-labelled the back catalogue
   once for it; bump it whenever a rule changes and the config does not.
