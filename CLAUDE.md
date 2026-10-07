@@ -755,6 +755,14 @@ topic wants follow-ups, not its whole subject. Its words are not asked, and it
 takes every source, since an event's follow-ups come from anywhere. Unmeasured;
 the sheet previews what it would already hold before you follow.
 
+**And a topic of your own can be made without the server** (2026-10-07: *"it
+is kind of weird that I cannot create my own topics on the main page but I can
+create a story topic"*). On Pages nothing can search the web or embed a
+description, so such a topic is its words: every word of its name, as a whole
+word or plural, in any letters (`state.namedIn`), over every source the
+pipeline reads. New topic shows what it would already hold before it is made.
+Finding new sources for a subject still needs `trib serve`.
+
 ## How it runs
 
 `.github/workflows/update.yml` runs `trib run`, `trib prune --days 60` and
