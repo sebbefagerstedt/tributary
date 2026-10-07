@@ -18,6 +18,7 @@ export interface Topic {
   spine?: string | null;   // the topic in the shared tree it borrows placements from
   parent?: string | null;
   vector?: string | null;  // its description embedded, for topics the spine does not know
+  examples?: number[];     // stories it was taught by: following one event starts from its story
   found?: Record<string, SourceSpec>; // sources found on the web, not yet saved
 }
 export interface Profile {
@@ -46,7 +47,7 @@ const normalise = (p: Profile): Profile =>
 
 /* A topic as saved, without what only the server computes or the page holds
    briefly — to tell whether it changed. */
-const topicKey = (t: Topic) => JSON.stringify([t.name, t.description, t.spine, t.parent, t.muted, t.sources]);
+const topicKey = (t: Topic) => JSON.stringify([t.name, t.description, t.spine, t.parent, t.muted, t.sources, t.examples]);
 
 /* Profiles are names, no password (VISION.md). One device can hold several;
    with a server, every device sees the same ones. */
@@ -142,12 +143,51 @@ const words = (s: string) => s.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w
    asks words first (every word of its name in the story), then the vector, the
    order version 1's lenses used. This is the fit filter VISION.md keeps. */
 export function fits(story: Story, topic: Topic, leaf?: string): boolean {
+  if (topic.examples?.length) return likeExamples(story, topic);
   if (topic.spine) return inPlace(story, leaf || topic.spine);
   const name = words(topic.name);
   const text = `${story.title} ${story.summary || ''} ${story.items.map((i) => i.title).join(' ')}`.toLowerCase();
   if (name.length && name.every((w) => text.includes(w))) return true;
   const tv = decodeVector(topic.vector), sv = decodeVector(story.centroid);
   return !!tv && !!sv && cosine(tv, sv) >= FIT_FLOOR;
+}
+
+/* How close a story must be to the one a topic was taught by. Far stricter
+   than FIT_FLOOR: an event's topic wants that event and its follow-ups, not
+   its whole subject -- at 0.62 "OpenAI rogue agents on Wikimedia" would have
+   taken every AI-security story. Unmeasured (2026-10-07); the page shows what
+   it would catch before you follow, so a wrong bar is visible at once. */
+export const EVENT_FLOOR = 0.82;
+
+/* A topic taught by stories holds them, and whatever comes close to them.
+   Its words are not asked: a name you gave an event ("Rogue agents") is a
+   label, not a query. */
+export function likeExamples(story: Story, topic: Topic): boolean {
+  if (topic.examples?.includes(story.story_id)) return true;
+  const tv = decodeVector(topic.vector), sv = decodeVector(story.centroid);
+  return !!tv && !!sv && cosine(tv, sv) >= EVENT_FLOOR;
+}
+
+/* A topic that follows one story: taught by it, fed by every source, since
+   the follow-ups to an event come from anywhere. */
+export function eventTopic(story: Story, name: string, sources: string[], id: string): Topic {
+  return { id, name, description: story.title, spine: null, sources, muted: [],
+    examples: [story.story_id], vector: story.centroid ?? null };
+}
+
+/* A short name to start from: the headline up to its first colon or dash,
+   at most six words. You can change it before following. */
+export function shortName(title: string): string {
+  const head = title.split(/:\s| [–—-] /)[0];
+  const words = head.split(/\s+/).filter(Boolean);
+  return words.slice(0, 6).join(' ');
+}
+
+/* Two topics cannot share an id, so a name already taken gets a number. */
+export function freeId(profile: Profile, base: string): string {
+  let id = base, n = 2;
+  while (profile.topics.some((t) => t.id === id)) id = `${base}-${n++}`;
+  return id;
 }
 
 /* A story is in a topic when it fits it, came from one of the topic's sources,

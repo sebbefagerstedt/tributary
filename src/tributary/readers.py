@@ -89,7 +89,7 @@ def get_profile(conn: sqlite3.Connection, name: str) -> dict:
     ).fetchone()
     topics = []
     for t in conn.execute(
-        "SELECT id, key, name, description, spine_slug, parent_key, vector, muted "
+        "SELECT id, key, name, description, spine_slug, parent_key, vector, muted, examples "
         "FROM reader_topics WHERE profile_id = ? ORDER BY created_at, id",
         (pid,),
     ).fetchall():
@@ -111,6 +111,7 @@ def get_profile(conn: sqlite3.Connection, name: str) -> dict:
                 "vector": t["vector"],
                 "sources": sources,
                 "muted": json.loads(t["muted"]),
+                "examples": json.loads(t["examples"]),
             }
         )
     seen = [
@@ -205,16 +206,22 @@ def save_topic(
     spine = topic.get("spine")
     description = (topic.get("description") or name).strip()
     muted = [w.strip() for w in topic.get("muted", []) if w and w.strip()]
+    examples = sorted({int(i) for i in topic.get("examples") or []})
     existing = conn.execute(
         "SELECT id, description, vector FROM reader_topics WHERE profile_id = ? AND key = ?",
         (pid, key),
     ).fetchone()
     vector = existing["vector"] if existing and existing["description"] == description else None
+    if examples:
+        # Taught by stories: their vector, not the description's. Computed
+        # here from the full-precision item vectors, and from what the page
+        # sent if none of them is in the database any more.
+        vector = _examples_vector(conn, examples) or topic.get("vector")
     with transaction(conn):
         if existing:
             conn.execute(
                 "UPDATE reader_topics SET name = ?, description = ?, spine_slug = ?, "
-                "parent_key = ?, vector = ?, muted = ? WHERE id = ?",
+                "parent_key = ?, vector = ?, muted = ?, examples = ? WHERE id = ?",
                 (
                     name,
                     description,
@@ -222,6 +229,7 @@ def save_topic(
                     topic.get("parent"),
                     vector,
                     json.dumps(muted),
+                    json.dumps(examples),
                     existing["id"],
                 ),
             )
@@ -229,7 +237,7 @@ def save_topic(
         else:
             topic_id = conn.execute(
                 "INSERT INTO reader_topics (profile_id, key, name, description, spine_slug, "
-                "parent_key, vector, muted) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "parent_key, vector, muted, examples) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     pid,
                     key,
@@ -239,6 +247,7 @@ def save_topic(
                     topic.get("parent"),
                     vector,
                     json.dumps(muted),
+                    json.dumps(examples),
                 ),
             ).lastrowid
         ids = {_source_id(conn, spec) for spec in topic.get("sources", [])}
@@ -263,6 +272,18 @@ def save_topic(
                 )
     reconcile_sources(conn)
     return next(t for t in get_profile(conn, profile)["topics"] if t["id"] == key)
+
+
+def _examples_vector(conn: sqlite3.Connection, story_ids: list[int]) -> str | None:
+    """The stories' centroids averaged and packed, or None if none is stored."""
+    from tributary.topics import centroids  # topics imports the model stack
+
+    found, vectors = centroids(conn, story_ids)
+    if not found:
+        return None
+    mean = vectors.mean(axis=0)
+    norm = float(np.linalg.norm(mean))
+    return pack(mean / norm) if norm else None
 
 
 def delete_topic(conn: sqlite3.Connection, profile: str, key: str) -> None:

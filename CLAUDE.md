@@ -744,6 +744,17 @@ model is injected, as everywhere: `save_topic` embeds a topic's description only
 after its sources validate, and a model that cannot load leaves the topic saved
 without a vector rather than failing the request.
 
+**A topic can be taught by a story** (migration 010, 2026-10-07): *"If I am
+interested in this event and want to follow it I would like to create a topic
+about it."* "Follow this story" on the story sheet saves a topic with
+`examples` (story ids) and, as its vector, their centroids' mean — computed by
+the server from full-precision item vectors, never an embedded headline. The
+page matches it by `likeExamples`: the example itself, or a centroid within
+`EVENT_FLOOR = 0.82` of it, far stricter than `FIT_FLOOR` because an event's
+topic wants follow-ups, not its whole subject. Its words are not asked, and it
+takes every source, since an event's follow-ups come from anywhere. Unmeasured;
+the sheet previews what it would already hold before you follow.
+
 ## How it runs
 
 `.github/workflows/update.yml` runs `trib run`, `trib prune --days 60` and

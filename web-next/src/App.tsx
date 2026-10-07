@@ -189,7 +189,11 @@ export default function App() {
         <p className="health">{bundle.status.broken_sources.length} source{bundle.status.broken_sources.length > 1 ? 's' : ''} not responding: {bundle.status.broken_sources.map((b) => b.name).join(', ')}</p>
       )}
 
-      {sheet?.kind === 'story' && <StorySheet story={sheet.story} onClose={() => back()} />}
+      {sheet?.kind === 'story' && (
+        <StorySheet story={sheet.story} bundle={bundle} profile={profile} catalog={catalog} onClose={() => back()}
+          onOpenTopic={(id) => nav.openTopic(id)}
+          onFollow={(t) => { update((p) => ({ ...p, topics: [...p.topics, t] })); flash(`Following ${t.name}`); }} />
+      )}
       {settingsTopic && (
         <SettingsSheet topic={settingsTopic} catalog={catalog} server={server} onClose={() => back()}
           onChange={saveTopic}

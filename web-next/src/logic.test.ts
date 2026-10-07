@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Bundle, Story, buildCatalog, categories, pathTo, sourcesFor } from './data';
-import { Topic, blankProfile, following, inTopic, isNew, placeTopic } from './state';
+import { Topic, blankProfile, eventTopic, following, inTopic, isNew, placeTopic, shortName } from './state';
 import { cosine, decodeVector } from './vectors';
 
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3600e3).toISOString();
@@ -141,5 +141,29 @@ describe('what you follow', () => {
   it('treats a topic of your own as followed', () => {
     const own: Topic = { id: 'happy', name: 'Happy news', spine: null, sources: [], muted: [] };
     expect(following(me(own), own).own).toBe(own);
+  });
+});
+
+describe('following one story', () => {
+  const pack = (...xs: number[]) => {
+    const v = new Array(8).fill(0);
+    xs.forEach((x, i) => { v[i] = x; });
+    const n = Math.hypot(...v);
+    return btoa(String.fromCharCode(...v.map((x) => (Math.round((x / n) * 127) + 256) % 256)));
+  };
+  const seed = story(1, { title: 'OpenAI "rogue" agent activities found on Wikimedia projects', centroid: pack(1, 0) });
+  const t = eventTopic(seed, 'Rogue agents', ['Lab Blog'], 'rogue-agents');
+
+  it('holds the story it was taught by, and its follow-ups', () => {
+    expect(inTopic(seed, t)).toBe(true);
+    expect(inTopic(story(2, { centroid: pack(1, 0.3) }), t)).toBe(true);    // 0.96
+  });
+  it('leaves out the rest of the subject, which an ordinary topic would take', () => {
+    expect(inTopic(story(3, { centroid: pack(1, 0.9) }), t)).toBe(false);   // 0.74
+    expect(inTopic(story(4, { title: 'Rogue agents everywhere', centroid: pack(0, 1) }), t)).toBe(false);
+  });
+  it('starts from a short name', () => {
+    expect(shortName('Carlos Alcaraz takes first title since February with victory')).toBe('Carlos Alcaraz takes first title since');
+    expect(shortName('Gemini 3: what is new')).toBe('Gemini 3');
   });
 });
