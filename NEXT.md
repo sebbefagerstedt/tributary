@@ -71,7 +71,11 @@ story is about far better than how it feels. Directions to try, cheapest first:
   `addSeed`): the reader marks stories that fit and that do not, and the topic's
   vector moves towards the first and away from the second. Works for any kind
   of topic, needs no model in the browser, and is the same signal a shared topic
-  will need later.
+  will need later. **Half built (2026-10-07):** a topic can be taught by
+  one story — "Follow this story" — and stores `examples` with their vector
+  (`state.likeExamples`, `readers._examples_vector`). Left: adding more
+  examples and counter-examples from a card, and a bar per topic — an event
+  wants `EVENT_FLOOR` (0.82, unmeasured), a tone like Happy News a looser one.
 - **A description with its opposite.** Score against "good news" *minus*
   "bad news" rather than "good news" alone, so the axis is the tone and not the
   subject. Measure it before trusting it: whether bge separates tone at all is

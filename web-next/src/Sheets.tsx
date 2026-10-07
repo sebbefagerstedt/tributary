@@ -5,7 +5,7 @@ import { FormEvent, ReactNode, useMemo, useRef, useState } from 'react';
 import { Bundle, ROOT, Source, Story, agoLabel, categories, childrenOf, isBusy, nodeOf, pathTo, sourcesFor } from './data';
 import { useDragToClose } from './gestures';
 import { DiscoveredCard, asSource, slugOf, specsOf, useDiscovery } from './Discovery';
-import { Profile, SourceSpec, Topic } from './state';
+import { Profile, SourceSpec, Topic, eventTopic, freeId, likeExamples, shortName } from './state';
 import { FoundCard, KIND_WORD, SpecificChips, hueOf } from './ui';
 
 export function Sheet({ onClose, children }: { onClose: () => void; children: ReactNode }) {
@@ -197,17 +197,11 @@ export function NewTopicSheet({ bundle, catalog, profile, server, onCreate, onCl
     if (q.length < 2) return;
     setQuery(q); setName(q); setOwnChosen(undefined); setSpecs({});
   };
-  /* Two topics cannot share an id, so a name already taken gets a number. */
-  const freeId = (base: string) => {
-    let id = base, n = 2;
-    while (profile.topics.some((t) => t.id === id)) id = `${base}-${n++}`;
-    return id;
-  };
   const createOwn = () => {
     const sources = ownChosen || [];
     const found = Object.fromEntries(Object.entries(specs).filter(([n]) => sources.includes(n)));
     const title = name.trim() || query!;
-    onCreate({ id: freeId(slugOf(title)), name: title, description: query, spine: null, sources, muted: [], found });
+    onCreate({ id: freeId(profile, slugOf(title)), name: title, description: query, spine: null, sources, muted: [], found });
   };
   if (query) {
     return (
@@ -293,7 +287,55 @@ export function ProfileSheet({ profile, server, onTopic, onSwitch, onReset, onCl
 }
 
 /* A story: what happened, and everything attached to it, each linking out. */
-export function StorySheet({ story, onClose }: { story: Story; onClose: () => void }) {
+/* Following one event: the story you are reading becomes a topic of its own,
+   holding it and whatever comes close to it later -- the follow-ups, the
+   reactions, the next development. Shown before you follow: what it would
+   already hold, so the bar it uses is never a surprise. */
+function FollowStory({ story, bundle, profile, catalog, onFollow, onOpenTopic }: {
+  story: Story; bundle: Bundle; profile: Profile; catalog: Map<string, Source>;
+  onFollow: (t: Topic) => void; onOpenTopic: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(() => shortName(story.title));
+  const mine = profile.topics.find((t) => t.examples?.includes(story.story_id));
+  const draft = useMemo(() => eventTopic(story, name.trim() || story.title, [...catalog.keys()], ''),
+    [story, name, catalog]);
+  const others = useMemo(() => (open ? bundle.stories.filter((s) => s.story_id !== story.story_id && likeExamples(s, draft)) : []),
+    [open, bundle, story, draft]);
+  if (mine) {
+    return (
+      <button className="btn wide follow-story on" onClick={() => onOpenTopic(mine.id)}>✓ Following as “{mine.name}” ›</button>
+    );
+  }
+  if (!open) return <button className="btn wide follow-story" onClick={() => setOpen(true)}>Follow this story</button>;
+  return (
+    <div className="follow-panel">
+      <h3>Follow this story</h3>
+      <p className="sub">Becomes a topic of yours: this story, and whatever comes close to it later — follow-ups, reactions, what happens next.</p>
+      <label className="eyebrow" htmlFor="event-name">Call it</label>
+      <input className="field" id="event-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
+      <div className="sub follow-count">{others.length
+        ? `${others.length} other ${others.length === 1 ? 'story' : 'stories'} already close to it:`
+        : 'Nothing else close to it yet — new stories join as they arrive.'}</div>
+      {others.length > 0 && (
+        <ul className="follow-preview">
+          {others.slice(0, 4).map((s) => <li key={s.story_id}>{s.title} <span className="sub">· {s.source}, {agoLabel(s.published_at)}</span></li>)}
+          {others.length > 4 && <li className="sub">and {others.length - 4} more</li>}
+        </ul>
+      )}
+      <div className="row">
+        <button className="btn ghost" onClick={() => setOpen(false)}>Cancel</button>
+        <button className="btn primary wide" disabled={!name.trim()}
+          onClick={() => onFollow({ ...draft, id: freeId(profile, slugOf(name.trim())) })}>Follow</button>
+      </div>
+    </div>
+  );
+}
+
+export function StorySheet({ story, bundle, profile, catalog, onFollow, onOpenTopic, onClose }: {
+  story: Story; bundle: Bundle; profile: Profile; catalog: Map<string, Source>;
+  onFollow: (t: Topic) => void; onOpenTopic: (id: string) => void; onClose: () => void;
+}) {
   return (
     <Sheet onClose={onClose}>
       <div className="row"><span className="eyebrow grow">{KIND_WORD[story.kind] || story.kind} · {agoLabel(story.published_at)}</span>
@@ -301,6 +343,7 @@ export function StorySheet({ story, onClose }: { story: Story; onClose: () => vo
       <h2 className="story-title">{story.title}</h2>
       {story.summary && <p className="story-sum">{story.summary}</p>}
       <a className="btn primary wide link-btn" href={story.url} target="_blank" rel="noopener noreferrer">Read at {story.source}</a>
+      <FollowStory story={story} bundle={bundle} profile={profile} catalog={catalog} onFollow={onFollow} onOpenTopic={onOpenTopic} />
       {story.items.length > 1 && (
         <div className="section"><h3>Also in this story · {story.items.length - 1}</h3>
           <div className="set-list">

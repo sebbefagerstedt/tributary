@@ -326,3 +326,12 @@ details[open].src-row .peek { color: var(--muted); }
 .chip .bars i { width: 3px; border-radius: 1px; background: var(--line); }
 .chip .bars i:nth-child(1) { height: 6px; } .chip .bars i:nth-child(2) { height: 9px; } .chip .bars i:nth-child(3) { height: 12px; }
 .chip .bars i.on { background: var(--signal); }
+
+/* Following one story, from the story itself. */
+.follow-story { margin-top: 10px; }
+.follow-story.on { color: var(--accent); }
+.follow-panel { margin-top: 12px; padding: 14px; border-radius: 16px; background: var(--surface); display: grid; gap: 8px; }
+.follow-panel h3 { margin: 0; font-size: 17px; }
+.follow-panel .sub { margin: 0; }
+.follow-preview { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; }
+.follow-count { margin-top: 4px; }

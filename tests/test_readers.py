@@ -149,3 +149,34 @@ def test_seen_is_per_profile_and_starting_over_clears_it(conn, source_id):
         and not got["onboarded"]
         and got["layout"] == "cards"
     )
+
+
+def test_a_topic_taught_by_a_story_takes_its_vector_not_the_descriptions(conn, source_id):
+    """Following one event: the story's centroid, never an embedded headline."""
+    import numpy as np
+    import sqlite_vec
+
+    item_id = conn.execute(
+        "INSERT INTO items (source_id, external_id, kind, url, title, content_hash) "
+        "VALUES (?, 'e1', 'article', 'https://e.test/1', 'Rogue agents on Wikimedia', 'h')",
+        (source_id,),
+    ).lastrowid
+    vector = np.zeros(384, dtype=np.float32)
+    vector[1] = 1.0
+    conn.execute("INSERT INTO item_vectors (item_id, embedding) VALUES (?, ?)",
+                 (item_id, sqlite_vec.serialize_float32(vector.tolist())))
+    story_id = conn.execute("INSERT INTO stories DEFAULT VALUES").lastrowid
+    conn.execute("INSERT INTO story_items (story_id, item_id, role) VALUES (?, ?, 'seed')",
+                 (story_id, item_id))
+    readers.ensure_profile(conn, "S")
+    calls = []
+
+    saved = readers.save_topic(
+        conn, "S",
+        {"name": "Rogue agents", "description": "Rogue agents on Wikimedia",
+         "sources": ["Test Feed"], "examples": [story_id]},
+        embed=lambda texts: calls.append(texts) or fake_embed(texts),
+    )
+    assert saved["examples"] == [story_id]
+    assert saved["vector"] == readers.pack(vector)
+    assert calls == [], "a topic taught by a story never embeds its description"
