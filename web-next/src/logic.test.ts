@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Bundle, Story, buildCatalog, categories, pathTo, sourcesFor } from './data';
-import { Topic, blankProfile, eventTopic, following, inTopic, isNew, placeTopic, shortName } from './state';
+import { Topic, blankProfile, eventTopic, following, inTopic, isNew, namedIn, placeTopic, shortName } from './state';
 import { cosine, decodeVector } from './vectors';
 
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3600e3).toISOString();
@@ -165,5 +165,20 @@ describe('following one story', () => {
   it('starts from a short name', () => {
     expect(shortName('Carlos Alcaraz takes first title since February with victory')).toBe('Carlos Alcaraz takes first title since');
     expect(shortName('Gemini 3: what is new')).toBe('Gemini 3');
+  });
+});
+
+describe('a topic made without a server is its words', () => {
+  const titled = (title: string) => story(9, { title, items: [] });
+  it('asks for every word of its name, as whole words or plurals', () => {
+    expect(namedIn(titled('Russia and Ukraine trade drone strikes'), 'Ukraine war')).toBe(false);
+    expect(namedIn(titled('The war in Ukraine enters a new phase'), 'Ukraine war')).toBe(true);
+    expect(namedIn(titled('New software for warehouses'), 'war')).toBe(false);
+    expect(namedIn(titled('Agents that browse the web'), 'agent')).toBe(true);
+  });
+  it('takes short words and any letters, and skips the little ones', () => {
+    expect(namedIn(titled('EU passes the AI Act'), 'EU')).toBe(true);
+    expect(namedIn(titled('Storm hits Göteborg'), 'Göteborg')).toBe(true);
+    expect(namedIn(titled('Happy ending for the rescued whale'), 'Happy news')).toBe(true);
   });
 });

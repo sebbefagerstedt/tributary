@@ -126,7 +126,7 @@ export function StoryCard({ story, profile, topics, here, onOpen, onTopic }: {
         <div className="chips">
           {places.map((p) => (
             <button key={p.id} className="chip place" onClick={() => onTopic(p.id)}>
-              {p.name}{leaf && p.id === here ? ` › ${leaf}` : ''}
+              {p.name}{leaf && p.id === here && p.spine ? ` › ${leaf}` : ''}
             </button>
           ))}
         </div>

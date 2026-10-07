@@ -5,7 +5,7 @@ import { FormEvent, ReactNode, useMemo, useRef, useState } from 'react';
 import { Bundle, ROOT, Source, Story, agoLabel, categories, childrenOf, isBusy, nodeOf, pathTo, sourcesFor } from './data';
 import { useDragToClose } from './gestures';
 import { DiscoveredCard, asSource, slugOf, specsOf, useDiscovery } from './Discovery';
-import { Profile, SourceSpec, Topic, eventTopic, freeId, likeExamples, shortName } from './state';
+import { Profile, SourceSpec, Topic, eventTopic, freeId, likeExamples, namedIn, shortName, words } from './state';
 import { FoundCard, KIND_WORD, SpecificChips, hueOf } from './ui';
 
 export function Sheet({ onClose, children }: { onClose: () => void; children: ReactNode }) {
@@ -203,6 +203,43 @@ export function NewTopicSheet({ bundle, catalog, profile, server, onCreate, onCl
     const title = name.trim() || query!;
     onCreate({ id: freeId(profile, slugOf(title)), name: title, description: query, spine: null, sources, muted: [], found });
   };
+  /* Without a server nothing can search the web or embed a description, so a
+     subject of your own is its words, over every source Tributary reads --
+     and what it would hold is shown before it is made. */
+  if (query && !server) {
+    const draft: Topic = { id: '', name: name.trim() || query, description: query, spine: null,
+      sources: [...catalog.keys()], muted: [] };
+    const held = bundle.stories.filter((s) => namedIn(s, draft.name));
+    const asked = words(draft.name);
+    return (
+      <Sheet onClose={onClose}>
+        <div className="row"><h2 className="sheet-title">Here's what it would hold</h2>
+          <button className="x" onClick={onClose}>Cancel</button></div>
+        <div className="section">
+          <label className="eyebrow" htmlFor="topic-name">Call it</label>
+          <input className="field" id="topic-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
+          <p className="hint">{asked.length
+            ? <>Stories that mention {asked.map((w, i) => <span key={w}>{i > 0 && (i === asked.length - 1 ? ' and ' : ', ')}<b>{w}</b></span>)}, from every source Tributary reads.</>
+            : 'Give it a word or two to look for.'}</p>
+        </div>
+        <div className="section">
+          <h3>{held.length ? `${held.length} ${held.length === 1 ? 'story' : 'stories'} so far` : 'Nothing yet'}</h3>
+          {held.length > 0 ? (
+            <ul className="follow-preview">
+              {held.slice(0, 6).map((s) => <li key={s.story_id}>{s.title} <span className="sub">· {s.source}, {agoLabel(s.published_at)}</span></li>)}
+              {held.length > 6 && <li className="sub">and {held.length - 6} more</li>}
+            </ul>
+          ) : <p className="hint">New stories that mention it will land here as they arrive. Fewer or more general words catch more.</p>}
+        </div>
+        <p className="hint">Finding new sources for a subject comes with the server.</p>
+        <div className="sticky-cta">
+          <button className="btn ghost" onClick={() => setQuery(null)}>Back</button>
+          <button className="btn primary wide" disabled={!asked.length}
+            onClick={() => onCreate({ ...draft, id: freeId(profile, slugOf(draft.name)) })}>Create topic</button>
+        </div>
+      </Sheet>
+    );
+  }
   if (query) {
     return (
       <Sheet onClose={onClose}>
@@ -229,16 +266,14 @@ export function NewTopicSheet({ bundle, catalog, profile, server, onCreate, onCl
         <button className="x" onClick={onClose}>Cancel</button></div>
       {!shelf ? (
         <div className="section">
-          {server && (
-            <form className="row" style={{ marginBottom: 12 }} onSubmit={search}>
-              <input className="field" id="new-subject" placeholder="Any subject, or paste a site" autoComplete="off"
-                value={typed} onChange={(e) => setTyped(e.target.value)} style={{ flex: 1 }} />
-              <button className="btn" type="submit">Find</button>
-            </form>
-          )}
+          <form className="row" style={{ marginBottom: 12 }} onSubmit={search}>
+            <input className="field" id="new-subject" autoComplete="off"
+              placeholder={server ? 'Any subject, or paste a site' : 'Any subject: a name, a place, a thing'}
+              value={typed} onChange={(e) => setTyped(e.target.value)} style={{ flex: 1 }} />
+            <button className="btn" type="submit">{server ? 'Find' : 'Look'}</button>
+          </form>
           <TreeChooser bundle={bundle} at={at} setAt={setAt} followed={followed} onPick={choose} />
           {at === null && <SpecificChips subjects={specific} picked={[]} onPick={choose} />}
-          {!server && <p className="hint">Any other subject, with sources found on the web, comes with the server.</p>}
         </div>
       ) : (
         <>

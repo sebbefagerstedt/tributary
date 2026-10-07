@@ -136,18 +136,36 @@ export function useProfiles(server: boolean | null, onError: (msg: string) => vo
    suggestion and the topic it becomes agree about what fits. */
 export const FIT_FLOOR = 0.62;
 
-const words = (s: string) => s.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2);
+/* The words a topic's name asks for. Any letters, so "Göteborg" and "Ukraina"
+   count; two letters is enough for AI, EU or F1, and the little words that
+   say nothing about a subject are left out. */
+const STOP = new Set(['the', 'and', 'of', 'in', 'on', 'to', 'for', 'an', 'a', 'at', 'by', 'or', 'news',
+  'och', 'i', 'på', 'av', 'om', 'en', 'ett', 'med', 'för']);
+export const words = (s: string) =>
+  s.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 2 && !STOP.has(w));
+const escape = (w: string) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/* A whole word, or its plural: "war" is not in "software", "agent" is in
+   "agents". */
+const mentions = (text: string, w: string) =>
+  new RegExp(`(?<![\\p{L}\\p{N}])${escape(w)}(s|es)?(?![\\p{L}\\p{N}])`, 'u').test(text);
+
+/* Every word of a name, each somewhere in the story. */
+export function namedIn(story: Story, name: string): boolean {
+  const asked = words(name);
+  if (!asked.length) return false;
+  const text = `${story.title} ${story.summary || ''} ${story.items.map((i) => i.title).join(' ')}`.toLowerCase();
+  return asked.every((w) => mentions(text, w));
+}
 
 /* Does a story fit a topic? A topic from the shared tree borrows the
    pipeline's placement — the story was filed there or somewhere below it. A topic of your own
    asks words first (every word of its name in the story), then the vector, the
-   order version 1's lenses used. This is the fit filter VISION.md keeps. */
+   order version 1's lenses used. Made without a server, it has no vector --
+   nothing in the browser can embed a description -- and its words are all. This is the fit filter VISION.md keeps. */
 export function fits(story: Story, topic: Topic, leaf?: string): boolean {
   if (topic.examples?.length) return likeExamples(story, topic);
   if (topic.spine) return inPlace(story, leaf || topic.spine);
-  const name = words(topic.name);
-  const text = `${story.title} ${story.summary || ''} ${story.items.map((i) => i.title).join(' ')}`.toLowerCase();
-  if (name.length && name.every((w) => text.includes(w))) return true;
+  if (namedIn(story, topic.name)) return true;
   const tv = decodeVector(topic.vector), sv = decodeVector(story.centroid);
   return !!tv && !!sv && cosine(tv, sv) >= FIT_FLOOR;
 }
