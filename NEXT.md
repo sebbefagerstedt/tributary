@@ -49,6 +49,38 @@ arrives at once. How to run it is in `web-next/README.md`. What is left:
   feed. An unfollowed topic opens as a preview: stories already held that fit,
   then a live fetch of its suggested sources, kept only briefly.
 
+## The owner goes through this: how a topic of your own matches
+
+Asked 2026-10-08: *"a topic should not only go on the actual word, that can be
+a part of it, but I do not see why following a story should work smarter than
+following a topic."* Today the ways of making a topic of your own match in
+three different ways:
+
+- **Following a story** matches by meaning: the story's vector, and any story
+  within `EVENT_FLOOR` (0.82) of it (`state.likeExamples`). Its words are not
+  asked.
+- **A subject made on Pages** matches by words only — every word of its name
+  (`state.namedIn`) — because only the pipeline runs the model, and it never
+  sees what a reader types; the browser has vectors for stories, not for words.
+- **A subject made with `trib serve`** matches its words *or* its embedded
+  description, at `FIT_FLOOR` (0.62, unmeasured — see step 2).
+
+So on Pages a followed story is smarter than a followed subject. The owner's
+direction: words can be part of a topic, never all of it. Ways to weigh:
+
+- **Teach a subject by what it finds.** The stories its words catch, or the
+  ones the reader taps in the preview, become its examples, and it then takes
+  what is close to them by meaning, as a followed story does. No model in the
+  browser — it is "A topic taught by examples" below, finished. A wrong word
+  match would teach the wrong meaning, so the reader confirms the examples.
+- **Run the model in the browser.** bge-small has browser builds (ONNX Runtime
+  Web, transformers.js), so Pages could embed a typed subject as the server
+  does. Not tried here: it costs a download of tens of megabytes on a phone,
+  and its vectors must agree with the pipeline's — measure both first.
+- **One rule for every topic of your own:** words and meaning together, with
+  a bar per topic — strict for an event, looser for a subject, loosest for a
+  tone like Happy News.
+
 ## Next: your own topics inside the tree
 
 General news arrived on 2026-10-05 as one shared tree (News → eight
