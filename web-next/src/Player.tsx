@@ -7,9 +7,10 @@ import { Story, agoLabel } from './data';
 import { Topic } from './state';
 import { KIND_WORD, hueOf, kindColour } from './ui';
 
-export function Player({ topic, queue, index, onStep, onClose, onRead, onSeen }: {
-  topic: Topic; queue: Story[]; index: number;
+export function Player({ topic, title, queue, index, onStep, onClose, onRead, onSeen, onTopic }: {
+  topic: Topic; title: string; queue: Story[]; index: number;
   onStep: (d: number) => void; onClose: () => void; onRead: (s: Story) => void; onSeen: (s: Story) => void;
+  onTopic: () => void;
 }) {
   const s = queue[index];
   useEffect(() => { if (s) onSeen(s); }, [s, onSeen]);
@@ -30,8 +31,12 @@ export function Player({ topic, queue, index, onStep, onClose, onRead, onSeen }:
         {s.media_url && <img className="player-art" src={s.media_url} alt="" referrerPolicy="no-referrer" />}
         <div className="bars">{queue.map((q, j) => <i key={q.story_id} className={j <= index ? 'on' : ''} />)}</div>
         <div className="top">
-          <span className="face" style={{ background: hueOf(topic.id) }}>{topic.name[0]}</span>
-          <b>{topic.name}</b>
+          {/* The topic it plays, as a way to its page. */}
+          <button className="who" onClick={onTopic} aria-label={`Open ${title}`}>
+            <span className="face" style={{ background: hueOf(topic.id) }}>{title[0]}</span>
+            <b>{title}</b>
+            <span className="go" aria-hidden="true">›</span>
+          </button>
           <button className="close" onClick={onClose} aria-label="Close">✕</button>
         </div>
         <div className="body">

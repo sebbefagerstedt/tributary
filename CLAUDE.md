@@ -268,6 +268,16 @@ unless they are under 48 hours old … I still want to have the opportunity to
 look at more"*. So `isNew` is the one test every count, ring and playlist uses;
 older unread stories stay in the feed to scroll to, they just stop being news.
 
+**Reading the feed marks what you read** (2026-10-10: *"News are not removed
+from new if I use the feed"* — only opening a story or playing it did, as in
+version 1). A new card counts as read once it has been on screen and then
+scrolled away over the top, or, for the last few, once you scroll down to
+"You're all caught up" below them (`web-next/src/reading.ts`). A card never
+shown is never marked, whatever scroll position a page opens at, and what was
+new when the list opened stays in place, greyed, instead of jumping under
+Earlier while you look. These are read marks, nothing more: the ground rule
+that the ranking never learns from scroll-past stands.
+
 ### Ranking
 
 Recency-decayed relevance with a 48-hour half-life, plus a capped bonus for

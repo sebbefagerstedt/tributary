@@ -11,7 +11,7 @@ import { setHueOrder } from './ui';
 
 type Screen = { name: 'home' } | { name: 'topic'; id: string; leaf?: string } | { name: 'tree' };
 type SheetState = null | { kind: 'settings'; id: string } | { kind: 'new' } | { kind: 'profile' } | { kind: 'story'; story: Story };
-interface PlayerState { topic: Topic; queue: Story[]; index: number }
+interface PlayerState { topic: Topic; leaf?: string; queue: Story[]; index: number }
 type Layer = 'screen' | 'sheet' | 'player';
 
 const PAGE = 50;
@@ -108,6 +108,12 @@ export default function App() {
 
   const markSeen = useCallback((s: Story) =>
     update((p) => (p.seen.includes(s.story_id) ? p : { ...p, seen: [...p.seen, s.story_id] })), [update]);
+  /* Several at once, as reading the feed marks them (reading.ts). */
+  const readMany = useCallback((ids: number[]) => update((p) => {
+    const had = new Set(p.seen);
+    const added = ids.filter((id) => !had.has(id));
+    return added.length ? { ...p, seen: [...p.seen, ...added] } : p;
+  }), [update]);
 
   const screen = screens[screens.length - 1];
   const topicById = (id: string) => profile?.topics.find((t) => t.id === id);
@@ -149,12 +155,13 @@ export default function App() {
       const fresh = list.filter((s) => isNew(profile, s)).reverse(); // oldest first, so they read in order
       const queue = fresh.length ? fresh : list.slice(0, 10);
       if (!queue.length) return;
-      setPlayer({ topic, queue, index: 0 }); open('player');
+      setPlayer({ topic, leaf, queue, index: 0 }); open('player');
     },
     openTree: () => { setScreens((s) => [...s, { name: 'tree' }]); open('screen'); window.scrollTo(0, 0); },
     openProfile: () => { setSheet({ kind: 'profile' }); open('sheet'); },
     openSettings: (topic) => { setSheet({ kind: 'settings', id: topic.id }); open('sheet'); },
     newTopic: () => { setSheet({ kind: 'new' }); open('sheet'); },
+    readMany,
     back: () => back(),
     setLayout: (layout) => update((p) => ({ ...p, layout })),
   };
@@ -214,6 +221,15 @@ export default function App() {
       )}
       {player && (
         <Player topic={player.topic} queue={player.queue} index={player.index} onSeen={markSeen}
+          title={(player.leaf && nodeOf(bundle, player.leaf)?.name) || player.topic.name}
+          onTopic={() => {
+            // The page you came from: close the player. Anywhere else: open it in the player's place.
+            const here = screen.name === 'topic' && screen.id === player.topic.id && screen.leaf === player.leaf;
+            if (here) { back(); return; }
+            swapTop('screen'); setPlayer(null);
+            setScreens((s) => [...s, { name: 'topic', id: player.topic.id, leaf: player.leaf }]);
+            setShown(PAGE); window.scrollTo(0, 0);
+          }}
           onClose={() => back()}
           onRead={(s) => { swapTop('sheet'); setPlayer(null); markSeen(s); setSheet({ kind: 'story', story: s }); }}
           onStep={(d) => {
