@@ -66,20 +66,33 @@ three different ways:
   description, at `FIT_FLOOR` (0.62, unmeasured — see step 2).
 
 So on Pages a followed story is smarter than a followed subject. The owner's
-direction: words can be part of a topic, never all of it. Ways to weigh:
+direction: words can be part of a topic, never all of it — and **words suit a
+specific event better than a general topic** (2026-10-10: *"that might be more
+suited to when following a specific event instead of a more general topic"*),
+the opposite of how it works today:
 
-- **Teach a subject by what it finds.** The stories its words catch, or the
-  ones the reader taps in the preview, become its examples, and it then takes
-  what is close to them by meaning, as a followed story does. No model in the
-  browser — it is "A topic taught by examples" below, finished. A wrong word
-  match would teach the wrong meaning, so the reader confirms the examples.
-- **Run the model in the browser.** bge-small has browser builds (ONNX Runtime
-  Web, transformers.js), so Pages could embed a typed subject as the server
-  does. Not tried here: it costs a download of tens of megabytes on a phone,
-  and its vectors must agree with the pipeline's — measure both first.
-- **One rule for every topic of your own:** words and meaning together, with
-  a bar per topic — strict for an event, looser for a subject, loosest for a
-  tone like Happy News.
+- **An event has names**, so words fit it: the people, places, companies and
+  versions in its headline ("Wikimedia", "Japan Open", "Bevy 0.20"), and the
+  entities the pipeline already finds per story (they are in the bundle; 34
+  seeded, all AI so far). One name alone is a whole subject — "OpenAI" is all
+  of OpenAI's news — so an event asks for its names together, or for a name
+  and closeness, and keeps its vector for follow-ups that use other words.
+- **A general topic is a concept**: its stories rarely share one word, and a
+  word catches the wrong ones — *"we're happy to announce"* put Bevy 0.20 in
+  Happy News (2026-10-10). It needs meaning, with words as one part. Ways to
+  give it meaning on Pages:
+  - **Teach it by what it finds.** The stories its words catch, or the ones
+    the reader taps in the preview, become its examples, and it then takes
+    what is close to them by meaning, as a followed story does. No model in
+    the browser — it is "A topic taught by examples" below, finished. A wrong
+    word match would teach the wrong meaning, so the reader confirms them.
+  - **Run the model in the browser.** bge-small has browser builds (ONNX
+    Runtime Web, transformers.js), so Pages could embed a typed subject as the
+    server does. Not tried here: it costs a download of tens of megabytes on a
+    phone, and its vectors must agree with the pipeline's — measure both.
+- **Then one rule for every topic of your own:** names and meaning together,
+  weighted by kind — names first for an event, meaning first for a subject,
+  and loosest for a tone like Happy News.
 
 ## Next: your own topics inside the tree
 
