@@ -101,14 +101,15 @@ export function FoundCard({ name, id, sources, chosen, setChosen }: {
   );
 }
 
-export function StoryCard({ story, profile, topics, here, onOpen, onTopic }: {
+export function StoryCard({ story, profile, topics, here, onOpen, onTopic, watch }: {
   story: Story; profile: Profile; topics: Topic[]; here?: string;
   onOpen: (s: Story) => void; onTopic: (id: string, leaf?: string) => void;
+  watch?: (el: HTMLElement | null) => void;   // reading the feed: see reading.ts
 }) {
   const places = topics.filter((t) => inTopic(story, t));
   const leaf = story.topics.find((l) => l.parent)?.name;
   return (
-    <article className={`card ${isSeen(profile, story) ? 'read' : ''}`}>
+    <article ref={watch} className={`card ${isSeen(profile, story) ? 'read' : ''}`}>
       <button className="cover" style={{ background: kindColour(story.kind) }} onClick={() => onOpen(story)}>
         {story.media_url && <img className="cover-img" src={story.media_url} alt="" loading="lazy" referrerPolicy="no-referrer"
           onError={(e) => { (e.target as HTMLImageElement).remove(); }} />}

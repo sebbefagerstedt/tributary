@@ -1,8 +1,10 @@
 /* Home and a topic's page. Each has two views of one place, not separate tabs
    (VISION.md): Topics, the boxes of what is under it, and Feed, its stories. */
 
+import { useState } from 'react';
 import { Bundle, ROOT, Story, childrenOf, nodeOf, pathTo } from './data';
-import { Profile, Topic, byNewest, following, inTopic, isNew } from './state';
+import { Profile, Topic, byNewest, following, inTopic, isNew, isSeen } from './state';
+import { useReadOnScroll } from './reading';
 import { Caught, ICON, LayoutSwitch, StoryCard, hueOf } from './ui';
 
 export interface Nav {
@@ -16,6 +18,7 @@ export interface Nav {
   follow: (slug: string) => void;
   unfollow: (topic: Topic) => void;
   newTopic: () => void;
+  readMany: (ids: number[]) => void;
   back: () => void;
   setLayout: (l: Profile['layout']) => void;
 }
@@ -81,20 +84,29 @@ function SubjectTiles({ boxes, profile }: { boxes: Box[]; profile: Profile }) {
 }
 
 /* New first, then "You're all caught up", then the rest under Earlier. Fifty at a
-   time behind a button, never refilling on scroll (VISION.md, principle 6). */
+   time behind a button, never refilling on scroll (VISION.md, principle 6).
+   Scrolling past a new story marks it read (reading.ts). What was new when the
+   list opened stays where it is, greyed once read, rather than jumping under
+   Earlier while you look. */
 function Cards({ list, profile, topics, here, nav, shown, more }: {
   list: Story[]; profile: Profile; topics: Topic[]; here?: string; nav: Nav; shown: number; more: () => void;
 }) {
-  const fresh = list.filter((s) => isNew(profile, s));
-  const rest = list.filter((s) => !isNew(profile, s));
+  const [opened] = useState(() => new Set(list.filter((s) => isNew(profile, s)).map((s) => s.story_id)));
+  const fresh = list.filter((s) => opened.has(s.story_id) || isNew(profile, s));
+  const inFresh = new Set(fresh.map((s) => s.story_id));
+  const rest = list.filter((s) => !inFresh.has(s.story_id));
+  const { cardRef, endRef } = useReadOnScroll(nav.readMany);
   const card = (s: Story) => (
     <StoryCard key={s.story_id} story={s} profile={profile} topics={topics} here={here}
-      onOpen={nav.openStory} onTopic={nav.openTopic} />
+      onOpen={nav.openStory} onTopic={nav.openTopic}
+      watch={inFresh.has(s.story_id) && !isSeen(profile, s) ? cardRef(s.story_id) : undefined} />
   );
   return (
     <>
       <div className="stack">{fresh.map(card)}</div>
-      <Caught note={fresh.length ? 'Nothing else new from the last 48 hours.' : 'Nothing new from the last 48 hours.'} />
+      <div ref={endRef}>
+        <Caught note={fresh.length ? 'Nothing else new from the last 48 hours.' : 'Nothing new from the last 48 hours.'} />
+      </div>
       {rest.length > 0 && (
         <>
           <div className="eyebrow older-label">Earlier</div>
@@ -129,7 +141,7 @@ export function Home({ bundle, profile, nav, shown, more }: {
       {profile.layout === 'grid'
         ? <SubjectTiles profile={profile} boxes={profile.topics.map((t) => ({
             key: t.id, name: t.name, hue: hueOf(t.id), list: storiesOf(bundle, t), open: () => nav.openTopic(t.id) }))} />
-        : <Cards list={mine} profile={profile} topics={profile.topics} nav={nav} shown={shown} more={more} />}
+        : <Cards key="home" list={mine} profile={profile} topics={profile.topics} nav={nav} shown={shown} more={more} />}
     </>
   );
 }
@@ -197,7 +209,8 @@ export function TopicPage({ bundle, profile, topic, leaf, nav, shown, more }: {
             open: () => nav.openTopic(topic.id, l.slug) }))} />
         : list.length === 0
           ? <div className="empty">{own ? "Nothing here yet. Add sources in this topic's settings." : 'Nothing here right now.'}</div>
-          : <Cards list={list} profile={profile} topics={profile.topics} here={topic.id} nav={nav} shown={shown} more={more} />}
+          : <Cards key={`${topic.id}/${leaf ?? ''}`} list={list} profile={profile} topics={profile.topics} here={topic.id}
+              nav={nav} shown={shown} more={more} />}
     </>
   );
 }

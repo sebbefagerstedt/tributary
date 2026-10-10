@@ -236,7 +236,14 @@ export function following(profile: Profile, topic: Topic, leaf?: string): { own?
 export const placeTopic = (slug: string, name: string, sources: string[]): Topic =>
   ({ id: slug, name, spine: slug, sources, muted: [] });
 
-export const isSeen = (p: Profile, s: Story) => p.seen.includes(s.story_id);
+/* Seen marks as a set, built once per version of the list: the feed asks for
+   every story on every render, and the list only grows. */
+const seenSets = new WeakMap<number[], Set<number>>();
+export const isSeen = (p: Profile, s: Story) => {
+  let set = seenSets.get(p.seen);
+  if (!set) { set = new Set(p.seen); seenSets.set(p.seen, set); }
+  return set.has(s.story_id);
+};
 /* New is unread and under 48 hours old, as in version 1. */
 export const isNew = (p: Profile, s: Story) => !isSeen(p, s) && ageHours(s.published_at) < NEW_HOURS;
 
