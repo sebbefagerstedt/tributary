@@ -186,6 +186,20 @@ export function likeExamples(story: Story, topic: Topic): boolean {
   return !!tv && !!sv && cosine(tv, sv) >= EVENT_FLOOR;
 }
 
+/* Stories about what this one is about: within FIT_FLOOR of it, a much wider
+   ring than the event itself. Where those come from is where the event's
+   follow-ups are likely to appear, so it is what a followed story's sources
+   are suggested from. */
+export function nearby(story: Story, stories: Story[]): Story[] {
+  const v = decodeVector(story.centroid);
+  if (!v) return [story];
+  return stories.filter((s) => {
+    if (s.story_id === story.story_id) return true;
+    const w = decodeVector(s.centroid);
+    return !!w && cosine(v, w) >= FIT_FLOOR;
+  });
+}
+
 /* A topic that follows one story: taught by it, fed by every source, since
    the follow-ups to an event come from anywhere. */
 export function eventTopic(story: Story, name: string, sources: string[], id: string): Topic {

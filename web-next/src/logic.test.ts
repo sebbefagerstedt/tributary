@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Bundle, Story, buildCatalog, categories, pathTo, sourcesFor } from './data';
-import { Topic, blankProfile, eventTopic, following, inTopic, isNew, namedIn, placeTopic, shortName } from './state';
+import { Bundle, Story, buildCatalog, categories, pathTo, rankSources, sourcesFor } from './data';
+import { Topic, blankProfile, eventTopic, following, inTopic, isNew, namedIn, nearby, placeTopic, shortName } from './state';
 import { cosine, decodeVector } from './vectors';
 
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3600e3).toISOString();
@@ -180,5 +180,29 @@ describe('a topic made without a server is its words', () => {
     expect(namedIn(titled('EU passes the AI Act'), 'EU')).toBe(true);
     expect(namedIn(titled('Storm hits Göteborg'), 'Göteborg')).toBe(true);
     expect(namedIn(titled('Happy ending for the rescued whale'), 'Happy news')).toBe(true);
+  });
+});
+
+describe('where a topic of your own gets its news', () => {
+  const pack = (...xs: number[]) => {
+    const v = new Array(8).fill(0);
+    xs.forEach((x, i) => { v[i] = x; });
+    const n = Math.hypot(...v);
+    return btoa(String.fromCharCode(...v.map((x) => (Math.round((x / n) * 127) + 256) % 256)));
+  };
+  const from = (id: number, source: string, centroid?: string) => story(id, {
+    source, centroid, items: [{ kind: 'article', title: `Story ${id}`, url: `https://e.test/${id}`, source, published_at: hoursAgo(3) }],
+  });
+
+  it('ranks the sources by how many of its stories each supplied', () => {
+    const stories = [from(1, 'BBC'), from(2, 'BBC'), from(3, 'Guardian'), from(4, 'BBC')];
+    const catalog = buildCatalog({ generated_at: '', status: { broken_sources: [] }, spine: [], stories });
+    expect(rankSources(stories, catalog).map((f) => [f.src.name, f.n])).toEqual([['BBC', 3], ['Guardian', 1]]);
+  });
+  it('suggests a followed story\'s sources from the stories about the same subject', () => {
+    const event = from(1, 'HN', pack(1, 0));
+    const same = from(2, 'Verge', pack(1, 0.5));      // 0.89: same subject
+    const apart = from(3, 'arXiv', pack(0.4, 1));     // 0.37: something else
+    expect(nearby(event, [event, same, apart]).map((s) => s.story_id)).toEqual([1, 2]);
   });
 });

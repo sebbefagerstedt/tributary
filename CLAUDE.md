@@ -761,17 +761,36 @@ about it."* "Follow this story" on the story sheet saves a topic with
 the server from full-precision item vectors, never an embedded headline. The
 page matches it by `likeExamples`: the example itself, or a centroid within
 `EVENT_FLOOR = 0.82` of it, far stricter than `FIT_FLOOR` because an event's
-topic wants follow-ups, not its whole subject. Its words are not asked, and it
-takes every source, since an event's follow-ups come from anywhere. Unmeasured;
-the sheet previews what it would already hold before you follow.
+topic wants follow-ups, not its whole subject. Its words are not asked.
+Unmeasured; the sheet previews what it would already hold before you follow.
 
 **And a topic of your own can be made without the server** (2026-10-07: *"it
 is kind of weird that I cannot create my own topics on the main page but I can
 create a story topic"*). On Pages nothing can search the web or embed a
 description, so such a topic is its words: every word of its name, as a whole
-word or plural, in any letters (`state.namedIn`), over every source the
-pipeline reads. New topic shows what it would already hold before it is made.
-Finding new sources for a subject still needs `trib serve`.
+word or plural, in any letters (`state.namedIn`). New topic shows what it
+would already hold before it is made. Finding new sources for a subject still
+needs `trib serve`.
+
+**Every way of following shows where the topic gets its news first**
+(2026-10-10: *"Can we do something about the source selection or is that
+dependent on a server? Right now all sources are chosen at first"*). Choosing
+among the sources the pipeline already reads needs no server — the catalogue
+is in the bundle — and only finding new ones does. So:
+
+- **A place from the tree** offers the sources that put stories there, all
+  ticked, each with how many (`placeFit`, "12 here"). Follow on a topic page or
+  in the graph goes through this sheet too (`FollowPlaceSheet`), as
+  `VISION.md`'s previews always said; it used to take them all in one tap.
+- **A subject made on Pages** offers the sources whose stories mention it,
+  ranked by how many (`data.rankSources`), the top `SUGGESTED = 8` ticked —
+  the way `suggest.for_subject` ranks a subject's sources on the server.
+- **A followed story** offers the sources of the stories about the same
+  subject (`state.nearby`, within `FIT_FLOOR`), its own sources first and the
+  top eight ticked: that is where its follow-ups are likely to appear.
+
+Every other source the pipeline reads stays one tap away under "More sources
+Tributary reads", unticked (`SourcePicker`).
 
 ## How it runs
 

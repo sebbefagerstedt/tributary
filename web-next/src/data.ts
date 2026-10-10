@@ -118,3 +118,23 @@ export function sourcesFor(catalog: Map<string, Source>, slug: string): Source[]
 }
 
 export const isBusy = (s: Source) => s.week >= 300;
+
+/* How many suggested sources start ticked: as many as the server suggests for
+   a subject (`suggest.for_subject`). */
+export const SUGGESTED = 8;
+
+export interface Found { src: Source; n: number }
+
+/* The sources these stories came from, ranked by how many each supplied --
+   what "Here's what we found" offers for a topic the tree does not hold, the
+   way the server ranks the sources it reads for a subject. */
+export function rankSources(stories: Story[], catalog: Map<string, Source>): Found[] {
+  const n = new Map<string, number>();
+  for (const story of stories) {
+    for (const name of storySources(story)) n.set(name, (n.get(name) || 0) + 1);
+  }
+  return [...n]
+    .filter(([name]) => catalog.has(name))
+    .map(([name, k]) => ({ src: catalog.get(name)!, n: k }))
+    .sort((a, b) => b.n - a.n || b.src.week - a.src.week || a.src.name.localeCompare(b.src.name));
+}

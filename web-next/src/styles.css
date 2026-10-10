@@ -342,3 +342,12 @@ details[open].src-row .peek { color: var(--muted); }
 .player .top .who b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .player .top .who .go { opacity: .7; font-size: 20px; line-height: 1; }
 .player .top .who b { flex: 0 1 auto; }
+
+/* Where a topic gets its news: how much of it each source supplies, and the
+   rest of what Tributary reads behind one tap. */
+.src-row .fit { color: var(--accent); font-weight: 650; }
+.more-src > summary, .follow-sources > summary { cursor: pointer; padding: 10px 12px; font-weight: 600; font-size: 14px; color: var(--muted); }
+.follow-sources { border-radius: 12px; background: var(--surface-2); }
+.follow-sources > summary { color: var(--fg); }
+.follow-sources > summary .link { color: var(--accent); margin-left: 6px; }
+.follow-sources .found { margin: 0 8px 8px; }
