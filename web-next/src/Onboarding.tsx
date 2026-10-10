@@ -7,7 +7,7 @@ import { FormEvent, useMemo, useState } from 'react';
 import { Bundle, ROOT, Source, categories, childrenOf, nodeOf, sourcesFor } from './data';
 import { DiscoveredCard, slugOf } from './Discovery';
 import { Profile, SourceSpec, Topic } from './state';
-import { FoundCard, SpecificChips, StarterList } from './ui';
+import { FoundCard, SpecificChips, StarterList, placeFit } from './ui';
 
 export function ProfileStep({ names, onChoose }: { names: string[]; onChoose: (n: string) => void }) {
   const [name, setName] = useState('');
@@ -117,7 +117,7 @@ export function InterestsAndFound({ bundle, catalog, profile, server, onDone }: 
         <p>Sources for each topic. Keep them all, or pick a few — you can change this any time.</p></div>
       <div className="stack" style={{ marginTop: 12 }}>
         {picks.map((id) => (
-          <FoundCard key={id} id={id} name={nameOf(id)}
+          <FoundCard key={id} id={id} name={nameOf(id)} fitOf={placeFit(id)}
             sources={sourcesFor(catalog, id)} chosen={chosen[id] || []}
             setChosen={(next) => setChosen((c) => ({ ...c, [id]: next }))} />
         ))}

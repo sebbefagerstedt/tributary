@@ -3,14 +3,15 @@ import { Bundle, Story, buildCatalog, loadBundle, nodeOf, sourcesFor } from './d
 import { InterestsAndFound, ProfileStep } from './Onboarding';
 import { Player } from './Player';
 import { Home, Nav, TopicPage, storiesOf } from './Screens';
-import { NewTopicSheet, ProfileSheet, SettingsSheet, StorySheet } from './Sheets';
+import { FollowPlaceSheet, NewTopicSheet, ProfileSheet, SettingsSheet, StorySheet } from './Sheets';
 import { hasServer, remote } from './remote';
 import { Topic, isNew, placeTopic, useProfiles } from './state';
 import { Tree } from './Tree';
 import { setHueOrder } from './ui';
 
 type Screen = { name: 'home' } | { name: 'topic'; id: string; leaf?: string } | { name: 'tree' };
-type SheetState = null | { kind: 'settings'; id: string } | { kind: 'new' } | { kind: 'profile' } | { kind: 'story'; story: Story };
+type SheetState = null | { kind: 'settings'; id: string } | { kind: 'new' } | { kind: 'profile' } | { kind: 'story'; story: Story }
+  | { kind: 'follow'; slug: string };
 interface PlayerState { topic: Topic; leaf?: string; queue: Story[]; index: number }
 type Layer = 'screen' | 'sheet' | 'player';
 
@@ -132,11 +133,11 @@ export default function App() {
       const mine = profile?.topics.find((t) => t.spine === slug);
       nav.openTopic(mine ? mine.id : slug);
     },
+    // Its sources first, then follow (FollowPlaceSheet).
     follow: (slug) => {
       const node = bundle && nodeOf(bundle, slug);
       if (!node || profile?.topics.some((t) => t.spine === slug)) return;
-      update((p) => ({ ...p, topics: [...p.topics, placeTopic(slug, node.name, sourcesFor(catalog, slug).map((s) => s.name))] }));
-      flash(`Following ${node.name}`);
+      setSheet({ kind: 'follow', slug }); open('sheet');
     },
     unfollow: (topic) => {
       update((p) => ({ ...p, topics: p.topics.filter((t) => t.id !== topic.id) }));
@@ -207,6 +208,17 @@ export default function App() {
           onDelete={() => {
             update((p) => ({ ...p, topics: p.topics.filter((t) => t.id !== settingsTopic.id) }));
             back(screen.name === 'topic' ? 2 : 1); flash('Topic removed');
+          }} />
+      )}
+      {sheet?.kind === 'follow' && (
+        <FollowPlaceSheet bundle={bundle} catalog={catalog} slug={sheet.slug} onClose={() => back()}
+          onFollow={(sources) => {
+            const node = nodeOf(bundle, sheet.slug);
+            if (node && !profile.topics.some((t) => t.spine === sheet.slug)) {
+              update((p) => ({ ...p, topics: [...p.topics, placeTopic(sheet.slug, node.name, sources)] }));
+              flash(`Following ${node.name}`);
+            }
+            back();
           }} />
       )}
       {sheet?.kind === 'new' && (

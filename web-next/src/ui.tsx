@@ -1,4 +1,4 @@
-import { Source, Story, agoLabel, isBusy } from './data';
+import { Found, Source, Story, agoLabel, isBusy } from './data';
 import { Profile, Topic, inTopic, isNew, isSeen } from './state';
 
 export const ICON = {
@@ -52,7 +52,10 @@ export function Caught({ note }: { note?: string }) {
   );
 }
 
-export function SourceRow({ src, on, onToggle }: { src: Source; on: boolean; onToggle: () => void }) {
+export function SourceRow({ src, on, onToggle, fit }: {
+  src: Source; on: boolean; onToggle: () => void;
+  fit?: string;   // how much of this topic it supplies, e.g. "12 here"
+}) {
   return (
     <details className="src-row">
       <summary>
@@ -61,6 +64,7 @@ export function SourceRow({ src, on, onToggle }: { src: Source; on: boolean; onT
         <div>
           <div className="nm">{src.name}</div>
           <div className="sub">
+            {fit && <><b className="fit">{fit}</b> · </>}
             {src.week.toLocaleString()} this week
             {isBusy(src) && <> · <span className="warn">very busy</span></>}
           </div>
@@ -75,8 +79,9 @@ export function SourceRow({ src, on, onToggle }: { src: Source; on: boolean; onT
 /* "Here is what we found" for one subject: its sources with previews, all
    ticked, with Include all as the easy path. Used by the first run and by
    creating a topic. */
-export function FoundCard({ name, id, sources, chosen, setChosen }: {
+export function FoundCard({ name, id, sources, chosen, setChosen, fitOf }: {
   name: string; id: string; sources: Source[]; chosen: string[]; setChosen: (next: string[]) => void;
+  fitOf?: (s: Source) => string | undefined;
 }) {
   const all = sources.length > 0 && chosen.length === sources.length;
   return (
@@ -93,10 +98,56 @@ export function FoundCard({ name, id, sources, chosen, setChosen }: {
         </div>
       )}
       {sources.map((s) => (
-        <SourceRow key={s.name} src={s} on={chosen.includes(s.name)}
+        <SourceRow key={s.name} src={s} on={chosen.includes(s.name)} fit={fitOf?.(s)}
           onToggle={() => setChosen(chosen.includes(s.name) ? chosen.filter((x) => x !== s.name) : [...chosen, s.name])} />
       ))}
       {sources.length === 0 && <div className="src-row"><span className="sub">No sources cover this yet.</span></div>}
+    </div>
+  );
+}
+
+/* A place's sources, each with how many stories it put there. */
+export const placeFit = (slug: string) => (s: Source) => {
+  const n = s.places.get(slug) || 0;
+  return n ? `${n} here` : undefined;
+};
+
+/* Where a topic of your own gets its news, before it is made (VISION.md,
+   "Creating a topic"): the sources that already supply it, best first, the
+   top few ticked -- then every other source Tributary reads, a tap away. No
+   server needed: choosing among what the pipeline already reads is all in the
+   bundle; only finding new sources is the server's. */
+export function SourcePicker({ found, catalog, chosen, setChosen, fitLabel }: {
+  found: Found[]; catalog: Map<string, Source>; chosen: string[]; setChosen: (next: string[]) => void;
+  fitLabel: (n: number) => string;
+}) {
+  const inFound = new Set(found.map((f) => f.src.name));
+  const others = [...catalog.values()].filter((s) => !inFound.has(s.name)).sort((a, b) => b.week - a.week);
+  const toggle = (name: string) => setChosen(chosen.includes(name) ? chosen.filter((x) => x !== name) : [...chosen, name]);
+  const allFound = found.length > 0 && found.every((f) => chosen.includes(f.src.name));
+  const othersOn = others.filter((s) => chosen.includes(s.name)).length;
+  return (
+    <div className="found">
+      <div className="all-row">
+        <span>{chosen.length} {chosen.length === 1 ? 'source' : 'sources'} selected</span>
+        {found.length > 0 && (
+          <button className="btn ghost" onClick={() => setChosen(allFound
+            ? chosen.filter((n) => !inFound.has(n))
+            : [...new Set([...chosen, ...found.map((f) => f.src.name)])])}>
+            {allFound ? 'Pick a few' : 'Include all these'}</button>
+        )}
+      </div>
+      {found.map((f) => (
+        <SourceRow key={f.src.name} src={f.src} on={chosen.includes(f.src.name)} fit={fitLabel(f.n)}
+          onToggle={() => toggle(f.src.name)} />
+      ))}
+      {others.length > 0 && (
+        <details className="more-src">
+          <summary>{found.length ? 'More sources Tributary reads' : 'Sources Tributary reads'} · {others.length}
+            {othersOn > 0 && ` · ${othersOn} selected`}</summary>
+          {others.map((s) => <SourceRow key={s.name} src={s} on={chosen.includes(s.name)} onToggle={() => toggle(s.name)} />)}
+        </details>
+      )}
     </div>
   );
 }

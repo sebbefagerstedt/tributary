@@ -2,11 +2,14 @@
    your profile, and a story. Each is one level of "back". */
 
 import { FormEvent, ReactNode, useMemo, useRef, useState } from 'react';
-import { Bundle, ROOT, Source, Story, agoLabel, categories, childrenOf, isBusy, nodeOf, pathTo, sourcesFor } from './data';
+import {
+  Bundle, ROOT, SUGGESTED, Source, Story, agoLabel, categories, childrenOf, isBusy, nodeOf, pathTo, rankSources,
+  sourcesFor, storySources,
+} from './data';
 import { useDragToClose } from './gestures';
 import { DiscoveredCard, asSource, slugOf, specsOf, useDiscovery } from './Discovery';
-import { Profile, SourceSpec, Topic, eventTopic, freeId, likeExamples, namedIn, shortName, words } from './state';
-import { FoundCard, KIND_WORD, SpecificChips, hueOf } from './ui';
+import { Profile, SourceSpec, Topic, eventTopic, freeId, likeExamples, namedIn, nearby, shortName, words } from './state';
+import { FoundCard, KIND_WORD, SourcePicker, SpecificChips, hueOf, placeFit } from './ui';
 
 export function Sheet({ onClose, children }: { onClose: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -172,6 +175,87 @@ function TreeChooser({ bundle, at, setAt, followed, onPick }: {
   );
 }
 
+/* Without a server nothing can search the web or embed a description, so a
+   subject of your own is its words -- and its sources are the ones whose
+   stories mention them, ranked the way the server ranks a subject's
+   (`suggest.for_subject`). What it would hold is shown before it is made. */
+function WordTopicSheet({ bundle, catalog, profile, query, onCreate, onBack, onClose }: {
+  bundle: Bundle; catalog: Map<string, Source>; profile: Profile; query: string;
+  onCreate: (t: Topic) => void; onBack: () => void; onClose: () => void;
+}) {
+  const [name, setName] = useState(query);
+  const [chosen, setChosen] = useState<string[] | null>(null);  // null: the suggestion, until you change it
+  const title = name.trim() || query;
+  const asked = words(title);
+  const matches = useMemo(() => bundle.stories.filter((s) => namedIn(s, title)), [bundle, title]);
+  const found = useMemo(() => rankSources(matches, catalog), [matches, catalog]);
+  const suggested = useMemo(() => (found.length
+    ? found.slice(0, SUGGESTED).map((f) => f.src.name)
+    : [...catalog.keys()]), [found, catalog]);
+  const picked = chosen ?? suggested;
+  const held = matches.filter((s) => storySources(s).some((n) => picked.includes(n)));
+  return (
+    <Sheet onClose={onClose}>
+      <div className="row"><h2 className="sheet-title">Here's what it would hold</h2>
+        <button className="x" onClick={onClose}>Cancel</button></div>
+      <div className="section">
+        <label className="eyebrow" htmlFor="topic-name">Call it</label>
+        <input className="field" id="topic-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
+        <p className="hint">{asked.length
+          ? <>Stories that mention {asked.map((w, i) => <span key={w}>{i > 0 && (i === asked.length - 1 ? ' and ' : ', ')}<b>{w}</b></span>)}.</>
+          : 'Give it a word or two to look for.'}</p>
+      </div>
+      <div className="section">
+        <h3>{held.length ? `${held.length} ${held.length === 1 ? 'story' : 'stories'} so far` : 'Nothing yet'}</h3>
+        {held.length > 0 ? (
+          <ul className="follow-preview">
+            {held.slice(0, 6).map((s) => <li key={s.story_id}>{s.title} <span className="sub">· {s.source}, {agoLabel(s.published_at)}</span></li>)}
+            {held.length > 6 && <li className="sub">and {held.length - 6} more</li>}
+          </ul>
+        ) : <p className="hint">New stories that mention it will land here as they arrive. Fewer or more general words catch more.</p>}
+      </div>
+      <div className="section">
+        <h3>Where it gets its news</h3>
+        <p className="hint">{found.length
+          ? `The sources whose stories mention it, most first — the top ${Math.min(SUGGESTED, found.length)} ticked.`
+          : 'Nothing mentions it yet, so it starts with every source Tributary reads.'} Finding new sources for a subject comes with the server.</p>
+        <SourcePicker found={found} catalog={catalog} chosen={picked} setChosen={setChosen} fitLabel={(n) => `${n} mention it`} />
+      </div>
+      <div className="sticky-cta">
+        <button className="btn ghost" onClick={onBack}>Back</button>
+        <button className="btn primary wide" disabled={!asked.length || !picked.length}
+          onClick={() => onCreate({ id: freeId(profile, slugOf(title)), name: title, description: query,
+            spine: null, sources: picked, muted: [] })}>Create topic</button>
+      </div>
+    </Sheet>
+  );
+}
+
+/* Following a place in the tree goes through its sources first (VISION.md:
+   Follow turns the preview into a topic through "Here's what we found"). */
+export function FollowPlaceSheet({ bundle, catalog, slug, onFollow, onClose }: {
+  bundle: Bundle; catalog: Map<string, Source>; slug: string;
+  onFollow: (sources: string[]) => void; onClose: () => void;
+}) {
+  const node = nodeOf(bundle, slug);
+  const sources = useMemo(() => sourcesFor(catalog, slug), [catalog, slug]);
+  const [chosen, setChosen] = useState(() => sources.map((s) => s.name));
+  if (!node) return null;
+  return (
+    <Sheet onClose={onClose}>
+      <div className="row"><h2 className="sheet-title">Follow {node.name}</h2>
+        <button className="x" onClick={onClose}>Cancel</button></div>
+      <p className="hint">The sources that put stories here, most first. Untick any you do not want in it.</p>
+      <div style={{ marginTop: 12 }}>
+        <FoundCard id={slug} name={node.name} sources={sources} chosen={chosen} setChosen={setChosen} fitOf={placeFit(slug)} />
+      </div>
+      <div className="sticky-cta">
+        <button className="btn primary wide" disabled={!chosen.length} onClick={() => onFollow(chosen)}>Follow</button>
+      </div>
+    </Sheet>
+  );
+}
+
 /* Creating a topic: the one moment sources are the main event. */
 export function NewTopicSheet({ bundle, catalog, profile, server, onCreate, onClose }: {
   bundle: Bundle; catalog: Map<string, Source>; profile: Profile; server: boolean;
@@ -203,42 +287,9 @@ export function NewTopicSheet({ bundle, catalog, profile, server, onCreate, onCl
     const title = name.trim() || query!;
     onCreate({ id: freeId(profile, slugOf(title)), name: title, description: query, spine: null, sources, muted: [], found });
   };
-  /* Without a server nothing can search the web or embed a description, so a
-     subject of your own is its words, over every source Tributary reads --
-     and what it would hold is shown before it is made. */
   if (query && !server) {
-    const draft: Topic = { id: '', name: name.trim() || query, description: query, spine: null,
-      sources: [...catalog.keys()], muted: [] };
-    const held = bundle.stories.filter((s) => namedIn(s, draft.name));
-    const asked = words(draft.name);
-    return (
-      <Sheet onClose={onClose}>
-        <div className="row"><h2 className="sheet-title">Here's what it would hold</h2>
-          <button className="x" onClick={onClose}>Cancel</button></div>
-        <div className="section">
-          <label className="eyebrow" htmlFor="topic-name">Call it</label>
-          <input className="field" id="topic-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
-          <p className="hint">{asked.length
-            ? <>Stories that mention {asked.map((w, i) => <span key={w}>{i > 0 && (i === asked.length - 1 ? ' and ' : ', ')}<b>{w}</b></span>)}, from every source Tributary reads.</>
-            : 'Give it a word or two to look for.'}</p>
-        </div>
-        <div className="section">
-          <h3>{held.length ? `${held.length} ${held.length === 1 ? 'story' : 'stories'} so far` : 'Nothing yet'}</h3>
-          {held.length > 0 ? (
-            <ul className="follow-preview">
-              {held.slice(0, 6).map((s) => <li key={s.story_id}>{s.title} <span className="sub">· {s.source}, {agoLabel(s.published_at)}</span></li>)}
-              {held.length > 6 && <li className="sub">and {held.length - 6} more</li>}
-            </ul>
-          ) : <p className="hint">New stories that mention it will land here as they arrive. Fewer or more general words catch more.</p>}
-        </div>
-        <p className="hint">Finding new sources for a subject comes with the server.</p>
-        <div className="sticky-cta">
-          <button className="btn ghost" onClick={() => setQuery(null)}>Back</button>
-          <button className="btn primary wide" disabled={!asked.length}
-            onClick={() => onCreate({ ...draft, id: freeId(profile, slugOf(draft.name)) })}>Create topic</button>
-        </div>
-      </Sheet>
-    );
+    return <WordTopicSheet bundle={bundle} catalog={catalog} profile={profile} query={query}
+      onCreate={onCreate} onBack={() => setQuery(null)} onClose={onClose} />;
   }
   if (query) {
     return (
@@ -278,7 +329,8 @@ export function NewTopicSheet({ bundle, catalog, profile, server, onCreate, onCl
       ) : (
         <>
           <div style={{ marginTop: 12 }}>
-            <FoundCard id={shelf.slug} name={shelf.name} sources={sourcesFor(catalog, shelf.slug)} chosen={chosen} setChosen={setChosen} />
+            <FoundCard id={shelf.slug} name={shelf.name} sources={sourcesFor(catalog, shelf.slug)} chosen={chosen} setChosen={setChosen}
+              fitOf={placeFit(shelf.slug)} />
           </div>
           <div className="sticky-cta">
             <button className="btn ghost" onClick={() => setPick(null)}>Back</button>
@@ -332,11 +384,20 @@ function FollowStory({ story, bundle, profile, catalog, onFollow, onOpenTopic }:
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(() => shortName(story.title));
+  const [chosen, setChosen] = useState<string[] | null>(null);  // null: the suggestion, until you change it
   const mine = profile.topics.find((t) => t.examples?.includes(story.story_id));
-  const draft = useMemo(() => eventTopic(story, name.trim() || story.title, [...catalog.keys()], ''),
-    [story, name, catalog]);
-  const others = useMemo(() => (open ? bundle.stories.filter((s) => s.story_id !== story.story_id && likeExamples(s, draft)) : []),
-    [open, bundle, story, draft]);
+  // Its sources are suggested from the stories about the same subject: where
+  // the follow-ups are likely to appear. The story's own always come first.
+  const near = useMemo(() => (open ? nearby(story, bundle.stories) : []), [open, bundle, story]);
+  const found = useMemo(() => rankSources(near, catalog), [near, catalog]);
+  const suggested = useMemo(() => [...new Set([
+    ...storySources(story).filter((n) => catalog.has(n)),
+    ...found.slice(0, SUGGESTED).map((f) => f.src.name),
+  ])], [story, found, catalog]);
+  const picked = chosen ?? suggested;
+  const draft = useMemo(() => eventTopic(story, name.trim() || story.title, picked, ''), [story, name, picked]);
+  const others = useMemo(() => (open ? bundle.stories.filter((s) => s.story_id !== story.story_id && likeExamples(s, draft)
+    && storySources(s).some((n) => picked.includes(n))) : []), [open, bundle, story, draft, picked]);
   if (mine) {
     return (
       <button className="btn wide follow-story on" onClick={() => onOpenTopic(mine.id)}>✓ Following as “{mine.name}” ›</button>
@@ -358,9 +419,13 @@ function FollowStory({ story, bundle, profile, catalog, onFollow, onOpenTopic }:
           {others.length > 4 && <li className="sub">and {others.length - 4} more</li>}
         </ul>
       )}
+      <details className="follow-sources">
+        <summary>From {picked.length} {picked.length === 1 ? 'source' : 'sources'} that write about this <span className="link">Change</span></summary>
+        <SourcePicker found={found} catalog={catalog} chosen={picked} setChosen={setChosen} fitLabel={(n) => `${n} on this subject`} />
+      </details>
       <div className="row">
         <button className="btn ghost" onClick={() => setOpen(false)}>Cancel</button>
-        <button className="btn primary wide" disabled={!name.trim()}
+        <button className="btn primary wide" disabled={!name.trim() || !picked.length}
           onClick={() => onFollow({ ...draft, id: freeId(profile, slugOf(name.trim())) })}>Follow</button>
       </div>
     </div>
