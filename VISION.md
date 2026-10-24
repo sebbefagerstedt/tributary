@@ -114,15 +114,21 @@ rule an event wants and a subject does not.
   or a story very close to it in meaning (`EVENT_FLOOR`, unmeasured). It has
   its own row, apart from your topics, and it **ends**: when nothing has joined
   it for a while, the happening is over and it steps aside.
-- **A topic** is a collection you keep. It is one of four kinds, and each
+- **A topic** is a collection you keep. It is one of three kinds, and each
   matches the way that works for it:
 
   | Kind | Example | Matches by |
   |---|---|---|
   | A place in the tree | Technology, AI, Football | where the pipeline filed the story |
-  | A subject | "Swedish politics", Happy News | meaning: the story against its embedded description; its words are a hint, never the whole rule |
-  | A name | Saab, OpenAI | the name and its aliases, as the pipeline matches entities — one name alone is a whole subject |
+  | A subject | "Swedish politics", Saab, Happy News | naming it **or** meaning it: a story that names it is in, and so is one close to its embedded description |
   | A set of sources | "Svenska nyheter" = everything from Expressen | nothing more: every story from its sources |
+
+  **A name is a subject, not a kind of its own** (the owner, the same day: *"it
+  feels unnecessary to create a new type"*). For Saab the naming half does
+  nearly all the work and for "Swedish politics" the meaning half does; one
+  rule covers both. What to watch: a lone name embeds vaguely, so its meaning
+  half may pull in neighbours (other carmakers) — measure it, and muted words
+  narrow it meanwhile.
 
   Muted words narrow any of them. Only a subject needs the model at the time
   you make it, which is one reason the hosted backend embeds what a reader
@@ -236,7 +242,7 @@ anywhere in AI, with Open, or Add to your topics.
 | **Source** | A feed (RSS, Atom, a news sitemap, or a special adapter such as arXiv, Hacker News, GitHub releases). Shared: fetched once for everyone who uses it, with its health and last error. |
 | **Item** | One entry from a source: title, short summary, link, date, picture, vector. Expires after a fixed window. |
 | **Story** | Items about the same event, grouped — the unit you read, as in version 1. |
-| **Topic** | Yours, and kept. A place in the tree, a subject, a name or a set of sources (see "Topics and followed stories are two things"); the sources you chose for it, optional muted words, and optionally a parent topic — subtopics are topics with a parent. |
+| **Topic** | Yours, and kept. A place in the tree, a subject (a name is one) or a set of sources (see "Topics and followed stories are two things"); the sources you chose for it, optional muted words, and optionally a parent topic — subtopics are topics with a parent. |
 | **Followed story** | Yours, and temporary. One happening you follow: its names and its vector, from the story you followed it from. It ends when the happening goes quiet. |
 | **Your tree** | Your topics and how they nest, under your profile. |
 | **Profile** | A name you create, nothing else — no password for now (decided 2026-10-04: *"Keep it simple and let the user create a profile for now, no password yet"*). Version 1 already works this way. Real sign-in comes later. |
@@ -252,8 +258,7 @@ by the embeddings — the story's vector against the topic's description, as
 version 1 homes stories today. Because of it a source is never labelled "writes
 about everything": a broad source is safe to add, so the warning only added
 noise and was removed the same day. *What* fits depends on the topic's kind
-(2026-10-24): meaning for a subject, the tree's filing for a place, the name for
-a name; a set of sources is the one kind with no filter beyond its sources,
+(2026-10-24): naming or meaning for a subject, the tree's filing for a place; a set of sources is the one kind with no filter beyond its sources,
 because choosing them is the whole of what it asks.
 
 **A story can sit in several of your topics, and is read once** (decided
