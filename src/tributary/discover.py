@@ -163,11 +163,14 @@ def snippet(found: Found) -> str:
     lines = ["[[sources]]", f'kind = "{found.kind}"', f"name = {_toml(found.title)}",
              f"url = {_toml(found.url)}"]
     if found.kind == "sitemap":
-        # Every URL on the site, as a start: the adapter requires a pattern, and
-        # narrowing it to the news path is the person's call.
-        host = re.escape(urlsplit(found.url).hostname or "")
-        lines.append(f"include = {_toml(host + '/')}")
+        lines.append(f"include = {_toml(default_include(found.url))}")
     return "\n".join(lines)
+
+
+def default_include(sitemap_url: str) -> str:
+    """Every URL on the sitemap's own host, as a start: the adapter requires a
+    pattern, and narrowing it to the news path is the person's call."""
+    return re.escape(urlsplit(sitemap_url).hostname or "") + "/"
 
 
 def _toml(value: str) -> str:

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Bundle, Story, buildCatalog, categories, pathTo, rankSources, sourcesFor } from './data';
+import { Bundle, Story, buildCatalog, categories, pathTo, rankSources, relatedPlaces, sourcesFor } from './data';
 import { Topic, blankProfile, eventTopic, following, inTopic, isNew, namedIn, nearby, placeTopic, shortName } from './state';
 import { cosine, decodeVector } from './vectors';
 
@@ -204,5 +204,21 @@ describe('where a topic of your own gets its news', () => {
     const same = from(2, 'Verge', pack(1, 0.5));      // 0.89: same subject
     const apart = from(3, 'arXiv', pack(0.4, 1));     // 0.37: something else
     expect(nearby(event, [event, same, apart]).map((s) => s.story_id)).toEqual([1, 2]);
+  });
+});
+
+describe('related topics for what you typed', () => {
+  const spine = [
+    { slug: 'agents', name: 'AI agents' },
+    { slug: 'agents-coding', name: 'Coding agents', parent: 'agents' },
+    { slug: 'chips', name: 'Chips' },
+  ];
+  const bundle = { generated_at: '', status: { broken_sources: [] }, spine, stories: [] } as Bundle;
+  it('are where those stories are filed, most first, never the parents above', () => {
+    const stories = [story(1), story(2), story(3, { topics: [{ slug: 'chips', name: 'Chips' }] })];
+    expect(relatedPlaces(stories, bundle)).toEqual([{ slug: 'agents-coding', n: 2 }, { slug: 'chips', n: 1 }]);
+  });
+  it('leave out a place the tree does not have', () => {
+    expect(relatedPlaces([story(4, { topics: [{ slug: 'gone', name: 'Gone' }] })], bundle)).toEqual([]);
   });
 });
