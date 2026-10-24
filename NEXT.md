@@ -4,26 +4,8 @@ Only upcoming work lives here. **When a step is done, delete it** — history is
 git. The design these steps build is in **`VISION.md`**; read it first.
 `CLAUDE.md` holds the pipeline's rules and lessons; version 1's page is retired.
 
-The redesign goes in steps, and **each step ends in something the owner can try
-and judge before the next one costs anything** — no hosting is paid for until
-the design feels usable.
 
-## 1. The new frontend, on GitHub Pages
-
-Build what the approved mockup shows (`docs/mockup/index.html`, approved by the
-owner 2026-10-04: *"It looks perfect"*). React with Vite (decided 2026-10-04), in its own folder,
-published free on GitHub Pages.
-It reads the bundle the current pipeline already produces. A profile is a name,
-no password; topics and their source lists live with it in the browser.
-
-**Built 2026-10-04 in `web-next/`**, and since 2026-10-05 the site itself at
-https://sebbefagerstedt.github.io/tributary/ (version 1's page is retired): profile, first run, home with
-the layout switch, topic pages with subtopics, the player, topic settings, new
-topics, the story sheet and the tree. Starter subjects are the spine's shelves
-and the sources offered are the ones the pipeline already reads, until step 2.
-This step is done when the owner has used it on a phone and its fixes are in.
-
-## 2. The backend on the owner's computer, with real suggestions
+## 1. The backend on the owner's computer, with real suggestions
 
 No shortcuts: suggestions are built against real fetching (`VISION.md`).
 
@@ -49,50 +31,36 @@ arrives at once. How to run it is in `web-next/README.md`. What is left:
   feed. An unfollowed topic opens as a preview: stories already held that fit,
   then a live fetch of its suggested sources, kept only briefly.
 
-## The owner goes through this: how a topic of your own matches
+## Topics and followed stories, separated
 
-Asked 2026-10-08: *"a topic should not only go on the actual word, that can be
-a part of it, but I do not see why following a story should work smarter than
-following a topic."* Today the ways of making a topic of your own match in
-three different ways:
+Decided 2026-10-24; the design is in `VISION.md`, "Topics and followed stories
+are two things". Today a followed story is saved as a topic (`examples`) and
+sits among them; a topic of your own matches every word of its name on Pages,
+and its words *or* its embedded description (`FIT_FLOOR`) with `trib serve`;
+and there is no topic that takes everything from its sources. To build, best
+once the backend is hosted, since a subject needs the model when it is made:
 
-- **Following a story** matches by meaning: the story's vector, and any story
-  within `EVENT_FLOOR` (0.82) of it (`state.likeExamples`). Its words are not
-  asked.
-- **A subject made on Pages** matches by words only — every word of its name
-  (`state.namedIn`) — because only the pipeline runs the model, and it never
-  sees what a reader types; the browser has vectors for stories, not for words.
-- **A subject made with `trib serve`** matches its words *or* its embedded
-  description, at `FIT_FLOOR` (0.62, unmeasured — see step 2).
-
-So on Pages a followed story is smarter than a followed subject. The owner's
-direction: words can be part of a topic, never all of it — and **words suit a
-specific event better than a general topic** (2026-10-10: *"that might be more
-suited to when following a specific event instead of a more general topic"*),
-the opposite of how it works today:
-
-- **An event has names**, so words fit it: the people, places, companies and
-  versions in its headline ("Wikimedia", "Japan Open", "Bevy 0.20"), and the
-  entities the pipeline already finds per story (they are in the bundle; 34
-  seeded, all AI so far). One name alone is a whole subject — "OpenAI" is all
-  of OpenAI's news — so an event asks for its names together, or for a name
-  and closeness, and keeps its vector for follow-ups that use other words.
-- **A general topic is a concept**: its stories rarely share one word, and a
-  word catches the wrong ones — *"we're happy to announce"* put Bevy 0.20 in
-  Happy News (2026-10-10). It needs meaning, with words as one part. Ways to
-  give it meaning on Pages:
-  - **Teach it by what it finds.** The stories its words catch, or the ones
-    the reader taps in the preview, become its examples, and it then takes
-    what is close to them by meaning, as a followed story does. No model in
-    the browser — it is "A topic taught by examples" below, finished. A wrong
-    word match would teach the wrong meaning, so the reader confirms them.
-  - **Run the model in the browser.** bge-small has browser builds (ONNX
-    Runtime Web, transformers.js), so Pages could embed a typed subject as the
-    server does. Not tried here: it costs a download of tens of megabytes on a
-    phone, and its vectors must agree with the pipeline's — measure both.
-- **Then one rule for every topic of your own:** names and meaning together,
-  weighted by kind — names first for an event, meaning first for a subject,
-  and loosest for a tone like Happy News.
+- **Followed stories get their own list and row**, out of `profile.topics`,
+  and their own table beside `reader_topics` (they carry examples, names and a
+  vector, never a spine). Moving the ones saved as topics is a migration.
+- **A followed story matches by its names together, or closeness.** The names
+  come from its headline and the entities already in the bundle (34 seeded,
+  all AI; Swedish and general names will need either more seeds or names read
+  from headlines). `EVENT_FLOOR` (0.82) stays for closeness, unmeasured.
+- **A followed story ends** when nothing has joined it for a while — two weeks
+  is a guess; measure how long stories in the corpus keep growing (`trib
+  renewal`) before choosing.
+- **A topic has a kind** — place, subject, name or sources — chosen when it is
+  made (the search can propose one: a pasted site proposes sources, a single
+  capitalised word a name, anything else a subject).
+- **A subject matches by meaning**, its words only a hint. Its bar is
+  `FIT_FLOOR` (0.62), still unmeasured: measure it on the owner's corpus first.
+  Happy News, a tone rather than a subject, is the hard case (below).
+- **A name matches by name and aliases**, the way `entities.py` matches: whole
+  words, aliases unambiguous.
+- **A set of sources takes everything from them** — "Svenska nyheter" holding
+  all of Expressen, the topic the owner made on 2026-10-24 that holds nothing
+  today.
 
 ## Next: your own topics inside the tree
 
@@ -141,16 +109,3 @@ Culture; and whatever `trib topics --suggest` shows piling up on a category.
 ## 3. Hosting, once it feels right
 
 The small server from `VISION.md`, accounts, and topics stored per person.
-
-## Parked — from version 1's plans
-
-Not part of the first version. The full notes are in git history: `NEXT.md` as
-of commit `ed1c48f`.
-
-- **Posting and commenting**, with the worked-out design: comments hang on a
-  story, posts on a topic; the comment's address must survive a re-cluster, so
-  it cannot be the story's row id alone.
-- **Subjects outside AI**: product launches and their affiliate-content problem,
-  search that fetches when you ask, and GDELT (open, keyless, but rate-limited
-  hard). The redesign absorbs most of this — every reader picks their own
-  subjects — but those notes say what a broad source costs.
