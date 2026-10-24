@@ -5,14 +5,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Tributary is a personal AI-news feed: it ingests news, papers, releases and
 discussion, groups them into **stories**, labels them, and serves a feed you
 scan on a phone — live at https://sebbefagerstedt.github.io/tributary/.
-`README.md` is the user-facing how-to. **`NEXT.md` is only the list of what to
-build next**; this file holds everything else: the ground rules, how the code
+`README.md` is the user-facing how-to. **`PLAN.md` is the plan for starting
+over in a new repository** (2026-10-24; it replaced `NEXT.md`); this file holds everything else: the ground rules, how the code
 fits together, and the decisions that should not be rediscovered.
 
 **This file describes version 1 — the pipeline that runs today — and what
 building it taught.** The app is being redesigned (decided 2026-10-04): **`VISION.md` is
-the spec for the redesign and wins wherever the two disagree**, and `NEXT.md` is
-its roadmap. Version 1's page (one HTML file with tabs, follows, lenses) was
+the spec for the redesign and wins wherever the two disagree**, and `PLAN.md` is
+what comes after it. Version 1's page (one HTML file with tabs, follows, lenses) was
 **retired on 2026-10-05**; the site is now the React app in `web-next/`, and the
 page decisions that carry over are listed at the end of `VISION.md` — the rest
 are in git history, in this file before the commit that retired the page. Still
@@ -47,8 +47,8 @@ are one shared spine; deployment is a static site rebuilt every three hours.
   commit on a branch, push it, merge into `main` with `--no-ff` ("Merge … into
   main"), and push `main`. The workflow runs on every push to `main` and every
   three hours at minute 17, so a merge redeploys the live site.
-- **`NEXT.md` is a to-do list, not a journal.** When an entry is built, delete
-  it; do not strike it through. History is in git. A decision worth keeping goes
+- **`PLAN.md` is a plan, not a journal.** When a step is built, delete it; do
+  not strike it through. History is in git. A decision worth keeping goes
   here, or into the docstring of the code it is about.
 - **`src/tributary/sample_config.toml` must be a copy of `config.toml`.**
   `trib init` hands it out, and `tests/test_cli.py` fails if they differ.
