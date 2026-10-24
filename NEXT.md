@@ -50,14 +50,14 @@ once the backend is hosted, since a subject needs the model when it is made:
 - **A followed story ends** when nothing has joined it for a while — two weeks
   is a guess; measure how long stories in the corpus keep growing (`trib
   renewal`) before choosing.
-- **A topic has a kind** — place, subject, name or sources — chosen when it is
-  made (the search can propose one: a pasted site proposes sources, a single
-  capitalised word a name, anything else a subject).
-- **A subject matches by meaning**, its words only a hint. Its bar is
-  `FIT_FLOOR` (0.62), still unmeasured: measure it on the owner's corpus first.
-  Happy News, a tone rather than a subject, is the hard case (below).
-- **A name matches by name and aliases**, the way `entities.py` matches: whole
-  words, aliases unambiguous.
+- **A topic has a kind** — place, subject or sources — chosen when it is made
+  (the search can propose one: a pasted site proposes sources, anything else a
+  subject).
+- **A subject matches by naming it or meaning it** — a name like Saab is a
+  subject, not a kind of its own. Naming is today's whole-word match; meaning
+  is `FIT_FLOOR` (0.62), unmeasured: measure it on the owner's corpus first,
+  and check what a lone name's vector pulls in. Happy News, a tone rather than
+  a subject, is the hard case (below).
 - **A set of sources takes everything from them** — "Svenska nyheter" holding
   all of Expressen, the topic the owner made on 2026-10-24 that holds nothing
   today.
