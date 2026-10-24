@@ -179,6 +179,7 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-
 .topic-hero .row .btn.solid { background: #fff; color: #14211d; }
 .toolbar { display: flex; justify-content: space-between; align-items: center; margin: 4px 0 12px; gap: 10px; }
 .toolbar .count { white-space: nowrap; }
+.inside { margin-top: 20px; }
 
 /* Sheets */
 .scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 20; display: flex; justify-content: center; align-items: flex-end; }

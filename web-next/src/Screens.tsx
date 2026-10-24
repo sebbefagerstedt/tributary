@@ -139,9 +139,37 @@ export function Home({ bundle, profile, nav, shown, more }: {
         <LayoutSwitch value={profile.layout} onChange={nav.setLayout} />
       </div>
       {profile.layout === 'grid'
-        ? <SubjectTiles profile={profile} boxes={profile.topics.map((t) => ({
-            key: t.id, name: t.name, hue: hueOf(t.id), list: storiesOf(bundle, t), open: () => nav.openTopic(t.id) }))} />
+        ? <>
+            <SubjectTiles profile={profile} boxes={profile.topics.map((t) => ({
+              key: t.id, name: t.name, hue: hueOf(t.id), list: storiesOf(bundle, t), open: () => nav.openTopic(t.id) }))} />
+            <InsideFollowed bundle={bundle} profile={profile} nav={nav} />
+          </>
         : <Cards key="home" list={mine} profile={profile} topics={profile.topics} nav={nav} shown={shown} more={more} />}
+    </>
+  );
+}
+
+/* What is inside each topic you follow, on the start page too (2026-10-24:
+   *"I could not see subtopics of technology at the startpage"*): one row of
+   boxes per followed topic that has subtopics, the same boxes its own page
+   shows. Looking, not following -- nothing here adds to your feed. */
+function InsideFollowed({ bundle, profile, nav }: { bundle: Bundle; profile: Profile; nav: Nav }) {
+  const groups = profile.topics
+    .map((t) => ({ t, subs: t.spine ? childrenOf(bundle, t.spine) : [] }))
+    .filter((g) => g.subs.length);
+  return (
+    <>
+      {groups.map(({ t, subs }) => (
+        <section key={t.id} className="inside">
+          <div className="toolbar">
+            <button className="eyebrow crumb" onClick={() => nav.openTopic(t.id)}>Inside {t.name} ›</button>
+          </div>
+          <SubjectTiles profile={profile} boxes={subs.map((l) => ({
+            key: l.slug, name: l.name, hue: hueOf(t.id), list: storiesOf(bundle, t, l.slug),
+            followed: profile.topics.some((x) => x.spine === l.slug),
+            open: () => nav.openTopic(t.id, l.slug) }))} />
+        </section>
+      ))}
     </>
   );
 }
