@@ -31,36 +31,40 @@ arrives at once. How to run it is in `web-next/README.md`. What is left:
   feed. An unfollowed topic opens as a preview: stories already held that fit,
   then a live fetch of its suggested sources, kept only briefly.
 
-## Topics and followed stories, separated
+## One kind of topic, and a tree that starts empty
 
-Decided 2026-10-24; the design is in `VISION.md`, "Topics and followed stories
-are two things". Today a followed story is saved as a topic (`examples`) and
-sits among them; a topic of your own matches every word of its name on Pages,
-and its words *or* its embedded description (`FIT_FLOOR`) with `trib serve`;
-and there is no topic that takes everything from its sources. To build, best
-once the backend is hosted, since a subject needs the model when it is made:
+Decided 2026-10-24; the design is in `VISION.md` under that name. What differs
+from today, to build — best once the backend is hosted, since a topic's words
+need the model when it is made:
 
-- **Followed stories get their own list and row**, out of `profile.topics`,
-  and their own table beside `reader_topics` (they carry examples, names and a
-  vector, never a spine). Moving the ones saved as topics is a migration.
-- **A followed story matches by its names together, or closeness.** The names
-  come from its headline and the entities already in the bundle (34 seeded,
-  all AI; Swedish and general names will need either more seeds or names read
-  from headlines). `EVENT_FLOOR` (0.82) stays for closeness, unmeasured.
-- **A followed story ends** when nothing has joined it for a while — two weeks
-  is a guess; measure how long stories in the corpus keep growing (`trib
-  renewal`) before choosing.
-- **A topic has a kind** — place, subject or sources — chosen when it is made
-  (the search can propose one: a pasted site proposes sources, anything else a
-  subject).
-- **A subject matches by naming it or meaning it** — a name like Saab is a
-  subject, not a kind of its own. Naming is today's whole-word match; meaning
-  is `FIT_FLOOR` (0.62), unmeasured: measure it on the owner's corpus first,
-  and check what a lone name's vector pulls in. Happy News, a tone rather than
-  a subject, is the hard case (below).
-- **A set of sources takes everything from them** — "Svenska nyheter" holding
-  all of Expressen, the topic the owner made on 2026-10-24 that holds nothing
-  today.
+- **A followed story becomes an ordinary topic at the strict end**, not a
+  separate thing. Today it is a topic with `examples` matched only by
+  closeness (`EVENT_FLOOR`, 0.82); it keeps its vector, and gains the names in
+  its story as words, so naming them counts too.
+- **Every topic gets a strictness setting**, from the whole subject
+  (`FIT_FLOOR`, 0.62) to one happening (`EVENT_FLOOR`, 0.82). Both bars are
+  unmeasured: measure them on the owner's corpus before choosing the range.
+- **A topic matches by naming it or meaning it**, at its strictness. Today
+  Pages asks every word of the name and nothing else, and `trib serve` asks
+  the words or the vector at 0.62; on Pages the words-only rule goes once the
+  hosted backend can embed what a reader types. Check what a lone name's
+  vector (Saab) pulls in. Happy News, a tone rather than a subject, is the
+  hard case (below).
+- **Your tree starts empty.** Today the first run, New topic, the tree graph,
+  every topic page's "Inside" boxes and the start page's "Inside Technology"
+  rows (added 2026-10-24) all show the pipeline's shared labels as the tree.
+  The shared labels become suggestions to start a topic from; the tree, the
+  graph and "Inside" show only your topics and the subtopics you made or
+  accepted.
+- **Subtopics, proposed** (`VISION.md`, The model): clustering a topic's
+  stories proposes subtopics, you name and accept them — what fills a tree
+  that starts empty.
+- **"Kitchen design" is the test case**: a topic with nothing in the shared
+  labels and no source Tributary reads today, so it needs sources found on
+  the web (pasting a site works; finding them for a subject is the open
+  question in step 1).
+- **Other languages come later**, as their own step: a multilingual embedding
+  model, every item re-embedded and every calibrated value re-measured.
 
 ## Next: your own topics inside the tree
 

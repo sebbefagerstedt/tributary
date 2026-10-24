@@ -100,39 +100,48 @@ shows what it found, each source with its **preview** (latest headlines, and how
 many items a week it publishes, so a source that posts forty times a day is seen
 before it floods the topic). **Include all**, or pick some.
 
-### Topics and followed stories are two things
+### One kind of topic, and a tree that starts empty
 
-Decided 2026-10-24: *"A story is a happening where you follow everything about
-exactly that. A topic is more of a bigger collection"* — and *"a name is a
-topic"*. Until then a followed story was saved as a topic and sat among them,
-and a topic of your own on Pages matched every word of its name, which is the
-rule an event wants and a subject does not.
+Decided 2026-10-24, over one conversation. A first draft split topics from
+followed stories and topics into kinds — a place in the tree, a subject, a name,
+a set of sources — and the owner took it apart: a name *"could work like a
+topic, it feels unnecessary to create a new type"*; Happy News *"should be a
+topic still"*; Expressen *"is just a source I know has Swedish news, it could
+contain news for several topics"*; a followed story *"could work as a topic as
+well"*; and *"the tree will be personal and depends on topics so nothing is a
+tree from start. I can start small with a topic called 'kitchen design' and
+that will be the only thing in the tree."* So:
 
-- **A followed story** is one happening, started from "Follow this story". It
-  matches the **names** in the story taken together — the people, companies,
-  places and versions in its headline, and the entities the pipeline finds —
-  or a story very close to it in meaning (`EVENT_FLOOR`, unmeasured). It has
-  its own row, apart from your topics, and it **ends**: when nothing has joined
-  it for a while, the happening is over and it steps aside.
-- **A topic** is a collection you keep. It is one of three kinds, and each
-  matches the way that works for it:
-
-  | Kind | Example | Matches by |
-  |---|---|---|
-  | A place in the tree | Technology, AI, Football | where the pipeline filed the story |
-  | A subject | "Swedish politics", Saab, Happy News | naming it **or** meaning it: a story that names it is in, and so is one close to its embedded description |
-  | A set of sources | "Svenska nyheter" = everything from Expressen | nothing more: every story from its sources |
-
-  **A name is a subject, not a kind of its own** (the owner, the same day: *"it
-  feels unnecessary to create a new type"*). For Saab the naming half does
-  nearly all the work and for "Swedish politics" the meaning half does; one
-  rule covers both. What to watch: a lone name embeds vaguely, so its meaning
-  half may pull in neighbours (other carmakers) — measure it, and muted words
-  narrow it meanwhile.
-
-  Muted words narrow any of them. Only a subject needs the model at the time
-  you make it, which is one reason the hosted backend embeds what a reader
-  types: on GitHub Pages nothing can.
+- **There is one thing: a topic.** It has three settings, and nothing else
+  distinguishes one topic from another:
+  1. **What it is about** — the words you gave it ("kitchen design", "Saab",
+     "Happy news"), or the story you followed it from, or a suggestion you
+     started from. These are ways to begin, not kinds.
+  2. **Its sources.** Sources are the filter they already are: a source feeds
+     as many topics as you like, and a topic shows only stories from its own.
+     "Svenska nyheter" is not a type — it is a broad topic with Swedish sources
+     ticked.
+  3. **How strict it is**, from the whole subject to one exact happening.
+     "Follow this story" starts a topic at the strict end; typing a subject
+     starts it broad.
+- **A story is in a topic** when it comes from one of the topic's sources,
+  **names it or means it** — a story that names it is in, and so is one close
+  to it in meaning, with the strictness setting as the bar — and mentions none
+  of its muted words. For Saab the naming does nearly all the work, for
+  "kitchen design" the meaning does; one rule covers both. A lone name embeds
+  vaguely, so watch what its meaning half pulls in.
+- **Your tree is only your topics**, and it starts empty. Your first topic is
+  the whole of it; a subtopic exists because you made one or accepted one the
+  app proposed from a topic's stories ("Subtopics, proposed", under The
+  model). The pipeline's shared labels — News, Technology, AI and the rest
+  (CLAUDE.md, "Beyond AI") — are never shown as a tree you start inside: at
+  most they are suggestions to start a topic from, and behind the scenes a
+  help for matching.
+- **Other languages wait.** "Teknik" meaning technology needs a multilingual
+  embedding model; today's (bge-small-en) reads English, so a Swedish headline
+  is placed poorly. Changing it re-embeds everything and re-measures every
+  calibrated value in CLAUDE.md, so it is its own step, later (the owner:
+  *"let's start small so skip language now"*).
 
 ### Reading
 
@@ -214,7 +223,10 @@ boxes, curved links, a canvas you explore); the new one should be calmer and
 more beautiful: fewer crossing lines, room to breathe, and tapping a node opens
 that topic.
 
-**General news, not only AI (2026-10-05).** The starter tree is the owner's
+**General news, not only AI (2026-10-05).** *Superseded as a starting point on
+2026-10-24: your tree starts empty (see "One kind of topic, and a tree that
+starts empty"); these remain the pipeline's shared labels and the suggestions a
+topic can start from.* The starter tree is the owner's
 picture: News at the hub; Technology, Culture, Sport, Politics, Security,
 Economy, Environment and Health; three subtopics each, and AI under
 Technology with its own topics below it. The first run lists the categories
@@ -242,9 +254,8 @@ anywhere in AI, with Open, or Add to your topics.
 | **Source** | A feed (RSS, Atom, a news sitemap, or a special adapter such as arXiv, Hacker News, GitHub releases). Shared: fetched once for everyone who uses it, with its health and last error. |
 | **Item** | One entry from a source: title, short summary, link, date, picture, vector. Expires after a fixed window. |
 | **Story** | Items about the same event, grouped — the unit you read, as in version 1. |
-| **Topic** | Yours, and kept. A place in the tree, a subject (a name is one) or a set of sources (see "Topics and followed stories are two things"); the sources you chose for it, optional muted words, and optionally a parent topic — subtopics are topics with a parent. |
-| **Followed story** | Yours, and temporary. One happening you follow: its names and its vector, from the story you followed it from. It ends when the happening goes quiet. |
-| **Your tree** | Your topics and how they nest, under your profile. |
+| **Topic** | Yours. What it is about (your words, or the story you followed it from), how strict it is, the sources you chose for it, optional muted words, and optionally a parent topic — subtopics are topics with a parent (see "One kind of topic, and a tree that starts empty"). |
+| **Your tree** | Your topics and how they nest, under your profile — and nothing else. It starts empty. |
 | **Profile** | A name you create, nothing else — no password for now (decided 2026-10-04: *"Keep it simple and let the user create a profile for now, no password yet"*). Version 1 already works this way. Real sign-in comes later. |
 
 **How a story gets into a topic.** A story is in your topic when it comes from
@@ -257,9 +268,8 @@ stories about language models, not its stories about databases. Fit is decided
 by the embeddings — the story's vector against the topic's description, as
 version 1 homes stories today. Because of it a source is never labelled "writes
 about everything": a broad source is safe to add, so the warning only added
-noise and was removed the same day. *What* fits depends on the topic's kind
-(2026-10-24): naming or meaning for a subject, the tree's filing for a place; a set of sources is the one kind with no filter beyond its sources,
-because choosing them is the whole of what it asks.
+noise and was removed the same day. Since 2026-10-24 a topic fits a story that
+names it or means it, at the topic's own strictness.
 
 **A story can sit in several of your topics, and is read once** (decided
 2026-10-04). If it belongs to two of your topics it appears in both; once you
