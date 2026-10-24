@@ -8,7 +8,8 @@ owner, consolidated into one pass so nothing here contradicts anything else.
 - `CLAUDE.md` describes **version 1** — the pipeline that still runs, and the
   page that was retired on 2026-10-05 — and what building it taught. Where the two disagree, this file wins for the redesign;
   `CLAUDE.md` stays as the record of lessons.
-- `NEXT.md` is the roadmap: the steps from here to the redesign, in order.
+- `PLAN.md` is what comes next (2026-10-24): starting over small in a new
+  repository, keeping this design's idea and its frontend.
 - **`docs/mockup/index.html` is the approved look** — a clickable mockup of
   these flows, approved by the owner on 2026-10-04 (*"It looks perfect"*), also
   published at https://claude.ai/artifact/1XeimYb1Q7VEdZJ6H6KnsG. Build to it.
