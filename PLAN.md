@@ -45,19 +45,37 @@ into the code.
    change where nothing is stored.
 2. **Several topics, subtopics, crumbs and the graph** — the navigation that
    carries over.
-3. **Suggested sources, from the ones you have.** The sites a source's
+3. **Add a story to a topic yourself**, by pasting its link — the same paste
+   as adding a source in step 1. It belongs to that topic whatever its source,
+   and later (step 5) it is also an example of what the topic means.
+4. **Suggested sources, from the ones you have.** The sites a source's
    articles link to most often are candidates; find each one's feed with
    `discover.py` and offer it with a preview. Unproven: try it on one real
    source before building around it.
-4. **Close in meaning, taught by you.** A topic's description is embedded and
+5. **Close in meaning, taught by you.** A topic's description is embedded and
    a story fits when it names the topic or is close to it. **Like and dislike**
    on a story ("this does not fit my topic") move the topic towards and away
    from examples — teaching the topic what it means, never ranking by what you
    do. Use a **multilingual embedding model from the start**: a new repo has
    no calibrated values tied to the old one, so it costs nothing now.
-5. **Hosted, with accounts.** On AWS, once it has been used daily for a couple
+6. **Hosted, with accounts.** On AWS, once it has been used daily for a couple
    of weeks. Login from an open-source library, not a provider that can start
    charging.
+
+## Later, once there are other users
+
+From the owner's own list (2026-10-24); neither is worth anything with one
+reader.
+
+- **Community at the foot of a topic's page.** Version 1 designed it: comments
+  hang on a story, posts on a topic, and a comment's address must survive a
+  re-cluster, so it cannot be a story's row id alone. The notes are in this
+  repo's history, `NEXT.md` as of commit `ed1c48f`.
+- **Trending: what others like.** Careful: counting what many people like is
+  exactly the ranking version 1 kept out, and it is rich-get-richer. The
+  shape `VISION.md` allows — *"what many people choose helps the next person"*
+  — is popular topics and sources offered as **suggestions**, never your feed
+  reordered by popularity.
 
 ## Decisions
 
@@ -75,7 +93,7 @@ into the code.
 - **No web search for suggestions, for now.** Google's search API is closed to
   new customers and ends on 2027-01-01; scraping it breaks its terms; the
   alternatives are paid services with free tiers — the lock-in above.
-  Suggestions start from the links in sources you already have (step 3).
+  Suggestions start from the links in sources you already have (step 4).
 - **Like and dislike are allowed** because they are explicit and teach a
   topic, not the ranking: version 1's rule against learning from behaviour
   was about time spent, dwell and scroll-past, and that stays out.
@@ -85,7 +103,7 @@ into the code.
 Grouping articles into stories, and following one · ranking · how strict a
 topic is · the player · muted words · OPML · other languages as a feature ·
 the shared tree (News, Technology, AI…) · the arXiv, Hacker News and GitHub
-adapters · news and search APIs · posting and commenting.
+adapters · news and search APIs.
 
 ## Before leaving this repository
 
@@ -93,4 +111,4 @@ adapters · news and search APIs · posting and commenting.
   off scheduled workflows. It stays online either way; push now and then if its
   news should stay fresh.
 - **"Kitchen design" is the first test case**: a topic no source here covers,
-  so it needs a pasted URL, then step 3's suggestions.
+  so it needs a pasted URL, then step 4's suggestions.
