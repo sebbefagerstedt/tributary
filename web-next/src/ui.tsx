@@ -119,7 +119,7 @@ export const placeFit = (slug: string) => (s: Source) => {
    bundle; only finding new sources is the server's. */
 export function SourcePicker({ found, catalog, chosen, setChosen, fitLabel }: {
   found: Found[]; catalog: Map<string, Source>; chosen: string[]; setChosen: (next: string[]) => void;
-  fitLabel: (n: number) => string;
+  fitLabel: (n: number) => string | undefined;
 }) {
   const inFound = new Set(found.map((f) => f.src.name));
   const others = [...catalog.values()].filter((s) => !inFound.has(s.name)).sort((a, b) => b.week - a.week);

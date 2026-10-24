@@ -28,6 +28,7 @@ from collections.abc import Callable, Sequence
 
 import numpy as np
 
+from tributary import discover
 from tributary.db import transaction
 
 # How a topic's description becomes a vector. Injected so tests never load the
@@ -38,6 +39,10 @@ log = logging.getLogger(__name__)
 
 VECTOR_SCALE = 127  # the same int8 packing as export._centroids
 MAX_NAME = 40
+# Pages a news sitemap a reader added visits per run. Unmeasured: Expressen's
+# lists about 300 articles over two days, and 30 a run keeps up with it at the
+# workflow's eight runs a day without a run taking minutes.
+READER_SITEMAP_LIMIT = 30
 
 
 class ReaderError(ValueError):
@@ -176,9 +181,14 @@ def _source_id(conn: sqlite3.Connection, spec: str | dict) -> int:
         raise ReaderError("A new source needs a name and a feed address.")
     if kind not in ("rss", "sitemap"):
         raise ReaderError(f"Readers can add feeds and news sitemaps, not {kind!r} sources.")
-    options = {"include": spec["include"]} if kind == "sitemap" and spec.get("include") else {}
-    row = conn.execute("SELECT id FROM sources WHERE url = ?", (url,)).fetchone()
+    options = _sitemap_options(spec, url) if kind == "sitemap" else {}
+    row = conn.execute("SELECT id, config FROM sources WHERE url = ?", (url,)).fetchone()
     if row:
+        if options and not json.loads(row["config"] or "{}").get("include"):
+            # Saved before the default existed: it has failed every run since.
+            conn.execute(
+                "UPDATE sources SET config = ? WHERE id = ?", (json.dumps(options), row["id"])
+            )
         return row["id"]
     conn.execute(
         "INSERT INTO sources (kind, name, url, config, origin) VALUES (?, ?, ?, ?, 'reader') "
@@ -188,6 +198,15 @@ def _source_id(conn: sqlite3.Connection, spec: str | dict) -> int:
     return conn.execute(
         "SELECT id FROM sources WHERE kind = ? AND name = ?", (kind, name)
     ).fetchone()["id"]
+
+
+def _sitemap_options(spec: dict, url: str) -> dict:
+    """The sitemap adapter refuses to run without `include`, and the page never
+    sends one, so a news sitemap found on the web reads its whole host. And a
+    newspaper's lists a few hundred articles where a lab's lists one, so it
+    visits more of them per run than the adapter's default of ten."""
+    return {"include": spec.get("include") or discover.default_include(url),
+            "limit": READER_SITEMAP_LIMIT}
 
 
 def save_topic(

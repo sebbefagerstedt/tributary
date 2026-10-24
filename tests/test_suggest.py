@@ -52,6 +52,11 @@ def test_a_subject_ranks_known_sources_by_stories_that_fit(conn):
                             (name, f"https://{name}.test/feed")).lastrowid
 
     video, chips = source("video"), source("chips")
+    homes = {
+        slug: conn.execute("INSERT INTO topics (slug, name) VALUES (?, ?)", (slug, slug)).lastrowid
+        for slug in ("ai-video", "tech-chips")
+    }
+    placed = ["ai-video", "ai-video", "tech-chips"]
     for n, (src, vec) in enumerate([(video, (1.0,)), (video, (0.95, 0.3)), (chips, (0.0, 1.0))]):
         item = conn.execute(
             "INSERT INTO items (source_id, external_id, kind, url, title, published_at) "
@@ -66,10 +71,14 @@ def test_a_subject_ranks_known_sources_by_stories_that_fit(conn):
         ).lastrowid
         conn.execute("INSERT INTO story_items (story_id, item_id, role) VALUES (?, ?, 'seed')",
                      (story, item))
+        conn.execute("INSERT INTO story_topics (story_id, topic_id) VALUES (?, ?)",
+                     (story, homes[placed[n]]))
 
     got = suggest.for_subject(conn, "AI video", lambda texts: [unit(1.0) for _ in texts])
     assert [s["name"] for s in got["sources"]] == ["video"]
     assert got["sources"][0]["fit"] == 2 and got["sources"][0]["latest"]
+    # Where those stories live is offered as a topic that may already exist.
+    assert got["related"] == [{"slug": "ai-video", "n": 2}]
 
     def offline(texts):
         raise OSError("model download refused")

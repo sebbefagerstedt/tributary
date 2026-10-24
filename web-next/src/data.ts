@@ -138,3 +138,18 @@ export function rankSources(stories: Story[], catalog: Map<string, Source>): Fou
     .map(([name, k]) => ({ src: catalog.get(name)!, n: k }))
     .sort((a, b) => b.n - a.n || b.src.week - a.src.week || a.src.name.localeCompare(b.src.name));
 }
+
+/* Where these stories live in the tree, most first: a topic that may already
+   be what someone typing a subject is looking for. Only the topic each was
+   filed under, so a category does not win for holding everything below it. */
+export function relatedPlaces(stories: Story[], bundle: Bundle, limit = 4): { slug: string; n: number }[] {
+  const n = new Map<string, number>();
+  for (const story of stories) {
+    for (const label of story.topics) n.set(label.slug, (n.get(label.slug) || 0) + 1);
+  }
+  return [...n]
+    .filter(([slug]) => nodeOf(bundle, slug))
+    .map(([slug, k]) => ({ slug, n: k }))
+    .sort((a, b) => b.n - a.n || a.slug.localeCompare(b.slug))
+    .slice(0, limit);
+}

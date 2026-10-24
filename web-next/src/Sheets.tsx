@@ -1,13 +1,13 @@
 /* Sheets slide over the screen you are on: a topic's settings, a new topic,
    your profile, and a story. Each is one level of "back". */
 
-import { FormEvent, ReactNode, useMemo, useRef, useState } from 'react';
+import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Bundle, ROOT, SUGGESTED, Source, Story, agoLabel, categories, childrenOf, isBusy, nodeOf, pathTo, rankSources,
-  sourcesFor, storySources,
+  Bundle, Found, ROOT, SUGGESTED, Source, Story, agoLabel, categories, childrenOf, isBusy, nodeOf, pathTo, rankSources,
+  relatedPlaces, sourcesFor, storySources,
 } from './data';
 import { useDragToClose } from './gestures';
-import { DiscoveredCard, asSource, slugOf, specsOf, useDiscovery } from './Discovery';
+import { asSource, slugOf, specsOf, useDiscovery } from './Discovery';
 import { Profile, SourceSpec, Topic, eventTopic, freeId, likeExamples, namedIn, nearby, shortName, words } from './state';
 import { FoundCard, KIND_WORD, SourcePicker, SpecificChips, hueOf, placeFit } from './ui';
 
@@ -175,13 +175,50 @@ function TreeChooser({ bundle, at, setAt, followed, onPick }: {
   );
 }
 
+/* The places in the tree where stories about what you typed are filed: a
+   topic that may already be the one you are looking for, a tap from following
+   it instead (2026-10-24: *"I do not have the choice to search for related
+   topics"*). */
+function RelatedPlaces({ bundle, places, followed, onPick }: {
+  bundle: Bundle; places: { slug: string; n: number }[];
+  followed: (slug: string) => boolean; onPick: (slug: string) => void;
+}) {
+  const shown = places.filter((p) => nodeOf(bundle, p.slug));
+  if (!shown.length) return null;
+  return (
+    <div className="section">
+      <h3>Related topics</h3>
+      <p className="hint">Where Tributary already files stories like this. Follow one instead, or as well.</p>
+      <div className="chips">
+        {shown.map((p) => {
+          const top = pathTo(bundle, p.slug)[0]?.slug ?? p.slug;
+          const mine = followed(p.slug);
+          return (
+            <button key={p.slug} className="chip" disabled={mine} onClick={() => onPick(p.slug)}>
+              <i className="dot-hue" style={{ background: hueOf(top) }} />{nodeOf(bundle, p.slug)!.name}
+              <span className="sub"> · {mine ? '✓' : p.n}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* Two lists of related places, one per story each: the larger count wins. */
+const mergePlaces = (a: { slug: string; n: number }[], b: { slug: string; n: number }[]) => {
+  const n = new Map<string, number>();
+  for (const p of [...a, ...b]) n.set(p.slug, Math.max(n.get(p.slug) || 0, p.n));
+  return [...n].map(([slug, k]) => ({ slug, n: k })).sort((x, y) => y.n - x.n || x.slug.localeCompare(y.slug)).slice(0, 4);
+};
+
 /* Without a server nothing can search the web or embed a description, so a
    subject of your own is its words -- and its sources are the ones whose
    stories mention them, ranked the way the server ranks a subject's
    (`suggest.for_subject`). What it would hold is shown before it is made. */
-function WordTopicSheet({ bundle, catalog, profile, query, onCreate, onBack, onClose }: {
+function WordTopicSheet({ bundle, catalog, profile, query, onCreate, onPlace, onBack, onClose }: {
   bundle: Bundle; catalog: Map<string, Source>; profile: Profile; query: string;
-  onCreate: (t: Topic) => void; onBack: () => void; onClose: () => void;
+  onCreate: (t: Topic) => void; onPlace: (slug: string) => void; onBack: () => void; onClose: () => void;
 }) {
   const [name, setName] = useState(query);
   const [chosen, setChosen] = useState<string[] | null>(null);  // null: the suggestion, until you change it
@@ -194,6 +231,8 @@ function WordTopicSheet({ bundle, catalog, profile, query, onCreate, onBack, onC
     : [...catalog.keys()]), [found, catalog]);
   const picked = chosen ?? suggested;
   const held = matches.filter((s) => storySources(s).some((n) => picked.includes(n)));
+  const related = useMemo(() => relatedPlaces(matches, bundle), [matches, bundle]);
+  const followed = (slug: string) => profile.topics.some((t) => t.spine === slug);
   return (
     <Sheet onClose={onClose}>
       <div className="row"><h2 className="sheet-title">Here's what it would hold</h2>
@@ -214,6 +253,7 @@ function WordTopicSheet({ bundle, catalog, profile, query, onCreate, onBack, onC
           </ul>
         ) : <p className="hint">New stories that mention it will land here as they arrive. Fewer or more general words catch more.</p>}
       </div>
+      <RelatedPlaces bundle={bundle} places={related} followed={followed} onPick={onPlace} />
       <div className="section">
         <h3>Where it gets its news</h3>
         <p className="hint">{found.length
@@ -226,6 +266,78 @@ function WordTopicSheet({ bundle, catalog, profile, query, onCreate, onBack, onC
         <button className="btn primary wide" disabled={!asked.length || !picked.length}
           onClick={() => onCreate({ id: freeId(profile, slugOf(title)), name: title, description: query,
             spine: null, sources: picked, muted: [] })}>Create topic</button>
+      </div>
+    </Sheet>
+  );
+}
+
+/* With the server: a subject or a pasted site is searched, and what it found
+   comes first -- then every source Tributary already reads, a tap away, so a
+   search that finds nothing never leaves a topic you cannot create (as it did
+   until 2026-10-24). A subject that found nothing starts from every source,
+   as on Pages; what it would hold is shown before it is made. */
+function FoundTopicSheet({ bundle, catalog, profile, query, onCreate, onPlace, onBack, onClose }: {
+  bundle: Bundle; catalog: Map<string, Source>; profile: Profile; query: string;
+  onCreate: (t: Topic) => void; onPlace: (slug: string) => void; onBack: () => void; onClose: () => void;
+}) {
+  const { loading, result, error } = useDiscovery(query);
+  const [name, setName] = useState(query);
+  const [chosen, setChosen] = useState<string[] | null>(null);  // null: the suggestion, until you change it
+  const site = result?.kind === 'site';
+  // A pasted site names the topic after what it found, until you rename it.
+  useEffect(() => { if (site && result?.sources[0]) setName((n) => (n === query ? result.sources[0].name : n)); }, [site, result, query]);
+  const found: Found[] = useMemo(() => (result?.sources || []).map((c) => ({ src: asSource(c), n: c.fit ?? 0 })), [result]);
+  const specs = useMemo(() => specsOf(result?.sources || []), [result]);
+  const title = name.trim() || query;
+  const matches = useMemo(() => (site ? [] : bundle.stories.filter((s) => namedIn(s, title))), [bundle, title, site]);
+  const related = useMemo(() => mergePlaces(result?.related || [], relatedPlaces(matches, bundle)), [result, matches, bundle]);
+  const suggested = useMemo(() => (found.length ? found.map((f) => f.src.name) : site || !result ? [] : [...catalog.keys()]),
+    [found, site, result, catalog]);
+  const picked = chosen ?? suggested;
+  const held = matches.filter((s) => storySources(s).some((n) => picked.includes(n)));
+  const followed = (slug: string) => profile.topics.some((t) => t.spine === slug);
+  const create = () => onCreate({
+    id: freeId(profile, slugOf(title)), name: title, description: query, spine: null, sources: picked, muted: [],
+    found: Object.fromEntries(Object.entries(specs).filter(([n]) => picked.includes(n))),
+  });
+  return (
+    <Sheet onClose={onClose}>
+      <div className="row"><h2 className="sheet-title">Here's what we found</h2>
+        <button className="x" onClick={onClose}>Cancel</button></div>
+      <div className="section">
+        <label className="eyebrow" htmlFor="topic-name">Call it</label>
+        <input className="field" id="topic-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
+      </div>
+      {loading && <p className="hint">Searching for {query}…</p>}
+      {error && <p className="hint warn">{error}</p>}
+      {result && !site && (
+        <div className="section">
+          <h3>{held.length ? `${held.length} ${held.length === 1 ? 'story' : 'stories'} mention it so far` : 'Nothing mentions it yet'}</h3>
+          {held.length > 0 ? (
+            <ul className="follow-preview">
+              {held.slice(0, 6).map((s) => <li key={s.story_id}>{s.title} <span className="sub">· {s.source}, {agoLabel(s.published_at)}</span></li>)}
+              {held.length > 6 && <li className="sub">and {held.length - 6} more</li>}
+            </ul>
+          ) : <p className="hint">It also takes stories close to it in meaning, and new ones as they arrive.</p>}
+        </div>
+      )}
+      {result && <RelatedPlaces bundle={bundle} places={related} followed={followed} onPick={onPlace} />}
+      {result && (
+        <div className="section">
+          <h3>Where it gets its news</h3>
+          <p className="hint">{found.length
+            ? site ? 'What the site offers, then every source Tributary already reads.'
+              : 'The sources Tributary reads with the most stories that fit it, all ticked.'
+            : site ? 'Nothing to add from that site — pick from the sources Tributary already reads.'
+              : 'No source stood out, so it starts with every source Tributary reads. Paste a site to add one from anywhere.'}</p>
+          {result.note && found.length > 0 && <p className="hint discovery-note">{result.note}</p>}
+          <SourcePicker found={found} catalog={catalog} chosen={picked} setChosen={setChosen}
+            fitLabel={(n) => (n ? `${n} fit it` : undefined)} />
+        </div>
+      )}
+      <div className="sticky-cta">
+        <button className="btn ghost" onClick={onBack}>Back</button>
+        <button className="btn primary wide" disabled={!title.trim() || !picked.length} onClick={create}>Create topic</button>
       </div>
     </Sheet>
   );
@@ -270,74 +382,51 @@ export function NewTopicSheet({ bundle, catalog, profile, server, onCreate, onCl
   const [chosen, setChosen] = useState<string[]>([]);
   const [typed, setTyped] = useState('');
   const [query, setQuery] = useState<string | null>(null);   // a subject or site sent to discovery
-  const [ownChosen, setOwnChosen] = useState<string[] | undefined>(undefined);
-  const [specs, setSpecs] = useState<Record<string, SourceSpec>>({});
-  const [name, setName] = useState('');
   const choose = (slug: string) => { setPick(slug); setChosen(sourcesFor(catalog, slug).map((s) => s.name)); };
   const shelf = pick ? nodeOf(bundle, pick) : undefined;
   const search = (e: FormEvent) => {
     e.preventDefault();
     const q = typed.trim();
     if (q.length < 2) return;
-    setQuery(q); setName(q); setOwnChosen(undefined); setSpecs({});
+    setQuery(q);
   };
-  const createOwn = () => {
-    const sources = ownChosen || [];
-    const found = Object.fromEntries(Object.entries(specs).filter(([n]) => sources.includes(n)));
-    const title = name.trim() || query!;
-    onCreate({ id: freeId(profile, slugOf(title)), name: title, description: query, spine: null, sources, muted: [], found });
-  };
-  if (query && !server) {
-    return <WordTopicSheet bundle={bundle} catalog={catalog} profile={profile} query={query}
-      onCreate={onCreate} onBack={() => setQuery(null)} onClose={onClose} />;
-  }
-  if (query) {
+  // A place chosen from the tree or from a search's related topics; Back
+  // returns to whichever it came from.
+  if (shelf) {
     return (
       <Sheet onClose={onClose}>
         <div className="row"><h2 className="sheet-title">Here's what we found</h2>
           <button className="x" onClick={onClose}>Cancel</button></div>
-        <div className="section">
-          <label className="eyebrow" htmlFor="topic-name">Call it</label>
-          <input className="field" id="topic-name" value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
         <div style={{ marginTop: 12 }}>
-          <DiscoveredCard query={query} chosen={ownChosen} setChosen={setOwnChosen}
-            onFound={(all, found, title) => { setOwnChosen(all); setSpecs(found); if (title) setName(title); }} />
+          <FoundCard id={shelf.slug} name={shelf.name} sources={sourcesFor(catalog, shelf.slug)} chosen={chosen} setChosen={setChosen}
+            fitOf={placeFit(shelf.slug)} />
         </div>
         <div className="sticky-cta">
-          <button className="btn ghost" onClick={() => setQuery(null)}>Back</button>
-          <button className="btn primary wide" disabled={!ownChosen?.length} onClick={createOwn}>Create topic</button>
+          <button className="btn ghost" onClick={() => setPick(null)}>Back</button>
+          <button className="btn primary wide" onClick={() => onCreate({ id: shelf.slug, name: shelf.name, spine: shelf.slug, sources: chosen, muted: [] })}>Create topic</button>
         </div>
       </Sheet>
     );
   }
+  if (query) {
+    const Search = server ? FoundTopicSheet : WordTopicSheet;
+    return <Search bundle={bundle} catalog={catalog} profile={profile} query={query}
+      onCreate={onCreate} onPlace={choose} onBack={() => setQuery(null)} onClose={onClose} />;
+  }
   return (
     <Sheet onClose={onClose}>
-      <div className="row"><h2 className="sheet-title">{shelf ? "Here's what we found" : 'New topic'}</h2>
+      <div className="row"><h2 className="sheet-title">New topic</h2>
         <button className="x" onClick={onClose}>Cancel</button></div>
-      {!shelf ? (
-        <div className="section">
-          <form className="row" style={{ marginBottom: 12 }} onSubmit={search}>
-            <input className="field" id="new-subject" autoComplete="off"
-              placeholder={server ? 'Any subject, or paste a site' : 'Any subject: a name, a place, a thing'}
-              value={typed} onChange={(e) => setTyped(e.target.value)} style={{ flex: 1 }} />
-            <button className="btn" type="submit">{server ? 'Find' : 'Look'}</button>
-          </form>
-          <TreeChooser bundle={bundle} at={at} setAt={setAt} followed={followed} onPick={choose} />
-          {at === null && <SpecificChips subjects={specific} picked={[]} onPick={choose} />}
-        </div>
-      ) : (
-        <>
-          <div style={{ marginTop: 12 }}>
-            <FoundCard id={shelf.slug} name={shelf.name} sources={sourcesFor(catalog, shelf.slug)} chosen={chosen} setChosen={setChosen}
-              fitOf={placeFit(shelf.slug)} />
-          </div>
-          <div className="sticky-cta">
-            <button className="btn ghost" onClick={() => setPick(null)}>Back</button>
-            <button className="btn primary wide" onClick={() => onCreate({ id: shelf.slug, name: shelf.name, spine: shelf.slug, sources: chosen, muted: [] })}>Create topic</button>
-          </div>
-        </>
-      )}
+      <div className="section">
+        <form className="row" style={{ marginBottom: 12 }} onSubmit={search}>
+          <input className="field" id="new-subject" autoComplete="off"
+            placeholder={server ? 'Any subject, or paste a site' : 'Any subject: a name, a place, a thing'}
+            value={typed} onChange={(e) => setTyped(e.target.value)} style={{ flex: 1 }} />
+          <button className="btn" type="submit">{server ? 'Find' : 'Look'}</button>
+        </form>
+        <TreeChooser bundle={bundle} at={at} setAt={setAt} followed={followed} onPick={choose} />
+        {at === null && <SpecificChips subjects={specific} picked={[]} onPick={choose} />}
+      </div>
     </Sheet>
   );
 }

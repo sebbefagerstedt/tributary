@@ -7,7 +7,7 @@ import pytest
 from tributary.config import SourceConfig
 from tributary.models import Kind
 from tributary.sources.base import FetchError
-from tributary.sources.sitemap import SitemapSource, page_title
+from tributary.sources.sitemap import SitemapSource, page_title, preview
 
 SITEMAP = "https://lab.test/sitemap.xml"
 RECENT = (datetime.now(UTC) - timedelta(days=2)).strftime("%Y-%m-%d")
@@ -184,3 +184,36 @@ def test_a_build_date_on_every_url_is_not_read_as_news(httpx_mock):
 
     assert items == []
     assert len(state["seen"]) == 25
+
+
+def test_an_image_loc_does_not_replace_the_pages_own(httpx_mock):
+    """Expressen's news sitemap puts <image:loc> after every article's <loc>."""
+    httpx_mock.add_response(url=SITEMAP, content=f"""<?xml version="1.0"?>
+      <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+              xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+        <url><loc>https://lab.test/news/a</loc><lastmod>{NEWER}</lastmod>
+          <image:image><image:loc>https://cdn.test/a.png</image:loc></image:image>
+        </url>
+      </urlset>""".encode())
+    httpx_mock.add_response(url="https://lab.test/news/a", text=page("With a picture"))
+
+    items, state = source().fetch({})
+
+    assert [i.url for i in items] == ["https://lab.test/news/a"]
+    assert state["seen"] == ["https://lab.test/news/a"]
+
+
+def test_a_news_sitemap_previews_its_week_and_headlines_without_visiting(httpx_mock):
+    httpx_mock.add_response(url=SITEMAP, content=f"""<?xml version="1.0"?>
+      <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+              xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
+        <url><loc>https://lab.test/news/old</loc><news:news>
+          <news:publication_date>{OLD}</news:publication_date><news:title>Old</news:title></news:news></url>
+        <url><loc>https://lab.test/news/a</loc><news:news>
+          <news:publication_date>{RECENT}</news:publication_date><news:title>Earlier</news:title></news:news></url>
+        <url><loc>https://lab.test/news/b</loc><news:news>
+          <news:publication_date>{NEWER}</news:publication_date><news:title>Han var
+            mediernas sista</news:title></news:news></url>
+      </urlset>""".encode())
+
+    assert preview(SITEMAP) == (2, ["Han var mediernas sista", "Earlier", "Old"])

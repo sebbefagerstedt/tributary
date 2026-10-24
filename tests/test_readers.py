@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from tributary import readers, store
@@ -180,3 +182,25 @@ def test_a_topic_taught_by_a_story_takes_its_vector_not_the_descriptions(conn, s
     assert saved["examples"] == [story_id]
     assert saved["vector"] == readers.pack(vector)
     assert calls == [], "a topic taught by a story never embeds its description"
+
+
+def test_a_news_sitemap_a_reader_found_reads_its_whole_host(conn):
+    """The page sends no `include`, and the adapter refuses to run without one."""
+    readers.ensure_profile(conn, "S")
+    spec = {"name": "Expressen", "url": "https://www.expressen.se/googlenews", "kind": "sitemap"}
+    readers.save_topic(conn, "S", {"name": "Saab", "sources": [spec]}, embed=fake_embed)
+
+    config = conn.execute("SELECT config FROM sources WHERE name = 'Expressen'").fetchone()[0]
+    assert json.loads(config) == {"include": r"www\.expressen\.se/",
+                                  "limit": readers.READER_SITEMAP_LIMIT}
+
+
+def test_a_sitemap_saved_without_include_is_repaired_when_used_again(conn):
+    conn.execute("INSERT INTO sources (kind, name, url, config, origin) VALUES "
+                 "('sitemap', 'Expressen', 'https://www.expressen.se/googlenews', '{}', 'reader')")
+    readers.ensure_profile(conn, "S")
+    spec = {"name": "Expressen", "url": "https://www.expressen.se/googlenews", "kind": "sitemap"}
+    readers.save_topic(conn, "S", {"name": "Saab", "sources": [spec]}, embed=fake_embed)
+
+    config = conn.execute("SELECT config FROM sources WHERE name = 'Expressen'").fetchone()[0]
+    assert json.loads(config)["include"] == r"www\.expressen\.se/"

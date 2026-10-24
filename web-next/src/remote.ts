@@ -35,7 +35,9 @@ export interface Candidate {
   name: string; url: string | null; kind: string; known: boolean;
   week: number; latest: string[]; fit?: number;
 }
-export interface Discovery { kind: 'site' | 'subject'; sources: Candidate[]; note: string }
+/* `related`: where in the tree the stories that fit a subject live. */
+export interface Discovery { kind: 'site' | 'subject'; sources: Candidate[]; note: string; related?: Related[] }
+export interface Related { slug: string; n: number }
 
 const enc = encodeURIComponent;
 

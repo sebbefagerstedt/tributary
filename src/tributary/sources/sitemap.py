@@ -103,18 +103,40 @@ def entries(url: str) -> list[tuple[str, datetime | None]]:
     return _urls(root)
 
 
-def _urls(root: ET.Element) -> list[tuple[str, datetime | None]]:
+def _fields(root: ET.Element) -> list[dict[str, str]]:
+    """Each `<url>`'s fields by name. Descendants, not children: a Google news
+    sitemap dates an entry in a nested <news:publication_date> rather than in
+    <lastmod>. The first of each name wins, because <image:loc> is a `loc` too,
+    and on Expressen it followed every article's own and replaced it
+    (2026-10-24)."""
     found = []
     for node in root:
         if _local(node.tag) != "url":
             continue
-        # Descendants, not children: a Google news sitemap dates an entry in a
-        # nested <news:publication_date> rather than in <lastmod>.
-        fields = {_local(el.tag): (el.text or "").strip() for el in node.iter()}
-        if loc := fields.get("loc"):
-            dated = fields.get("lastmod") or fields.get("publication_date")
-            found.append((loc, _parse_date(dated)))
+        fields: dict[str, str] = {}
+        for el in node.iter():
+            fields.setdefault(_local(el.tag), (el.text or "").strip())
+        found.append(fields)
     return found
+
+
+def _dated(fields: dict[str, str]) -> datetime | None:
+    return _parse_date(fields.get("lastmod") or fields.get("publication_date"))
+
+
+def _urls(root: ET.Element) -> list[tuple[str, datetime | None]]:
+    return [(f["loc"], _dated(f)) for f in _fields(root) if f.get("loc")]
+
+
+def preview(url: str, latest: int = 3) -> tuple[int, list[str]]:
+    """A news sitemap's entries in the last seven days and its newest
+    headlines, from `<news:title>` -- what a feed's preview shows, without
+    visiting a page."""
+    week_ago = datetime.now(UTC) - timedelta(days=7)
+    rows = [(d, f.get("title", "")) for f in _fields(_read(url)) if (d := _dated(f))]
+    rows.sort(key=lambda row: row[0], reverse=True)
+    titles = [" ".join(t.split()) for _, t in rows if t.strip()]
+    return sum(d >= week_ago for d, _ in rows), titles[:latest]
 
 
 def page_title(html: str | None) -> str | None:

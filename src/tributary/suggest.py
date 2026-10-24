@@ -29,6 +29,7 @@ import numpy as np
 
 from tributary import discover, topics
 from tributary.http import FetchError, request
+from tributary.sources import sitemap
 
 Embedder = Callable[[Sequence[str]], list[list[float]]]
 
@@ -65,16 +66,24 @@ def preview_feed(url: str) -> dict:
     return {"week": week, "latest": latest}
 
 
+def preview_sitemap(url: str) -> dict:
+    try:
+        week, latest = sitemap.preview(url, LATEST)
+    except FetchError:
+        return {"week": 0, "latest": []}
+    return {"week": week, "latest": latest}
+
+
 def for_site(conn: sqlite3.Connection, query: str) -> dict:
     """Feeds a site offers, each previewed, or why there are none."""
     try:
         found = discover.find(query)
     except FetchError as exc:
-        return {"kind": "site", "sources": [], "note": str(exc)}
+        return {"kind": "site", "sources": [], "note": str(exc), "related": []}
     known = {r["url"]: r["name"] for r in conn.execute("SELECT name, url FROM sources")}
     out = []
     for feed in found:
-        preview = preview_feed(feed.url) if feed.kind == "rss" else {"week": 0, "latest": []}
+        preview = preview_feed(feed.url) if feed.kind == "rss" else preview_sitemap(feed.url)
         out.append({
             "name": known.get(feed.url, feed.title),
             "url": feed.url,
@@ -83,7 +92,7 @@ def for_site(conn: sqlite3.Connection, query: str) -> dict:
             **preview,
         })
     note = "" if out else "No feed found on that site."
-    return {"kind": "site", "sources": out, "note": note}
+    return {"kind": "site", "sources": out, "note": note, "related": []}
 
 
 def for_subject(conn: sqlite3.Connection, query: str, embed: Embedder, limit: int = 8) -> dict:
@@ -96,17 +105,17 @@ def for_subject(conn: sqlite3.Connection, query: str, embed: Embedder, limit: in
     note = ("Only the sources Tributary already reads are searched by subject for now; "
             "paste a site to add one from anywhere.")
     if not found:
-        return {"kind": "subject", "sources": [], "note": note}
+        return {"kind": "subject", "sources": [], "note": note, "related": []}
     try:
         q = np.asarray(embed([query])[0], dtype=np.float32)
     except Exception:  # noqa: BLE001 - offline, or the model download refused
         return {"kind": "subject", "sources": [],
                 "note": "The embedding model could not load, so subjects cannot be "
-                        "searched right now. Paste a site instead."}
+                        "searched right now. Paste a site instead.", "related": []}
     q /= np.linalg.norm(q) or 1.0
     fits = [sid for sid, score in zip(found, vectors @ q, strict=True) if score >= FIT_FLOOR]
     if not fits:
-        return {"kind": "subject", "sources": [], "note": note}
+        return {"kind": "subject", "sources": [], "note": note, "related": []}
     placeholders = ",".join("?" * len(fits))
     ranked = conn.execute(
         f"""
@@ -117,7 +126,28 @@ def for_subject(conn: sqlite3.Connection, query: str, embed: Embedder, limit: in
         """,
         (*fits, limit),
     ).fetchall()
-    return {"kind": "subject", "sources": [_known(conn, r) for r in ranked], "note": note}
+    return {"kind": "subject", "sources": [_known(conn, r) for r in ranked], "note": note,
+            "related": related(conn, fits)}
+
+
+def related(conn: sqlite3.Connection, story_ids: Sequence[int], limit: int = 4) -> list[dict]:
+    """The places in the tree where the stories that fit a subject live, most
+    first: a topic that may already be what the reader is looking for."""
+    if not story_ids:
+        return []
+    placeholders = ",".join("?" * len(story_ids))
+    return [
+        {"slug": r["slug"], "n": r["n"]}
+        for r in conn.execute(
+            f"""
+            SELECT t.slug, COUNT(*) AS n
+              FROM story_topics st JOIN topics t ON t.id = st.topic_id
+             WHERE st.story_id IN ({placeholders})
+             GROUP BY t.slug ORDER BY n DESC, t.slug LIMIT ?
+            """,
+            (*story_ids, limit),
+        )
+    ]
 
 
 def _known(conn: sqlite3.Connection, row: sqlite3.Row) -> dict:
