@@ -112,8 +112,7 @@ export const placeFit = (slug: string) => (s: Source) => {
   return n ? `${n} here` : undefined;
 };
 
-/* Where a topic of your own gets its news, before it is made (VISION.md,
-   "Creating a topic"): the sources that already supply it, best first, the
+/* Where a topic of your own gets its news, before it is made: the sources that already supply it, best first, the
    top few ticked -- then every other source Tributary reads, a tap away. No
    server needed: choosing among what the pipeline already reads is all in the
    bundle; only finding new sources is the server's. */

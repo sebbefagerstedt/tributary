@@ -85,7 +85,7 @@ def sync_sources(conn: sqlite3.Connection, configs: list[SourceConfig]) -> list[
     The config file is the source of truth for which of *its* sources exist and
     their options; the database keeps identity and fetch state across runs.
     Sources dropped from the config are disabled rather than deleted, so their
-    items survive. Sources a reader added (`origin = 'reader'`, the redesign)
+    items survive. Sources a reader added (`origin = 'reader'`)
     are not the config's to switch off: `readers.reconcile_sources` enables them
     while some topic uses them.
     """

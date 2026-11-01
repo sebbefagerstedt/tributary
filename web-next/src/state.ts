@@ -1,7 +1,7 @@
 /* What belongs to a reader: their profile, topics, what they have seen, and how
    they like to look at things. On the owner's computer it lives on the server
    (`trib serve`); on GitHub Pages it lives in this browser. The shape is the
-   same either way (VISION.md: only where the row is stored changes). */
+   same either way: only where the row is stored changes. */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NEW_HOURS, Story, ageHours, inPlace, storySources } from './data';
@@ -49,7 +49,7 @@ const normalise = (p: Profile): Profile =>
    briefly — to tell whether it changed. */
 const topicKey = (t: Topic) => JSON.stringify([t.name, t.description, t.spine, t.parent, t.muted, t.sources, t.examples]);
 
-/* Profiles are names, no password (VISION.md). One device can hold several;
+/* Profiles are names, no password. One device can hold several;
    with a server, every device sees the same ones. */
 export function useProfiles(server: boolean | null, onError: (msg: string) => void, onNewSources: () => void) {
   const [names, setNames] = useState<string[]>(() => read('profiles', []));
@@ -161,7 +161,7 @@ export function namedIn(story: Story, name: string): boolean {
    pipeline's placement — the story was filed there or somewhere below it. A topic of your own
    asks words first (every word of its name in the story), then the vector, the
    order version 1's lenses used. Made without a server, it has no vector --
-   nothing in the browser can embed a description -- and its words are all. This is the fit filter VISION.md keeps. */
+   nothing in the browser can embed a description -- and its words are all. */
 export function fits(story: Story, topic: Topic, leaf?: string): boolean {
   if (topic.examples?.length) return likeExamples(story, topic);
   if (topic.spine) return inPlace(story, leaf || topic.spine);

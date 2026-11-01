@@ -1,4 +1,4 @@
--- Readers: the redesign's profiles and their own topics (VISION.md).
+-- Readers: profiles and their own topics.
 --
 -- A profile is a name and nothing else -- no password yet. Each profile owns
 -- topics, and each topic names the sources that feed it. A source a reader

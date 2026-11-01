@@ -8,7 +8,7 @@ The bundle is the contract for both deployments: the server returns it live at
 /data.json, and this writes the identical shape to disk. The page cannot tell
 the difference, so there is no second frontend to keep in step.
 
-The page is the React app in `web-next/` (VISION.md), built by `npm run build`
+The page is the React app in `web-next/`, built by `npm run build`
 into `web-next/dist`. It lives in the repository rather than the package,
 because it needs a build step; `write_site` copies it in when it has been
 built, and the workflow builds it before exporting.

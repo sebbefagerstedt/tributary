@@ -5,28 +5,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Tributary is a personal AI-news feed: it ingests news, papers, releases and
 discussion, groups them into **stories**, labels them, and serves a feed you
 scan on a phone — live at https://sebbefagerstedt.github.io/tributary/.
-`README.md` is the user-facing how-to. **`PLAN.md` is the plan for starting
-over in a new repository** (2026-10-24; it replaced `NEXT.md`); this file holds everything else: the ground rules, how the code
-fits together, and the decisions that should not be rediscovered.
+`README.md` is the user-facing how-to; this file holds everything else: the
+ground rules, how the code fits together, and the decisions behind it.
 
-**This file describes version 1 — the pipeline that runs today — and what
-building it taught.** The app is being redesigned (decided 2026-10-04): **`VISION.md` is
-the spec for the redesign and wins wherever the two disagree**, and `PLAN.md` is
-what comes after it. Version 1's page (one HTML file with tabs, follows, lenses) was
-**retired on 2026-10-05**; the site is now the React app in `web-next/`, and the
-page decisions that carry over are listed at the end of `VISION.md` — the rest
-are in git history, in this file before the commit that retired the page. Still
-true of the code here: sources in `config.toml` are fetched for everyone; topics
-are one shared spine; deployment is a static site rebuilt every three hours.
+**This repository is finished and frozen** (2026-11-01): the next Tributary is
+a new implementation in another repository, so nothing here is a plan. The
+pipeline fetches the sources in `config.toml` for everyone, labels stories
+against one shared topic tree, and publishes a static site every three hours;
+the page is the React app in `web-next/` (version 1's single HTML page was
+retired on 2026-10-05 and is in git history).
 
 ## Ground rules
 
 - **No LLM, no API key.** There is no `ANTHROPIC_API_KEY` and the owner does not
   want one yet. When something seems to need a model, check whether the local
   embeddings can do it first — they usually can (dynamic topics turned out to be
-  plain vector clustering). The only genuinely LLM-shaped work left is "why
-  this matters" one-liners: offer that as optional and priced, never on by
-  default.
+  plain vector clustering).
 - **Do not cut arXiv.** A new paper is news whether or not anyone has reacted to
   it. Any popularity gate has to be per-kind, never global.
 - **No Substack sources.** Substack blocks GitHub Actions IPs — Import AI
@@ -56,9 +50,6 @@ are one shared spine; deployment is a static site rebuilt every three hours.
   commit on a branch, push it, merge into `main` with `--no-ff` ("Merge … into
   main"), and push `main`. The workflow runs on every push to `main` and every
   three hours at minute 17, so a merge redeploys the live site.
-- **`PLAN.md` is a plan, not a journal.** When a step is built, delete it; do
-  not strike it through. History is in git. A decision worth keeping goes
-  here, or into the docstring of the code it is about.
 - **`src/tributary/sample_config.toml` must be a copy of `config.toml`.**
   `trib init` hands it out, and `tests/test_cli.py` fails if they differ.
 
@@ -173,8 +164,8 @@ place: two HN posts with the same headline scored only 0.888 on embeddings but
 joined on their shared outbound URL. A repo is a *weak* identifier, since
 hundreds of unrelated items reference one, and any value shared by more than
 `MAX_FANOUT = 8` items is a category, not an event. **Tier 2** is embedding
-similarity inside a 14-day window. **Tier 3**, LLM adjudication of the ambiguous
-band, is designed for and not wired up; those items start their own story.
+similarity inside a 14-day window. An item in the ambiguous band below the
+merge threshold starts its own story.
 
 Every item gets a role — `seed`, `paper`, `code`, `video`, `coverage`,
 `discussion` — which is what renders as the story's "wake". Roles are stored,
@@ -184,7 +175,7 @@ not recomputed, so changing `role_for` needs `trib cluster --reset`.
 
 Version 1's page had four surfaces (Topics, Feed, Trending, Saved), follows,
 circles and lenses; it was retired on 2026-10-05 and its decisions are in git
-history. These are the ones the pipeline and the new page still act on.
+history. These are the ones the pipeline and the page still act on.
 
 **Triage scores; it does not gate.** Changed 2026-09-19, on the owner's call:
 *"I have solved filtering with following instead. It is a much more basic and
@@ -295,14 +286,11 @@ resist volume: arXiv publishes ~150 papers a day where a blog publishes one, and
 recency-times-relevance alone handed it 47 of the first 50 cards. The feed damps
 each *repeat* of a source or kind as it is built (`SOURCE_DECAY`, `KIND_DECAY`),
 which restores a mix with no hard quota. It was version 1's **Trending**; the
-bundle still carries each story's `score`, while the new page reads in date order.
+bundle still carries each story's `score`, while the page reads in date order.
 
-**The ranking does not learn from what you do.** Ruled out 2026-09-23, in the
-review of `NEXT.md`; it was the last of an old "Phase 5", which would have let
-your saves and dismissals reorder the feed. Learning from behaviour is how a
-ranking turns into the engagement metric the ground rules keep out. If it is
-ever reopened, only explicit signals — a save, a dismissal — and never time
-spent, dwell or scroll-past.
+**The ranking does not learn from what you do.** Ruled out 2026-09-23: letting
+saves and dismissals reorder the feed is how a ranking turns into the
+engagement metric the ground rules keep out.
 
 ### Tests
 
@@ -429,35 +417,11 @@ float32. The error it costs, over a bge-shaped spread of 2000 cosines: mean
 0.0026, worst 0.011, nine of the top ten by similarity keeping their places, one
 story in two thousand crossing a 0.75 threshold it should not have — the same
 order as `park_margin`, so this is fine for ranking and filtering and is *not*
-precise enough to re-derive a topic's home from. The new page's fit filter
+precise enough to re-derive a topic's home from. The page's fit filter
 (`fits` in `web-next/src/state.ts`) reads them against a reader topic's embedded
 description, packed the same way by `readers.pack`, with an unmeasured
 `FIT_FLOOR = 0.62`. A reader's topic asks its words first and the vector
 second, the order version 1's lenses used and for the reason the clusterer does.
-
-**But the destination is real accounts and a server, not personal lenses.**
-Stated 2026-09-22: the next big step is proper login and topics that are shared
-rather than private, and the personal version comes first only because it is how
-every part of the feature — creating a topic, commenting, following, ranking a
-proposal — can be exercised before any of it is paid for or moderated. **A
-personal lens is a test harness for a shared one, not a smaller substitute.** So
-build each piece such that the only thing the server changes is where the row is
-stored: a lens is `{name, vector|pattern, created}` whether it lives in
-`localStorage` or in a table, and a comment is addressed by `story_id` either
-way. Anything that would have to be rewritten when the account arrives is the
-wrong shape now.
-
-**Ranking proposed topics by followers is the wrong instrument.** It is an
-engagement metric, it is rich-get-richer — a topic nobody can see collects no
-followers — and it measures popularity rather than whether the topic works as a
-filter. Three signals need no users at all: **cosine against every existing
-leaf's description**, where above about 0.9 the proposal is a synonym and the
-existing topic should be offered instead — this, not voting, is what keeps the
-spine from bloating; **yield**, how many stories match over a fortnight, where
-too few is dead and too many is a category; and **coherence**, the mean pairwise
-cosine of what it collects, which is what separates a subject from "AI stuff".
-Followers are at most a tiebreaker for promotion into the spine, and promotion
-stays a person's call.
 
 **Topics die by dormancy, not deletion.** The filter row is built from the
 stories loaded, so a quiet topic vanishes on its own and returns if its subject
@@ -495,7 +459,7 @@ Findings that should not be researched again:
   dropped at fetch (`github._is_patch`; calendar versions are exempt).
   `patches = true` keeps them.
 - **Hugging Face models are already the popular ones** (minimum 90 likes, median
-  964). For future filtering: there is no server-side min-likes filter
+  964). On filtering them: there is no server-side min-likes filter
   (`min_likes` is silently ignored); `sort=trending` errors, and `likes7d` equals
   `trendingScore`; a `base_model:*` tag is the reliable mark of a derivative,
   while "author is an organisation" is not (unsloth is an org and a requant
@@ -536,9 +500,7 @@ matches nothing without `in:readme`, and with it the results are roadmaps and
 awesome-lists that cite every paper; the real implementation (`artidoro/qlora`)
 predates any useful date filter; and GitHub rejects more than five boolean
 operators, so the noise cannot be excluded in the query. Lists cite everything,
-so text matching cannot tell "built on" from "mentions". If revisited, the
-discriminator is client-side (an implementation cites one or two arXiv ids, a
-list dozens) and it is a stage, not a `Source`. Hugging Face's `arxiv:` tags are
+so text matching cannot tell "built on" from "mentions". Hugging Face's `arxiv:` tags are
 the same signal already structured, lifted into `metadata["arxiv_id"]`.
 
 **TLDR AI is a digest, not a feed.** `https://tldr.tech/api/rss/ai` publishes
@@ -549,7 +511,7 @@ items, so `MAX_FANOUT` does not catch it); and let consecutive issues merge as
 near-identical titles. It needs a two-stage adapter shaped like
 `sources/github.py`, emitting one item per story with an id like
 `f"{issue_id}#{n}"`. Its value is the hand-written blurbs, not the coverage.
-**Dropped 2026-09-23**, in the review of `NEXT.md`: the labs its issues link to
+**Dropped 2026-09-23**: the labs its issues link to
 are read directly now, and the blurbs alone do not earn a two-stage adapter.
 This stays so it is not researched again.
 
@@ -651,19 +613,6 @@ undecoded Google link poisons clustering outright — and an undocumented intern
 endpoint that behaves differently on cloud IPs is exactly what the Substack rule
 already forbids.
 
-**GDELT is the firehose that would actually work.** Open data, no key, updated
-every 15 minutes, 100+ languages; the DOC 2.0 API's `ArtList` mode returns
-`url`, `title`, `seendate`, `socialimage`, `domain`, `language` and
-`sourcecountry` — a real URL, so join keys survive, and an image, which most of
-this corpus lacks. Two things make it a decision rather than a config line: it
-is query-driven, which is the shape this repo does not have and the same shape
-product search would need, and it is *all* world news, so the per-kind
-popularity gate stops being optional. **GDELT refused the one machine that
-could reach it.** The research sandbox's proxy blocked `api.gdeltproject.org`,
-`news.google.com` and the live `data.json`; from the WSL machine on 2026-09-22
-GDELT answered HTTP 429 to every request, the first one included. Google News
-has still not been probed. Verify before building on any of it.
-
 **Beyond AI.** Sources, triage, topics, facets and entities are all config, and
 the pipeline never names a subject; `identity.py`'s arXiv and hub extractors
 simply find nothing elsewhere. "A Tributary for X" is mostly a second config.
@@ -746,12 +695,12 @@ published site carries the new categories too. So:
 - **The bundle size stays as it is for now** (owner's call, 2026-10-06): 8.4 MB
   raw, 3.1 MB transferred, nearly all AI's thirty days (4,942 of 5,189 stories).
 - **The triage profile is still about AI.** It only scores, so general news
-  ranks low in `score` and nothing is lost; nothing on the new page sorts by it.
+  ranks low in `score` and nothing is lost; nothing on the page sorts by it.
 
-## The redesign's backend, beside version 1
+## Readers: profiles and their own topics
 
-Step 2 of `NEXT.md` lives in the same code without changing what version 1
-does. Migration 009 adds `profiles`, `reader_topics`, `reader_topic_sources`
+A reader's profile and topics live beside the shared pipeline without changing
+what it does. Migration 009 adds `profiles`, `reader_topics`, `reader_topic_sources`
 and `reader_seen`, and an `origin` column on `sources`: `config` for the ones in
 `config.toml`, `reader` for a feed a reader found. **`sync_sources` only ever
 disables `config` sources**, so a config edit cannot switch off a reader's;
@@ -789,8 +738,8 @@ is in the bundle — and only finding new ones does. So:
 
 - **A place from the tree** offers the sources that put stories there, all
   ticked, each with how many (`placeFit`, "12 here"). Follow on a topic page or
-  in the graph goes through this sheet too (`FollowPlaceSheet`), as
-  `VISION.md`'s previews always said; it used to take them all in one tap.
+  in the graph goes through this sheet too (`FollowPlaceSheet`); it used to
+  take them all in one tap.
 - **A subject made on Pages** offers the sources whose stories mention it,
   ranked by how many (`data.rankSources`), the top `SUGGESTED = 8` ticked —
   the way `suggest.for_subject` ranks a subject's sources on the server.
@@ -800,6 +749,35 @@ is in the bundle — and only finding new ones does. So:
 
 Every other source the pipeline reads stays one tap away under "More sources
 Tributary reads", unticked (`SourcePicker`).
+
+## The page
+
+`web-next/` is a React app built with Vite into the static site; it reads only
+the bundle, so it was written without touching the pipeline. What it holds,
+decided with the owner from 2026-10-04 on:
+
+- **You follow topics, and you choose where each gets its news.** A topic is
+  a place in the shared tree, your own words, or a followed story; each has
+  the sources you ticked and optional muted words. A story is in a topic when
+  it came from one of its sources, fits it and mentions no muted word. It can
+  sit in several topics and is read once. An empty follow set is an empty
+  feed.
+- **Profiles are names, with no password.** On Pages they live in
+  `localStorage`; under `trib serve` in the database, which also adds finding
+  new sources for any subject or pasted site (`web-next/README.md`).
+- **Every place in the tree has a page**: crumbs climb to News, a subtopic can
+  be followed without its parent ("Part of AI, which you follow"), and a
+  Related row offers neighbours. Walking up or sideways is looking, not
+  following; only a topic you follow puts stories in your feed.
+- **One layout switch, not tabs** — tiles, circles and big cards, the way
+  Instagram switches a profile between grid and list. Circles play a topic's
+  new stories full screen, one at a time, with no timer.
+- **The tree view is an ontology graph** (`graph.ts`, laid out by d3-force):
+  topics, subtopics and optionally sources, dashed links between topics whose
+  stories are alike. On a phone it is a map — drag, pinch, tap a node to focus.
+- **The form of social apps, never their hooks**: no autoplay timer, no feed
+  that refills as you reach the end, no ranking that learns from you, and
+  "You're all caught up" as a place to stop.
 
 ## How it runs
 
@@ -840,5 +818,4 @@ story page, and the funnel is the clusterer.
 **"Community" means the ripple, not a chat room**: what happened *because of* a
 story — the projects started after it, the arguments, the write-ups and video
 takes. A story is the announcement plus its wake, which is what item roles are
-for. Posting and commenting on a topic is a separate requirement, parked in
-`NEXT.md` until the redesign has users.
+for.

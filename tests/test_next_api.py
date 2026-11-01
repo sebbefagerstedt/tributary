@@ -1,4 +1,4 @@
-"""The redesign's API (`/api/next/...`): profiles, topics, seen and discovery."""
+"""The readers API (`/api/next/...`): profiles, topics, seen and discovery."""
 
 from __future__ import annotations
 
