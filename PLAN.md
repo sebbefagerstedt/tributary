@@ -3,9 +3,10 @@
 Decided 2026-10-24. This repository stays as it is — version 1's pipeline and
 the redesign's page, live at https://sebbefagerstedt.github.io/tributary/ — and
 the next Tributary starts small, **in a new repository, when the owner is
-ready**. This file is that plan. It replaces `NEXT.md`, whose steps grew this
-repo beyond what the core loop needed: *"my weakness is thinking too big from
-start."*
+ready**. This file is that plan, and **`start-over/` is the package to start
+that repository from**: five standalone files to copy to its root, with no
+code (2026-11-01). It replaces `NEXT.md`, whose steps grew this repo beyond
+what the core loop needed: *"my weakness is thinking too big from start."*
 
 ## What carries over
 
