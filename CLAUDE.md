@@ -47,6 +47,8 @@ are one shared spine; deployment is a static site rebuilt every three hours.
   merge into `main` while you work, so before writing anything run
   `git fetch origin main` and bring your branch up to date with
   `git pull --rebase origin main`; a new branch starts from `origin/main`.
+  A rebase refuses to run over uncommitted changes, so commit or
+  `git stash` them first.
   Rebase again right before merging, run the tests on the result, and only
   then merge. Never rebase `main` itself or a branch someone else pushed; on
   your own branch, push a rebase with `--force-with-lease`, never `--force`.
