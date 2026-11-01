@@ -132,9 +132,10 @@ that will be the only thing in the tree."* So:
   "kitchen design" the meaning does; one rule covers both. A lone name embeds
   vaguely, so watch what its meaning half pulls in.
 - **Your tree is only your topics**, and it starts empty. Your first topic is
-  the whole of it; a subtopic exists because you made one or accepted one the
-  app proposed from a topic's stories ("Subtopics, proposed", under The
-  model). The pipeline's shared labels — News, Technology, AI and the rest
+  the whole of it; a subtopic exists only because you added a topic yourself
+  and accepted the app's question whether it belongs inside one you have
+  (decided 2026-11-01, `PLAN.md`). The pipeline's shared labels — News,
+  Technology, AI and the rest
   (CLAUDE.md, "Beyond AI") — are never shown as a tree you start inside: at
   most they are suggestions to start a topic from, and behind the scenes a
   help for matching.
@@ -282,8 +283,10 @@ personal tree does not need it.
 call: *"the relations can be used to find similar topics and of course to auto
 create the subtopics."*
 
-- **Subtopics, proposed.** When a topic fills up, clustering its stories
-  proposes subtopics; you name and accept them.
+- **Related, never proposed subtopics** (decided 2026-11-01). Clustering a
+  topic's stories into narrower ones shows them as Related, to look at; a
+  subtopic is made only from a topic you add yourself that is classified as
+  part of one you have, and you accept or decline it.
 - **Similar topics, from the relations.** Topic vectors sit in one space, so
   "related to this" is a cosine away — something to explore, and a duplicate
   caught before it is made.
