@@ -43,6 +43,13 @@ are one shared spine; deployment is a static site rebuilt every three hours.
 - **Naming is a person's call.** Topics and entities are proposed by the
   pipeline and accepted by a human, via the `/suggest-topics` skill. Never
   auto-accept a proposal into `config.toml`.
+- **Start from the latest `main`, every time.** Other agents and sessions
+  merge into `main` while you work, so before writing anything run
+  `git fetch origin main` and bring your branch up to date with
+  `git pull --rebase origin main`; a new branch starts from `origin/main`.
+  Rebase again right before merging, run the tests on the result, and only
+  then merge. Never rebase `main` itself or a branch someone else pushed; on
+  your own branch, push a rebase with `--force-with-lease`, never `--force`.
 - **Workflow: branch, test, push, merge.** When work is finished and tests pass,
   commit on a branch, push it, merge into `main` with `--no-ff` ("Merge … into
   main"), and push `main`. The workflow runs on every push to `main` and every
