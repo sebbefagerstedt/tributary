@@ -1,4 +1,4 @@
-/* The backend on the owner's computer (`trib serve`, NEXT.md step 2). When the
+/* The backend on the owner's computer (`trib serve`). When the
    page is served from there it keeps profiles and topics on the server and can
    discover sources on the open web; on GitHub Pages none of this answers and
    the page keeps everything in the browser, as before. */

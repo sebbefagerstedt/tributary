@@ -1,4 +1,4 @@
-/* Real discovery, only when the backend is there (NEXT.md step 2): a subject or
+/* Real discovery, only when the backend is there (`trib serve`): a subject or
    a pasted site goes to /api/next/discover, and what comes back is shown in the
    same "Here is what we found" card as everything else. */
 

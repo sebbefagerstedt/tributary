@@ -26,7 +26,7 @@ const sourceLine = (s: Source | undefined) => (s
   : 'Nothing from it in the last 30 days');
 
 /* After creation, sources step back into settings: remove with a tap, search to
-   add, muted words (VISION.md, "A topic's settings"). */
+   add, muted words. */
 export function SettingsSheet({ topic, catalog, server, onChange, onDelete, onClose }: {
   topic: Topic; catalog: Map<string, Source>; server: boolean;
   onChange: (t: Topic) => void; onDelete: () => void; onClose: () => void;
@@ -343,8 +343,8 @@ function FoundTopicSheet({ bundle, catalog, profile, query, onCreate, onPlace, o
   );
 }
 
-/* Following a place in the tree goes through its sources first (VISION.md:
-   Follow turns the preview into a topic through "Here's what we found"). */
+/* Following a place in the tree goes through its sources first: Follow turns
+   the preview into a topic through "Here's what we found". */
 export function FollowPlaceSheet({ bundle, catalog, slug, onFollow, onClose }: {
   bundle: Bundle; catalog: Map<string, Source>; slug: string;
   onFollow: (sources: string[]) => void; onClose: () => void;

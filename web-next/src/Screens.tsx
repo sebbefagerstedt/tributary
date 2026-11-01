@@ -1,5 +1,5 @@
-/* Home and a topic's page. Each has two views of one place, not separate tabs
-   (VISION.md): Topics, the boxes of what is under it, and Feed, its stories. */
+/* Home and a topic's page. Each has two views of one place, not separate tabs:
+   Topics, the boxes of what is under it, and Feed, its stories. */
 
 import { useState } from 'react';
 import { Bundle, ROOT, Story, childrenOf, nodeOf, pathTo } from './data';
@@ -84,7 +84,7 @@ function SubjectTiles({ boxes, profile }: { boxes: Box[]; profile: Profile }) {
 }
 
 /* New first, then "You're all caught up", then the rest under Earlier. Fifty at a
-   time behind a button, never refilling on scroll (VISION.md, principle 6).
+   time behind a button, never refilling on scroll: that is a hook.
    Scrolling past a new story marks it read (reading.ts). What was new when the
    list opened stays where it is, greyed once read, rather than jumping under
    Earlier while you look. */

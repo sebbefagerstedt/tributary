@@ -1,6 +1,6 @@
 """HTTP API and the web app it serves.
 
-The app is the React page in `web-next/` (VISION.md), built into
+The app is the React page in `web-next/`, built into
 `web-next/dist` and served at the root. It reads the same bundle the static
 export writes (`/data.json`), and, finding this server, keeps profiles and
 topics here and searches for sources (`/api/next/...`).
@@ -97,7 +97,7 @@ def create_app(config_path: Path | None = None) -> FastAPI:
             {"stories": stories, "newest_item": newest, "broken_sources": broken, **counts}
         )
 
-    # --- The redesign's API (VISION.md, NEXT.md step 2) ----------------------
+    # --- Readers' profiles, topics and discovery ------------------------------
     # Profiles are names with no password, and this server has no
     # authentication: run it on your own machine, never on a public interface.
 

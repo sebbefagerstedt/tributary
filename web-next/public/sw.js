@@ -2,7 +2,7 @@
 // path; a phone that installed it keeps the worker until the worker itself
 // changes. This one clears the old cache, unregisters, and reloads open tabs,
 // so they show the current page. The current page registers no worker: a
-// stale page is worse than a fresh load (VISION.md carries that lesson over).
+// stale page is worse than a fresh load.
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {

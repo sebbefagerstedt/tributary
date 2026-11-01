@@ -1,7 +1,6 @@
-# Tributary — the redesign
+# Tributary — the page
 
-The new frontend, built to the approved mockup (`../docs/mockup/index.html`) and
-the spec in `../VISION.md`. React and Vite; it reads the bundle the pipeline
+The frontend, React and Vite; it reads the bundle the pipeline
 publishes (`data.json`). On GitHub Pages it keeps each profile in the browser;
 served by `trib serve` it keeps them on the server and searches for real.
 

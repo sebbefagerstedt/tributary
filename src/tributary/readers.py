@@ -1,7 +1,7 @@
-"""Readers: the redesign's profiles, their topics, and the sources they chose.
+"""Readers: profiles, their topics, and the sources they chose.
 
-Version 1 has one source list, in config.toml, for everyone. The redesign
-(VISION.md) lets each reader follow topics and decide which sources feed them,
+config.toml holds one source list for everyone. On top of it, each reader can
+follow topics and decide which sources feed them,
 so this module keeps, per profile:
 
 - **topics** — a name, a description, the sources chosen for it, muted words,
@@ -215,7 +215,7 @@ def save_topic(
     """Create or replace one of a reader's topics, with its sources and muted words.
 
     A topic the spine does not know gets its description embedded, once, so the
-    page can tell which stories fit it (VISION.md: the fit filter stays).
+    page can tell which stories fit it.
     """
     pid = _profile_id(conn, profile)
     name = (topic.get("name") or "").strip()[:MAX_NAME]

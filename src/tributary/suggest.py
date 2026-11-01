@@ -1,6 +1,6 @@
 """Suggesting sources for a topic: what "Here is what we found" is built from.
 
-Two kinds of question, answered differently (VISION.md, "Creating a topic"):
+Two kinds of question, answered differently:
 
 - **A site** ("theverge.com", a pasted link): find its feed with
   `discover.find` — the page's own `<link>`, then the well-known paths, then a
@@ -8,9 +8,8 @@ Two kinds of question, answered differently (VISION.md, "Creating a topic"):
   and how many items it published in the last week.
 - **A subject** ("AI video"): rank the sources Tributary already reads by how
   many of their recent stories fit the subject, by the same embeddings that
-  place stories in topics. That covers what is already fetched; finding sources
-  on the open web for a subject is the open question VISION.md leaves for this
-  step, and the answer says so rather than pretending.
+  place stories in topics. That covers only what is already fetched, and the
+  answer says so rather than pretending to search the open web.
 
 Nothing here writes. A suggestion becomes a source only when a reader adds it to
 a topic (`readers.save_topic`).

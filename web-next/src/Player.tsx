@@ -1,5 +1,5 @@
 /* A topic's new stories, full screen, one at a time. No timer: it waits for the
-   reader (VISION.md, principle 6). Each story is marked read as it is shown. */
+   reader. Each story is marked read as it is shown. */
 
 import { useEffect } from 'react';
 import { usePlayerGestures } from './gestures';
