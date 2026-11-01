@@ -1,6 +1,6 @@
 # Design
 
-How Tributary looks and feels, in words. The owner liked this design in an
+How Vett looks and feels, in words. The owner liked this design in an
 earlier prototype. It is a **starting point to beat, not a template**: keep
 what works, and change anything that a better idea improves.
 

@@ -1,8 +1,11 @@
-# Tributary
+# Vett
 
 Follow one topic, and get help staying up to date on it.
 
-You describe what you want to follow in a sentence, and Tributary shows you
+The name is Swedish for sense, or good judgement: the app began as a way to
+replace a social-media habit with *"något vettigt"*, something sensible.
+
+You describe what you want to follow in a sentence, and Vett shows you
 two things before anything is saved: the sources it would read, each with a
 preview, and example stories it would catch, each of which you can mark
 **fits** or **does not fit**. Then you read your topic's feed, on a phone, in

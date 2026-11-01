@@ -2,7 +2,7 @@
 
 ## The idea
 
-*"I find a topic I want to follow, Tributary should help me be up to date. I
+*"I find a topic I want to follow, [Vett] should help me be up to date. I
 might know one source, e.g. where I first heard it, but I want help to find
 more."*
 

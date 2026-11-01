@@ -2,7 +2,7 @@
 
 Guidance for Claude Code (claude.ai/code) in this repository.
 
-Tributary lets a person follow a topic: they describe it, choose its sources
+Vett lets a person follow a topic: they describe it, choose its sources
 with help, teach it what fits, and read it on a phone. `README.md` says what it
 is, `PLAN.md` what to build next, `DESIGN.md` how it looks and `LESSONS.md`
 what is already known. This file holds the rules and, as code arrives, how it
